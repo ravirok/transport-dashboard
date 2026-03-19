@@ -1,0 +1,19 @@
+_schema-version: "3.3"
+ID: transport_risk_dashboard
+version: 1.0.0
+
+modules:
+  - name: backend
+    type: nodejs
+    path: backend
+    parameters:
+      memory: 256M
+      disk-quota: 512M
+
+  - name: frontend
+    type: html5
+    path: frontend
+    build-parameters:
+      builder: npm
+      build-command: npm run build
+      install-command: npm install
