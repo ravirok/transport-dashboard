@@ -1,19 +1,27 @@
+ID: transport_dashboard_mta
 _schema-version: "3.3"
-ID: transport_risk_dashboard
 version: 1.0.0
 
 modules:
-  - name: backend
+
+  - name: transport-dashboard-backend
     type: nodejs
     path: backend
     parameters:
-      memory: 1024M
+      memory: 1024M      # Required for Node.js staging
       disk-quota: 1024M
+      buildpack: nodejs_buildpack
+    provides: []
+    requires: []
 
-  - name: frontend
-    type: html5
+  - name: transport-dashboard-frontend
+    type: nodejs
     path: frontend
-    build-parameters:
-      builder: npm
-      build-command: npm run build
-      install-command: npm install
+    parameters:
+      memory: 1024M      # Required for Vite + React build
+      disk-quota: 1024M
+      buildpack: nodejs_buildpack
+    provides: []
+    requires: []
+
+resources: []
