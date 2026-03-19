@@ -7,8 +7,8 @@ modules:
     type: nodejs
     path: backend
     parameters:
-      memory: 256M
-      disk-quota: 512M
+      memory: 1024M
+      disk-quota: 1024M
 
   - name: frontend
     type: html5
