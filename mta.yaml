@@ -8,20 +8,15 @@ modules:
     type: nodejs
     path: backend
     parameters:
-      memory: 1024M      # Required for Node.js staging
+      memory: 1024M
       disk-quota: 1024M
       buildpack: nodejs_buildpack
-    provides: []
-    requires: []
 
   - name: transport-dashboard-frontend
-    type: nodejs
-    path: frontend
+    type: html5
+    path: frontend/dist   # build output folder
     parameters:
-      memory: 1024M      # Required for Vite + React build
-      disk-quota: 1024M
-      buildpack: nodejs_buildpack
-    provides: []
-    requires: []
-
-resources: []
+      memory: 512M
+      disk-quota: 512M
+      url: /            # serve at root
+      authentication: none
