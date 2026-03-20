@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TransTrack Pro Dashboard</title>
 
-  <!-- Tailwind CSS -->
-  <link href="tailwind.css" rel="stylesheet">
+  <!-- Tailwind CSS via CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css" rel="stylesheet">
 
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="./favicon.ico" />
@@ -28,8 +28,7 @@
     &copy; 2026 TransTrack Pro
   </footer>
 
-  <!-- React bundle -->
-  <script src="./bundle.js"></script>
-
+  <!-- React bundle (versioned to prevent 304 cache) -->
+  <script src="./bundle.js?v=1.0.0"></script>
 </body>
 </html>
