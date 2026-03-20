@@ -20,7 +20,7 @@ async function fetchOData(service, filter = "", top = TOP, skip = 0, client = "2
 async function fetchTransports(targetSystem = "PROD", client = "200") { /* ... */ }
 
 // API
-app.get("/api/transports", async (req, res) => {
+app.get("/Transports", async (req, res) => {
   const target = req.query.target || "PROD";
   const client = req.query.client || "200";
   const data = await fetchTransports(target, client);
