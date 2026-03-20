@@ -3,17 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "esbuild src/main.jsx --bundle --outfile=dist/bundle.js --minify",
-    "start": "npx serve dist"
+    "build": "esbuild src/index.js --bundle --outfile=dist/bundle.js --minify"
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "axios": "^1.5.0",
-    "recharts": "^2.7.2"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "esbuild": "^0.19.2",
-    "serve": "^14.2.0"
+    "esbuild": "^0.19.2"
   }
 }
