@@ -7,7 +7,9 @@
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "axios": "^1.5.0",
+    "recharts": "^2.7.2"
   },
   "devDependencies": {
     "esbuild": "^0.19.2"
