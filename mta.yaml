@@ -14,7 +14,7 @@ modules:
 
   - name: transport-dashboard-frontend
     type: html5
-    path: frontend/dist   # build output folder
+    path: frontend   # build output folder
     parameters:
       memory: 512M
       disk-quota: 512M
