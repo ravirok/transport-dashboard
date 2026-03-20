@@ -10,7 +10,7 @@ app.use(cors());
 app.get("/health", (req, res) => res.send("OK"));
 
 // ABAP OData config
-const BASE_URL = "https://hclcncs48.hcldigilabs.com:44300/sap/opu/odata/sap/Z_TRANSPORT_SRV_SRV";
+const BASE_URL = "https://hclcncs48.hcldigilabs.com:44300/sap/opu/odata/sap/Z_TRANSPORT_SRV_SRV/Transport?$format=json";
 const USER = process.env.SAP_USER || "52213818";
 const PASS = process.env.SAP_PASSWORD || "BTsolman@1234567";
 const TOP = 100;
