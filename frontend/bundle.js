@@ -1,5 +1,5 @@
-const username = "YOUR_USER";
-const password = "YOUR_PASSWORD";
+const username = "52213818";
+const password = "BTsolman@1234567";
 
 fetch("http://hclcncs48.hcldigilabs.com:8000/sap/opu/odata/sap/Z_TRANSPORT_SRV_SRV/TransportSet?$format=json", {
   headers: {
