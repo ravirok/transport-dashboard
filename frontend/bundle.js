@@ -5,7 +5,7 @@ root.innerHTML = `
   <p>Fetching transports...</p>
 `;
 
-fetch("/Transports")
+fetch("https://hcl-america-solutions-inc--hclbuild-g03o2ijo-dev-transp28ffac8d.cfapps.eu10-004.hana.ondemand.com/api/Transports")
   .then(res => res.json())
   .then(data => {
     console.log("Data:", data);
