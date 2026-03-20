@@ -1,7 +1,7 @@
 const username = "52213818";
 const password = "BTsolman@1234567";
 
-fetch("http://hclcncs48.hcldigilabs.com:8000/sap/opu/odata/sap/Z_TRANSPORT_SRV_SRV/TransportSet?$format=json", {
+fetch("https://hclcncs48.hcldigilabs.com:44300/sap/opu/odata/sap/Z_TRANSPORT_SRV_SRV/TransportSet?$format=json", {
   headers: {
     "Authorization": "Basic " + btoa(username + ":" + password)
   }
