@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // Replace this with your actual BTP app host
-const BTP_APP_HOST = "myapp-12345.cfapps.eu10.hana.ondemand.com";
+const BTP_APP_HOST = "hcl-america-solutions-inc--hclbuild-g03o2ijo-dev-transp4083dd13.cfapps.eu10-004.hana.ondemand.com";
 
 export default defineConfig({
   plugins: [react()],
