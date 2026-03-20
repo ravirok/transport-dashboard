@@ -1,37 +1,20 @@
-const root = document.getElementById("root");
+const username = "YOUR_USER";
+const password = "YOUR_PASSWORD";
 
-root.innerHTML = `
-  <h2>Dashboard Loaded ✅</h2>
-  <p>Fetching transports...</p>
-`;
+fetch("http://hclcncs48.hcldigilabs.com:8000/sap/opu/odata/sap/Z_TRANSPORT_SRV_SRV/TransportSet?$format=json", {
+  headers: {
+    "Authorization": "Basic " + btoa(username + ":" + password)
+  }
+})
+.then(res => res.text())
+.then(text => {
+  console.log("RAW:", text);
 
-fetch("https://hcl-america-solutions-inc--hclbuild-g03o2ijo-dev-transp28ffac8d.cfapps.eu10-004.hana.ondemand.com/api/Transports")
-  .then(res => res.json())
-  .then(data => {
-    console.log("FULL API RESPONSE:", data);
-
-    // Handle SAP OData structure
-    let transports = [];
-
-    if (data?.d?.results) {
-      transports = data.d.results;
-    } else if (Array.isArray(data)) {
-      transports = data;
-    } else {
-      transports = [];
-    }
-
-    if (transports.length === 0) {
-      root.innerHTML += `<p>No data found</p>`;
-      return;
-    }
-
-    root.innerHTML += `
-      <h3>Total Records: ${transports.length}</h3>
-      <pre>${JSON.stringify(transports, null, 2)}</pre>
-    `;
-  })
-  .catch(err => {
-    console.error("ERROR:", err);
-    root.innerHTML += `<p style="color:red;">Error loading data</p>`;
-  });
+  document.getElementById("root").innerHTML =
+    `<pre>${text}</pre>`;
+})
+.catch(err => {
+  console.error(err);
+  document.getElementById("root").innerHTML =
+    `<p style="color:red;">${err.message}</p>`;
+});
