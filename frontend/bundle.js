@@ -6,11 +6,11 @@ const root = document.getElementById("root");
 root.innerHTML = "<h3>Loading Transports...</h3>";
 
 // Use your working ABAP HTTPS URL with $format=json
-const ABAP_URL = "https://<abap-https-url>/Transports?$format=json";
+const ABAP_URL = "https://hclcncs48.hcldigilabs.com/sap/opu/odata/sap/Z_TRANSPORT_SRV_SRV/Transports?$format=json";
 
 // If authentication required
-const username = "YOUR_USER";
-const password = "YOUR_PASSWORD";
+const username = "52213818";
+const password = "BTsolman@1234567";
 
 fetch(ABAP_URL, {
   headers: {
