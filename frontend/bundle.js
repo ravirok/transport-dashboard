@@ -1,20 +1,26 @@
-const username = "52213818";
-const password = "BTsolman@1234567";
+// bundle.js
+const root = document.getElementById("root");
 
-fetch("https://hclcncs48.hcldigilabs.com:44300/sap/opu/odata/sap/Z_TRANSPORT_SRV_SRV/TransportSet?$format=json", {
-  headers: {
-    "Authorization": "Basic " + btoa(username + ":" + password)
-  }
-})
-.then(res => res.text())
-.then(text => {
-  console.log("RAW:", text);
+root.innerHTML = "<h3>Loading Transports...</h3>";
 
-  document.getElementById("root").innerHTML =
-    `<pre>${text}</pre>`;
-})
-.catch(err => {
-  console.error(err);
-  document.getElementById("root").innerHTML =
-    `<p style="color:red;">${err.message}</p>`;
-});
+fetch("/api/transports")
+  .then(res => res.json())
+  .then(data => {
+    const transports = data?.d?.results || [];
+    if(transports.length === 0){
+      root.innerHTML = "<p>No transports found</p>";
+      return;
+    }
+
+    let html = `<h2>Total Transports: ${transports.length}</h2><ul>`;
+    transports.forEach(t => {
+      html += `<li>ID: ${t.Transport || t.TransportNumber}, Description: ${t.Description || t.Text || 'N/A'}</li>`;
+    });
+    html += "</ul>";
+
+    root.innerHTML = html;
+  })
+  .catch(err => {
+    console.error(err);
+    root.innerHTML = `<p style="color:red;">${err.message}</p>`;
+  });
