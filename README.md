@@ -1,23 +1,4 @@
 **High Level Architecture**
                 
-                ┌────────────────────┐
-                │   User Query       │
-                └────────┬───────────┘
-                         ↓
-                ┌────────────────────┐
-                │   Agent (Planner)  │
-                └────────┬───────────┘
-                         ↓
-           ┌───────────────────────────────┐
-           │ Tool 1: BTSolman Data Fetch   │
-           │ Tool 2: Risk Analyzer         │
-           │ Tool 3: Retrieval (Vector DB) │
-           └──────────────┬────────────────┘
-                          ↓
-              ┌────────────────────────┐
-              │ LLM Reasoning Layer    │
-              └────────────────────────┘
-                          ↓
-              ┌────────────────────────┐
-              │ Risk Summary Output    │
-              └────────────────────────┘
+               
+<img width="1336" height="1120" alt="image" src="https://github.com/user-attachments/assets/0d64bf46-748e-42f5-b59d-ffc647b97d5d" />
