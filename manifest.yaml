@@ -1,10 +1,25 @@
 applications:
-  - name: your-app-name
+  - name: transport-dashboard
     memory: 256M
+    disk_quota: 512M
     buildpacks:
       - nodejs_buildpack
+    path: .
+    command: node backend/server.js
     services:
-      - Test-demo        # ← your xsuaa instance name in BTP
-      - BTP-DEMO  # ← your destination instance name in BTP
+      - Test-demo
+      - BTP-DEMO
     env:
-      DESTINATION_NAME: S48  # ← exact name from BTP Cockpit
+      NODE_ENV: production
+      DESTINATION_NAME: S48
+
+      # XSUAA (from Test-demo service key)
+      XSUAA_URL: https://hclbuild-g03o2ijo.authentication.eu10.hana.ondemand.com
+      XSUAA_CLIENT_ID: sb-na-0b8915d7-55aa-44df-aa6d-0af73475521e!t227908
+      XSUAA_CLIENT_SECRET: 255d84e5-a97c-42f8-a38a-db52dd74d60e$vJQNDYB-D_mPPRnEv7OnYqrBNdsSqPxNWExp4XzaOvg=
+
+      # Destination Service (from BTP-DEMO service key)
+      DESTINATION_URI: https://destination-configuration.cfapps.eu10.hana.ondemand.com
+      DESTINATION_CLIENT_ID: sb-clone8ef1db8619e04c09a1ea05cbf8f4fb18!b227908|destination-xsappname!b404
+      DESTINATION_CLIENT_SECRET: cf0020f1-e3cb-4c71-9ab5-83cba2493c40$XbXunD3o5QaToYib0dlU6GuyJ5uTKf0MV40JeyCZjYw=
+      DESTINATION_TOKEN_URL: https://hclbuild-g03o2ijo.authentication.eu10.hana.ondemand.com
