@@ -27,4 +27,4 @@ modules:
     requires:
       - name: backend-service
         properties:
-          url: "~{URL of backend-service}"
+          url: "~{https://hcl-america-solutions-inc--hclbuild-g03o2ijo-dev-transp28ffac8d.cfapps.eu10-004.hana.ondemand.com}"
