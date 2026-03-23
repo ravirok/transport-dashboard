@@ -6,9 +6,10 @@ applications:
       - nodejs_buildpack
     path: .
     command: node backend/server.js
-    services:
-      - Test-demo
-      - BTP-DEMO
+   services:
+  - Test-demo        # xsuaa
+  - BTP-DEMO         # destination
+  - my-connectivity  # ← add this (your connectivity service instance name)
     env:
       NODE_ENV: production
       DESTINATION_NAME: S48
