@@ -17,7 +17,7 @@ app.use(express.json());
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 // Destination Name
-const DESTINATION_NAME = process.env.DESTINATION_NAME || "S48";
+const DESTINATION_NAME = process.env.DESTINATION_NAME || "S48-HTTP";
 
 // Load BTP Services
 let xsuaaCredentials = null;
