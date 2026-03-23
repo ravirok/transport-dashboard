@@ -11,12 +11,20 @@ modules:
       memory: 1024M
       disk-quota: 1024M
       buildpack: nodejs_buildpack
+    provides:
+      - name: backend-service
+        properties:
+          url: ${default-url}
 
   - name: transport-dashboard-frontend
     type: html5
-    path: .   # build output folder
+    path: .
     parameters:
       memory: 512M
       disk-quota: 512M
-      url: /            # serve at root
+      url: /
       authentication: none
+    requires:
+      - name: backend-service
+        properties:
+          url: "~{URL of backend-service}"
