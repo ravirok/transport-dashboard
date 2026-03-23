@@ -1,10 +1,11 @@
-require("dotenv").config();
+require("dotenv").config(); // fallback for local dev
 
 const express = require("express");
 const path = require("path");
 const cors = require("cors");
 const axios = require("axios");
 const https = require("https");
+const xsenv = require("@sap/xsenv");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -12,30 +13,65 @@ const PORT = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
+// ─── HTTPS Agent (disable SSL verify for dev) ─────────────────────────────────
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+
+// ─── Destination Name (set in manifest.yml env block) ────────────────────────
+const DESTINATION_NAME = process.env.DESTINATION_NAME || "S48";
+
+// ─── Load BTP Services from VCAP_SERVICES ────────────────────────────────────
+let xsuaaCredentials = null;
+let destinationCredentials = null;
+
+try {
+  xsenv.loadEnv(); // loads .env locally, ignored on BTP
+  const services = xsenv.getServices({
+    xsuaa: { tag: "xsuaa" },
+    destination: { tag: "destination" },
+  });
+
+  xsuaaCredentials = services.xsuaa;
+  destinationCredentials = services.destination;
+
+  console.log("✅ BTP services loaded successfully");
+  console.log("📡 XSUAA URL:", xsuaaCredentials?.url);
+  console.log("📡 Destination URI:", destinationCredentials?.uri);
+} catch (err) {
+  console.error("❌ Failed to load BTP services:", err.message);
+  console.error("👉 Make sure xsuaa and destination services are bound to your app in manifest.yml");
+}
+
 // ─── Debug Route ──────────────────────────────────────────────────────────────
 app.get("/debug", (req, res) => res.send("BACKEND LIVE ✅"));
 
-// ─── BTP Config ───────────────────────────────────────────────────────────────
-const DESTINATION_NAME = process.env.DESTINATION_NAME || "S48";
-
-// ─── HTTPS Agent (disable SSL verify for dev — remove rejectUnauthorized in prod) ───
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+// ─── Health Check ─────────────────────────────────────────────────────────────
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "OK",
+    timestamp: new Date().toISOString(),
+    config: {
+      destinationName: DESTINATION_NAME,
+      xsuaaLoaded: !!xsuaaCredentials,
+      destinationServiceLoaded: !!destinationCredentials,
+    },
+  });
+});
 
 // ─── Step 1: Get BTP OAuth Token from XSUAA ──────────────────────────────────
 async function getBTPToken() {
-  const { XSUAA_URL, XSUAA_CLIENT_ID, XSUAA_CLIENT_SECRET } = process.env;
-
-  if (!XSUAA_URL || !XSUAA_CLIENT_ID || !XSUAA_CLIENT_SECRET) {
-    throw new Error("Missing XSUAA environment variables. Check your .env file.");
+  if (!xsuaaCredentials) {
+    throw new Error("XSUAA credentials not loaded. Check service bindings.");
   }
+
+  const { url, clientid, clientsecret } = xsuaaCredentials;
 
   try {
     const response = await axios.post(
-      `${XSUAA_URL}/oauth/token`,
+      `${url}/oauth/token`,
       new URLSearchParams({
         grant_type: "client_credentials",
-        client_id: XSUAA_CLIENT_ID,
-        client_secret: XSUAA_CLIENT_SECRET,
+        client_id: clientid,
+        client_secret: clientsecret,
       }),
       {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -43,7 +79,7 @@ async function getBTPToken() {
       }
     );
 
-    console.log("✅ BTP Token fetched successfully");
+    console.log("✅ BTP OAuth token fetched");
     return response.data.access_token;
   } catch (err) {
     console.error("❌ Failed to get BTP token:", err.message);
@@ -53,46 +89,45 @@ async function getBTPToken() {
 
 // ─── Step 2: Get Destination Details from BTP ────────────────────────────────
 async function getBTPDestination(token) {
-  const { DESTINATION_SERVICE_URL } = process.env;
-
-  if (!DESTINATION_SERVICE_URL) {
-    throw new Error("Missing DESTINATION_SERVICE_URL in .env file.");
+  if (!destinationCredentials) {
+    throw new Error("Destination service credentials not loaded. Check service bindings.");
   }
+
+  const { uri } = destinationCredentials;
 
   try {
     const response = await axios.get(
-      `${DESTINATION_SERVICE_URL}/destination-configuration/v1/destinations/${DESTINATION_NAME}`,
+      `${uri}/destination-configuration/v1/destinations/${DESTINATION_NAME}`,
       {
         headers: { Authorization: `Bearer ${token}` },
         httpsAgent,
       }
     );
 
-    console.log("✅ Destination fetched:", DESTINATION_NAME);
+    console.log("✅ Destination details fetched:", DESTINATION_NAME);
     return response.data;
   } catch (err) {
-    console.error("❌ Failed to get BTP destination:", err.message);
+    console.error("❌ Failed to get destination:", err.message);
     throw err;
   }
 }
 
-// ─── Step 3: Fetch Transports from SAP via BTP Destination ───────────────────
+// ─── Step 3: Fetch Transports from SAP ───────────────────────────────────────
 async function fetchSAPTransports() {
   try {
-    // Get BTP OAuth token
+    // Step 1 — Get BTP token
     const token = await getBTPToken();
 
-    // Get destination config (URL + credentials)
+    // Step 2 — Get destination config
     const destination = await getBTPDestination(token);
     const { URL: SAP_URL, User, Password } = destination.destinationConfiguration;
 
     if (!SAP_URL) {
-      throw new Error("Destination URL not found. Check your BTP destination config.");
+      throw new Error("SAP URL not found in destination config.");
     }
 
-    // Build SAP Basic Auth header
+    // Step 3 — Call SAP OData endpoint
     const sapAuth = Buffer.from(`${User}:${Password}`).toString("base64");
-
     const sapEndpoint = `${SAP_URL}/sap/opu/odata/sap/Z_TRANSPORTS_lOG_SRV_SRV/Transports?$format=json`;
 
     console.log("🔄 Fetching SAP transports from:", sapEndpoint);
@@ -106,11 +141,10 @@ async function fetchSAPTransports() {
     });
 
     const data = response.data?.d?.results || [];
-
     console.log(`✅ Fetched ${data.length} transports from SAP`);
 
-    // Map SAP fields to frontend format
-    const transports = data.map((t) => ({
+    // Map to frontend format
+    return data.map((t) => ({
       Transport: t.Transport,
       Description: t.Description,
       Status: t.Status,
@@ -119,7 +153,6 @@ async function fetchSAPTransports() {
       Logs: t.Logs || [],
     }));
 
-    return transports;
   } catch (err) {
     console.error("❌ SAP FETCH ERROR:", err.message);
     return [];
@@ -127,8 +160,6 @@ async function fetchSAPTransports() {
 }
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
-
-// Get all transports
 app.get("/api/transports", async (req, res) => {
   try {
     const transports = await fetchSAPTransports();
@@ -139,23 +170,9 @@ app.get("/api/transports", async (req, res) => {
   }
 });
 
-// Health check — also shows env config status
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "OK",
-    timestamp: new Date().toISOString(),
-    config: {
-      destination: DESTINATION_NAME,
-      xsuaa: !!process.env.XSUAA_URL,
-      destinationService: !!process.env.DESTINATION_SERVICE_URL,
-    },
-  });
-});
-
 // ─── Serve Frontend ───────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, "../frontend")));
 
-// Catch-all for SPA routing (exclude API and debug routes)
 app.get(/^\/(?!api|debug).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
@@ -163,8 +180,7 @@ app.get(/^\/(?!api|debug).*/, (req, res) => {
 // ─── Start Server ─────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Destination: ${DESTINATION_NAME}`);
-  console.log(`🔗 http://localhost:${PORT}/debug`);
-  console.log(`🔗 http://localhost:${PORT}/api/health`);
-  console.log(`🔗 http://localhost:${PORT}/api/transports`);
+  console.log(`📡 Destination Name: ${DESTINATION_NAME}`);
+  console.log(`🔗 Health: /api/health`);
+  console.log(`🔗 Transports: /api/transports`);
 });
