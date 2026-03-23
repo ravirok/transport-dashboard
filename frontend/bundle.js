@@ -1,0 +1,188 @@
+const root          = document.getElementById('root');
+const modal         = document.getElementById('modal');
+const modalContent  = document.getElementById('modalContent');
+const closeModal    = document.getElementById('closeModal');
+const riskContainer = document.getElementById('risk-container');
+const loading       = document.getElementById('loading');
+const chartWrapper  = document.getElementById('chartWrapper');
+const tableWrapper  = document.getElementById('tableWrapper');
+
+closeModal.onclick = () => { modal.style.display = 'none'; };
+window.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatDate(raw) {
+  if (!raw || raw.length !== 8) return raw || '-';
+  return `${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`;
+}
+
+function statusBadge(status) {
+  if (status === 'R') return '<span class="badge badge-released">Released</span>';
+  if (status === 'D') return '<span class="badge badge-modifiable">Modifiable</span>';
+  return `<span class="badge badge-unknown">${status || 'Unknown'}</span>`;
+}
+
+// Render any array of objects as an HTML table (ignores __metadata)
+function renderTable(rows) {
+  if (!rows || rows.length === 0) return '<p style="color:#888; margin-top:8px;">No records found.</p>';
+  const keys = Object.keys(rows[0]).filter(k => k !== '__metadata');
+  let html = '<table style="width:100%; font-size:13px; border-collapse:collapse; margin-top:8px;">';
+  html += '<tr>' + keys.map(k =>
+    `<th style="background:#f2f2f2; padding:6px 10px; border:1px solid #ddd; text-align:left;">${k}</th>`
+  ).join('') + '</tr>';
+  rows.forEach(row => {
+    html += '<tr>' + keys.map(k =>
+      `<td style="padding:6px 10px; border:1px solid #ddd;">${row[k] ?? '-'}</td>`
+    ).join('') + '</tr>';
+  });
+  html += '</table>';
+  return html;
+}
+
+// ─── Modal: open immediately, fetch Objects + Logs in parallel ────────────────
+
+async function showTransportModal(t) {
+  // Show modal instantly with transport info + loading placeholders
+  modalContent.innerHTML = `
+    <h3 style="margin-bottom:12px;">📦 ${t.TRKORR}</h3>
+    <p style="margin-bottom:6px;"><strong>Owner:</strong> ${t.OWNER || '-'}</p>
+    <p style="margin-bottom:6px;"><strong>Created On:</strong> ${formatDate(t.CREATED_ON)}</p>
+    <p style="margin-bottom:16px;"><strong>Status:</strong> ${
+      t.STATUS === 'R' ? 'Released' :
+      t.STATUS === 'D' ? 'Modifiable' :
+      t.STATUS || '-'
+    }</p>
+    <hr style="margin-bottom:16px;">
+    <div id="modal-objects">
+      <h4>📁 Objects</h4>
+      <p style="color:#888;">⏳ Loading...</p>
+    </div>
+    <div id="modal-logs" style="margin-top:20px;">
+      <h4>📋 Logs</h4>
+      <p style="color:#888;">⏳ Loading...</p>
+    </div>
+  `;
+  modal.style.display = 'block';
+
+  // Fetch Objects and Logs in parallel
+  try {
+    const [objectsRes, logsRes] = await Promise.all([
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/objects`).then(r => r.json()),
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/logs`).then(r => r.json()),
+    ]);
+
+    const objects = objectsRes?.d?.results || [];
+    const logs    = logsRes?.d?.results    || [];
+
+    document.getElementById('modal-objects').innerHTML =
+      `<h4 style="margin-bottom:4px;">📁 Objects (${objects.length})</h4>` + renderTable(objects);
+
+    document.getElementById('modal-logs').innerHTML =
+      `<h4 style="margin-bottom:4px; margin-top:20px;">📋 Logs (${logs.length})</h4>` + renderTable(logs);
+
+  } catch (err) {
+    console.error('Modal fetch error:', err);
+    document.getElementById('modal-objects').innerHTML =
+      `<p style="color:red;">❌ Failed to load details: ${err.message}</p>`;
+    document.getElementById('modal-logs').innerHTML = '';
+  }
+}
+
+// ─── Main: fetch all transports ───────────────────────────────────────────────
+
+fetch('/api/transports')
+  .then(res => res.json())
+  .then(data => {
+    loading.style.display = 'none';
+
+    const transports = data?.d?.results || [];
+
+    if (transports.length === 0) {
+      root.innerHTML = '<p style="color:#888;">No transports found.</p>';
+      tableWrapper.style.display = 'block';
+      return;
+    }
+
+    // ── Risk Summary ────────────────────────────────────────────────
+    const riskSummary = { high: 0, medium: 0, low: 0 };
+    transports.forEach(t => {
+      if      (t.STATUS === 'D') riskSummary.high++;
+      else if (t.STATUS === 'R') riskSummary.low++;
+      else                       riskSummary.medium++;
+    });
+
+    riskContainer.innerHTML = `
+      <div class="risk-card risk-high">🔴 High Risk: ${riskSummary.high}</div>
+      <div class="risk-card risk-medium">🟡 Medium Risk: ${riskSummary.medium}</div>
+      <div class="risk-card risk-low">🟢 Low Risk: ${riskSummary.low}</div>
+    `;
+
+    // ── Doughnut Chart ──────────────────────────────────────────────
+    chartWrapper.style.display = 'block';
+    new Chart(document.getElementById('statusChart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Released (R)', 'Modifiable (D)', 'Other'],
+        datasets: [{
+          data: [riskSummary.low, riskSummary.high, riskSummary.medium],
+          backgroundColor: ['#27ae60', '#e74c3c', '#f39c12'],
+          borderWidth: 1,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+
+    // ── Table ───────────────────────────────────────────────────────
+    tableWrapper.style.display = 'block';
+
+    let html = `
+      <table>
+        <tr>
+          <th>Transport ID</th>
+          <th>Owner</th>
+          <th>Created On</th>
+          <th>Status</th>
+        </tr>
+    `;
+
+    transports.forEach(t => {
+      const rowClass = t.STATUS === 'D' ? 'modifiable' : '';
+      html += `
+        <tr class="${rowClass}" style="cursor:pointer;"
+            data-trkorr="${t.TRKORR}"
+            data-owner="${t.OWNER}"
+            data-date="${t.CREATED_ON}"
+            data-status="${t.STATUS}">
+          <td>${t.TRKORR     || '-'}</td>
+          <td>${t.OWNER      || '-'}</td>
+          <td>${formatDate(t.CREATED_ON)}</td>
+          <td>${statusBadge(t.STATUS)}</td>
+        </tr>
+      `;
+    });
+
+    html += '</table>';
+    root.innerHTML = html;
+
+    // ── Every row is clickable → shows Objects + Logs ───────────────
+    document.querySelectorAll('#root tr[data-trkorr]').forEach(tr => {
+      tr.onclick = () => {
+        showTransportModal({
+          TRKORR:     tr.dataset.trkorr,
+          OWNER:      tr.dataset.owner,
+          CREATED_ON: tr.dataset.date,
+          STATUS:     tr.dataset.status,
+        });
+      };
+    });
+  })
+  .catch(err => {
+    loading.style.display = 'none';
+    console.error('FETCH ERROR:', err);
+    root.innerHTML = `<p style="color:red;">❌ Failed to load transports: ${err.message}</p>`;
+    tableWrapper.style.display = 'block';
+  });
