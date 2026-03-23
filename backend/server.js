@@ -1,22 +1,39 @@
-const axios = require("axios");
-
 app.get("/api/transports", async (req, res) => {
   try {
     const transports = [
-      { Transport: "TR001", Description: "Sales Fix" },
-      { Transport: "TR002", Description: "Finance Update" },
-      { Transport: "TR003", Description: "HR Enhancement" }
+      {
+        Transport: "TR001",
+        Description: "Sales Fix",
+        Status: "Failed",
+        RiskScore: 0.8,
+        FailedObjects: [
+          { ObjectName: "Z_PROGRAM", Type: "ABAP", Error: "Syntax Error" }
+        ],
+        Logs: ["Syntax error in Z_PROGRAM"]
+      },
+      {
+        Transport: "TR002",
+        Description: "Finance Update",
+        Status: "Success",
+        RiskScore: 0.2,
+        FailedObjects: [],
+        Logs: []
+      },
+      {
+        Transport: "TR003",
+        Description: "HR Enhancement",
+        Status: "Failed",
+        RiskScore: 0.6,
+        FailedObjects: [
+          { ObjectName: "Z_TABLE", Type: "DDIC", Error: "Missing Field" }
+        ],
+        Logs: ["Missing field in Z_TABLE"]
+      }
     ];
 
-    // Call Python AI agent
-    const response = await axios.post("http://localhost:5000/analyze", {
-      transports: transports
-    });
-
-    res.json({ d: { results: response.data.results } });
+    res.json({ d: { results: transports } });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
