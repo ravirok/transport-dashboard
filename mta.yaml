@@ -6,7 +6,7 @@ modules:
 
   - name: transport-dashboard-backend
     type: nodejs
-    path: backend
+    path: .
     parameters:
       memory: 1024M
       disk-quota: 1024M
@@ -14,7 +14,7 @@ modules:
 
   - name: transport-dashboard-frontend
     type: html5
-    path: frontend   # build output folder
+    path: .   # build output folder
     parameters:
       memory: 512M
       disk-quota: 512M
