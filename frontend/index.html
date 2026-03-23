@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAP Transport Dashboard</title>
+<style>
+    body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0; padding: 0;
+        background-color: #f4f6f8;
+    }
+    header {
+        background-color: #0a6ed1;
+        color: white;
+        padding: 1rem;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .dashboard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1rem;
+        padding: 1rem;
+    }
+    .card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        padding: 1rem;
+    }
+    .card h3 {
+        margin-top: 0;
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.5rem;
+    }
+    table th, table td {
+        border: 1px solid #ddd;
+        padding: 0.5rem;
+        text-align: left;
+        font-size: 0.9rem;
+    }
+    table th {
+        background-color: #f0f0f0;
+    }
+    .status-success { color: green; font-weight: bold; }
+    .status-failed { color: red; font-weight: bold; }
+    .risk-low { background-color: #c8e6c9; padding: 2px 6px; border-radius: 4px; }
+    .risk-medium { background-color: #fff9c4; padding: 2px 6px; border-radius: 4px; }
+    .risk-high { background-color: #ffcdd2; padding: 2px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>SAP Transport Dashboard</header>
+<div class="dashboard">
+    <!-- Failed & Successful Transports Card -->
+    <div class="card">
+        <h3>Transport Summary</h3>
+        <p>Successful Transports: <span class="status-success" id="successCount">5</span></p>
+        <p>Failed Transports: <span class="status-failed" id="failedCount">2</span></p>
+    </div>
+
+    <!-- Transport Objects -->
+    <div class="card">
+        <h3>Transport Objects</h3>
+        <table id="transportTable">
+            <thead>
+                <tr>
+                    <th>Object</th>
+                    <th>Status</th>
+                    <th>Issue</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>OBJ_001</td>
+                    <td class="status-success">SUCCESS</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>OBJ_002</td>
+                    <td class="status-failed">FAILED</td>
+                    <td>Dependency Missing</td>
+                </tr>
+                <tr>
+                    <td>OBJ_003</td>
+                    <td class="status-success">SUCCESS</td>
+                    <td>-</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Error Log Messages -->
+    <div class="card">
+        <h3>Error Logs</h3>
+        <table id="errorLogTable">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>2026-03-23 09:12</td>
+                    <td>OBJ_002 failed due to missing dependency</td>
+                </tr>
+                <tr>
+                    <td>2026-03-23 10:45</td>
+                    <td>OBJ_005 failed during transport</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- AI Risk Assessment -->
+    <div class="card">
+        <h3>AI Risk Assessment</h3>
+        <table id="riskTable">
+            <thead>
+                <tr>
+                    <th>Object</th>
+                    <th>Risk Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>OBJ_001</td>
+                    <td class="risk-low">Low</td>
+                </tr>
+                <tr>
+                    <td>OBJ_002</td>
+                    <td class="risk-high">High</td>
+                </tr>
+                <tr>
+                    <td>OBJ_003</td>
+                    <td class="risk-medium">Medium</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// Example: dynamic update counts
+const transportRows = document.querySelectorAll('#transportTable tbody tr');
+let success = 0, failed = 0;
+transportRows.forEach(row => {
+    const status = row.cells[1].innerText;
+    if(status === 'SUCCESS') success++;
+    else if(status === 'FAILED') failed++;
+});
+document.getElementById('successCount').innerText = success;
+document.getElementById('failedCount').innerText = failed;
+</script>
+
+<!-- External JS bundle -->
+<script src="./bundle.js"></script>
+</body>
+</html>
