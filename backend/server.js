@@ -17,7 +17,7 @@ app.use(express.json());
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 // Destination Name
-const DESTINATION_NAME = process.env.DESTINATION_NAME || "S48";
+const DESTINATION_NAME = process.env.DESTINATION_NAME || "S48-HTTP";
 
 // Credentials
 let xsuaaCredentials = null;
@@ -73,20 +73,24 @@ if (!destinationCredentials) {
 if (!connectivityCredentials) {
   if (process.env.CONNECTIVITY_PROXY_HOST) {
     connectivityCredentials = {
+      clientid:                  process.env.CONNECTIVITY_CLIENT_ID,
+      clientsecret:              process.env.CONNECTIVITY_CLIENT_SECRET,
+      token_service_url:         process.env.CONNECTIVITY_TOKEN_URL,
       onpremise_proxy_host:      process.env.CONNECTIVITY_PROXY_HOST,
       onpremise_proxy_http_port: process.env.CONNECTIVITY_PROXY_PORT || "20003",
     };
     console.log("✅ Connectivity loaded from env vars");
   } else {
-    console.warn("⚠️ Connectivity service credentials missing — on-premise calls may fail");
+    console.warn("⚠️ Connectivity service credentials missing");
   }
 }
 
 console.log("📡 XSUAA URL           :", xsuaaCredentials?.url);
 console.log("📡 Destination URI     :", destinationCredentials?.uri);
 console.log("📡 Connectivity Proxy  :", connectivityCredentials?.onpremise_proxy_host);
+console.log("📡 Connectivity Port   :", connectivityCredentials?.onpremise_proxy_http_port);
 
-// ─── Debug Routes ────────────────────────────────────────────────────────────
+// ─── Debug Routes ─────────────────────────────────────────────────────────────
 
 app.get("/debug", (req, res) => res.send("BACKEND LIVE ✅"));
 
@@ -108,24 +112,33 @@ app.get("/api/health", (req, res) => {
       xsuaaLoaded:              !!xsuaaCredentials,
       destinationServiceLoaded: !!destinationCredentials,
       connectivityLoaded:       !!connectivityCredentials,
-      proxyHost:                connectivityCredentials?.onpremise_proxy_host  || "NOT LOADED",
+      proxyHost:                connectivityCredentials?.onpremise_proxy_host      || "NOT LOADED",
       proxyPort:                connectivityCredentials?.onpremise_proxy_http_port || "NOT LOADED",
     },
   });
 });
 
-// ─── Step 1: Get XSUAA Token (for Connectivity Proxy-Authorization) ──────────
+// ─── Step 1: Get Connectivity Token (for Proxy-Authorization header) ──────────
+// IMPORTANT: Must use connectivity service's OWN clientid + clientsecret + token_service_url
+// From your VCAP:
+//   token_service_url = "https://hclbuild-g03o2ijo.authentication.eu10.hana.ondemand.com"
+//   clientid          = "sb-cloned82c24e31e154ce99f229768fd670280!b227908|connectivity!b114511"
+//   clientsecret      = "965f803f-c3cb-4f3f-baa5-..."
 
-async function getXSUAAToken() {
-  if (!xsuaaCredentials) {
-    throw new Error("XSUAA credentials not loaded.");
+async function getConnectivityToken() {
+  if (!connectivityCredentials) {
+    throw new Error("Connectivity credentials not loaded.");
   }
 
-  const { url, clientid, clientsecret } = xsuaaCredentials;
+  const { clientid, clientsecret, token_service_url } = connectivityCredentials;
+
+  if (!token_service_url) {
+    throw new Error("Connectivity token_service_url missing from VCAP_SERVICES.");
+  }
 
   try {
     const response = await axios.post(
-      `${url}/oauth/token`,
+      `${token_service_url}/oauth/token`,
       new URLSearchParams({
         grant_type:    "client_credentials",
         client_id:     clientid,
@@ -136,15 +149,15 @@ async function getXSUAAToken() {
         httpsAgent,
       }
     );
-    console.log("✅ XSUAA token fetched");
+    console.log("✅ Connectivity token fetched");
     return response.data.access_token;
   } catch (err) {
-    console.error("❌ XSUAA token fetch failed:", err.message);
+    console.error("❌ Connectivity token fetch failed:", err.message);
     throw err;
   }
 }
 
-// ─── Step 2: Get Destination Service Token ───────────────────────────────────
+// ─── Step 2: Get Destination Service Token ────────────────────────────────────
 
 async function getBTPToken() {
   if (!destinationCredentials) {
@@ -175,7 +188,7 @@ async function getBTPToken() {
   }
 }
 
-// ─── Step 3: Get Destination Config ──────────────────────────────────────────
+// ─── Step 3: Get Destination Config ───────────────────────────────────────────
 
 async function getBTPDestination(token) {
   if (!destinationCredentials) {
@@ -201,14 +214,14 @@ async function getBTPDestination(token) {
   }
 }
 
-// ─── Step 4: Fetch SAP Transports via Connectivity Proxy ─────────────────────
+// ─── Step 4: Fetch SAP Transports via Connectivity Proxy ──────────────────────
 
 async function fetchSAPTransports() {
   try {
-    // Get both tokens in parallel
-    const [destToken, xsuaaToken] = await Promise.all([
+    // Fetch both tokens in parallel
+    const [destToken, connectivityToken] = await Promise.all([
       getBTPToken(),
-      getXSUAAToken(),
+      getConnectivityToken(),
     ]);
 
     const destination = await getBTPDestination(destToken);
@@ -222,10 +235,13 @@ async function fetchSAPTransports() {
       throw new Error("Connectivity service not bound. Cannot reach on-premise SAP system.");
     }
 
+    // From your VCAP:
+    //   onpremise_proxy_host      = "connectivityproxy.internal.cf.eu10-004.hana.ondemand.com"
+    //   onpremise_proxy_http_port = "20003"
     const proxyHost = connectivityCredentials.onpremise_proxy_host;
     const proxyPort = parseInt(connectivityCredentials.onpremise_proxy_http_port || "20003");
 
-    const sapAuth    = Buffer.from(`${User}:${Password}`).toString("base64");
+    const sapAuth     = Buffer.from(`${User}:${Password}`).toString("base64");
     const sapEndpoint = `${SAP_URL}/sap/opu/odata/sap/Z_TRANSPORTS_lOG_SRV_SRV/Transports?$format=json`;
 
     console.log("🔄 Calling SAP endpoint :", sapEndpoint);
@@ -233,9 +249,9 @@ async function fetchSAPTransports() {
 
     const response = await axios.get(sapEndpoint, {
       headers: {
-        Authorization:       `Basic ${sapAuth}`,
-        "Proxy-Authorization": `Bearer ${xsuaaToken}`, // ✅ Required for on-premise proxy
-        Accept:              "application/json",
+        Authorization:         `Basic ${sapAuth}`,
+        "Proxy-Authorization": `Bearer ${connectivityToken}`, // ✅ Connectivity service token
+        Accept:                "application/json",
       },
       proxy: {
         protocol: "http:",
