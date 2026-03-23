@@ -6,53 +6,19 @@ const PORT = process.env.PORT || 4000;
 
 console.log("SERVER STARTED 🚀");
 
-// ✅ API ROUTE (ALWAYS FIRST)
+// API
 app.get("/api/transports", (req, res) => {
-  res.json({
-    d: {
-      results: [
-        {
-          Transport: "TR001",
-          Description: "Sales Fix",
-          Status: "Failed",
-          RiskScore: 0.8,
-          FailedObjects: [
-            { ObjectName: "Z_PROGRAM", Type: "ABAP", Error: "Syntax Error" }
-          ],
-          Logs: ["Syntax error in Z_PROGRAM"]
-        },
-        {
-          Transport: "TR002",
-          Description: "Finance Update",
-          Status: "Success",
-          RiskScore: 0.2,
-          FailedObjects: [],
-          Logs: []
-        },
-        {
-          Transport: "TR003",
-          Description: "HR Enhancement",
-          Status: "Failed",
-          RiskScore: 0.6,
-          FailedObjects: [
-            { ObjectName: "Z_TABLE", Type: "DDIC", Error: "Missing Field" }
-          ],
-          Logs: ["Missing field in Z_TABLE"]
-        }
-      ]
-    }
-  });
+  res.json({ message: "API WORKING ✅" });
 });
 
-// ✅ SERVE FRONTEND FILES
+// static
 app.use(express.static(path.join(__dirname, "../frontend")));
 
-// ✅ VERY IMPORTANT: DO NOT OVERRIDE API
+// catch-all
 app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
 
-// ✅ START SERVER
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log("Server running on port " + PORT);
 });
