@@ -1,12 +1,10 @@
----
 applications:
-  - name: transport-dashboard
+  - name: your-app-name
     memory: 256M
     buildpacks:
       - nodejs_buildpack
-    random-route: true
-    path: .
+    services:
+      - Test-demo        # ← your xsuaa instance name in BTP
+      - BTP-DEMO  # ← your destination instance name in BTP
     env:
-      SAP_USER: ''
-      SAP_PASSWORD: ''
-      ABAP_DEST: ''
+      DESTINATION_NAME: S48  # ← exact name from BTP Cockpit
