@@ -6,7 +6,7 @@ const PORT = process.env.PORT || 4000;
 
 console.log("SERVER STARTED 🚀");
 
-// ✅ API (FIRST)
+// ✅ API ROUTE (ALWAYS FIRST)
 app.get("/api/transports", (req, res) => {
   res.json({
     d: {
@@ -44,14 +44,15 @@ app.get("/api/transports", (req, res) => {
   });
 });
 
-// ✅ STATIC FILES (SECOND)
+// ✅ SERVE FRONTEND FILES
 app.use(express.static(path.join(__dirname, "../frontend")));
 
-// ✅ CATCH ALL (LAST - VERY IMPORTANT)
-app.get("*", (req, res) => {
+// ✅ VERY IMPORTANT: DO NOT OVERRIDE API
+app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
 
+// ✅ START SERVER
 app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+  console.log(`Server running on port ${PORT}`);
 });
