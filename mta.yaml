@@ -6,7 +6,7 @@ modules:
 
   - name: transport-dashboard-backend
     type: nodejs
-    path: .
+    path: backend
     parameters:
       memory: 1024M
       disk-quota: 1024M
@@ -18,7 +18,7 @@ modules:
 
   - name: transport-dashboard-frontend
     type: html5
-    path: .
+    path: frontend
     parameters:
       memory: 512M
       disk-quota: 512M
@@ -27,4 +27,4 @@ modules:
     requires:
       - name: backend-service
         properties:
-          url: "~{URL of backend-service}"
+          url: "https://hcl-america-solutions-inc--hclbuild-g03o2ijo-dev-transp28ffac8d.cfapps.eu10-004.hana.ondemand.com"
