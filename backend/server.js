@@ -1,17 +1,16 @@
 const express = require("express");
 const path = require("path");
+const cors = require("cors");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-console.log("🔥 SERVER.JS RUNNING");
+app.use(cors());
 
-// ✅ DEBUG ROUTE (pehle test ke liye)
-app.get("/debug", (req, res) => {
-  res.send("BACKEND LIVE ✅");
-});
+// Debug route
+app.get("/debug", (req, res) => res.send("BACKEND LIVE ✅"));
 
-// ✅ MAIN API
+// Sample transport API
 app.get("/api/transports", (req, res) => {
   res.json({
     d: {
@@ -20,28 +19,37 @@ app.get("/api/transports", (req, res) => {
           Transport: "TR001",
           Description: "Sales Fix",
           Status: "Failed",
-          RiskScore: 0.8
+          RiskScore: 0.8,
+          FailedObjects: [{ ObjectName: "Z_PROGRAM", Type: "ABAP", Error: "Syntax Error" }],
+          Logs: ["Syntax error in Z_PROGRAM"]
         },
         {
           Transport: "TR002",
           Description: "Finance Update",
           Status: "Success",
-          RiskScore: 0.2
+          RiskScore: 0.2,
+          FailedObjects: [],
+          Logs: []
+        },
+        {
+          Transport: "TR003",
+          Description: "HR Enhancement",
+          Status: "Failed",
+          RiskScore: 0.6,
+          FailedObjects: [{ ObjectName: "Z_TABLE", Type: "DDIC", Error: "Missing Field" }],
+          Logs: ["Missing field in Z_TABLE"]
         }
       ]
     }
   });
 });
 
-// ✅ STATIC FILES (frontend serve)
+// Serve frontend static files
 app.use(express.static(path.join(__dirname, "../frontend")));
 
-// ✅ CATCH-ALL (API ko touch nahi karega)
+// Catch-all for SPA (ignore /api and /debug)
 app.get(/^\/(?!api|debug).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
 
-// ✅ START SERVER
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT} 🚀`));
