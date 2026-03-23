@@ -1,7 +1,7 @@
 const root = document.getElementById('root');
 
 // Fetch API
-fetch('/api/transports')
+fetch('https://hcl-america-solutions-inc--hclbuild-g03o2ijo-dev-transp28ffac8d.cfapps.eu10-004.hana.ondemand.com/api/transports')
   .then(res => res.json())
   .then(data => {
     const transports = data && data.d && data.d.results ? data.d.results : [];
