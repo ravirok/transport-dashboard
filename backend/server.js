@@ -12,7 +12,7 @@ app.use(cors());
 app.get("/debug", (req, res) => res.send("BACKEND LIVE ✅"));
  
 // SAP OData Config
-const SAP_BASE_URL = "https://hclcncs48.hcldigilabs.com:44300/sap/opu/odata/sap/Z_TRANSPORTS_lOG_SRV_SRV/Transports?$format=json";
+const SAP_BASE_URL = "https://192.168.6.18:44300/sap/opu/odata/sap/Z_TRANSPORTS_lOG_SRV_SRV/Transports?$format=json";
 const SAP_USER = process.env.SAP_USER || "52213818";
 const SAP_PASS = process.env.SAP_PASSWORD || "BTsolman@1234567";
  
