@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transport Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f5f6fa; color: #333; padding: 24px; }
+
+    header { margin-bottom: 24px; }
+    header h1 { font-size: 26px; margin-bottom: 16px; }
+
+    /* Risk Cards */
+    #risk-container { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    .risk-card {
+      padding: 14px 28px;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: bold;
+      font-size: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .risk-high   { background-color: #e74c3c; }
+    .risk-medium { background-color: #f39c12; }
+    .risk-low    { background-color: #27ae60; }
+
+    /* Chart */
+    #chartWrapper {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+      max-width: 500px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    #chartWrapper h2 { font-size: 16px; margin-bottom: 12px; color: #555; }
+
+    /* Loading */
+    #loading {
+      text-align: center;
+      padding: 40px;
+      font-size: 16px;
+      color: #888;
+    }
+
+    /* Table */
+    #tableWrapper {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      overflow-x: auto;
+    }
+    #tableWrapper h2 { font-size: 16px; margin-bottom: 12px; color: #555; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e0e0e0; padding: 10px 12px; text-align: left; font-size: 14px; }
+    th { background-color: #f2f2f2; font-weight: 600; }
+    tr:hover { background-color: #fafafa; }
+    tr.modifiable { background-color: #fff3cd; cursor: pointer; }
+    tr.modifiable:hover { background-color: #ffe9a0; }
+
+    /* Status badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .badge-released   { background: #d4edda; color: #155724; }
+    .badge-modifiable { background: #fff3cd; color: #856404; }
+    .badge-unknown    { background: #e2e3e5; color: #383d41; }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+      background-color: #fff;
+      margin: 8% auto;
+      padding: 28px;
+      width: 80%;
+      max-width: 600px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .modal-content h3 { margin-bottom: 12px; font-size: 18px; }
+    .modal-content p  { margin-bottom: 8px; font-size: 14px; }
+    .close {
+      float: right;
+      cursor: pointer;
+      font-size: 22px;
+      font-weight: bold;
+      color: #888;
+      line-height: 1;
+    }
+    .close:hover { color: #333; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🚚 Transport Dashboard</h1>
+    <div id="risk-container"></div>
+  </header>
+
+  <main>
+    <div id="loading">⏳ Loading transports...</div>
+
+    <div id="chartWrapper" style="display:none;">
+      <h2>Status Overview</h2>
+      <canvas id="statusChart" width="400" height="200"></canvas>
+    </div>
+
+    <div id="tableWrapper" style="display:none;">
+      <h2>All Transports</h2>
+      <div id="root"></div>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="closeModal">&times;</span>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <script src="./bundle.js"></script>
+</body>
+</html>
