@@ -17,7 +17,7 @@ app.use(express.json());
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 // Destination Name
-const DESTINATION_NAME = process.env.DESTINATION_NAME || "S48";
+const DESTINATION_NAME = process.env.DESTINATION_NAME || "S48-HTTP";
 
 // Credentials
 let xsuaaCredentials = null;
@@ -28,8 +28,8 @@ let connectivityCredentials = null;
 try {
   xsenv.loadEnv();
   const services = xsenv.getServices({
-    xsuaa:        { name: "Test-demo" },
-    destination:  { name: "BTP-DEMO" },
+    xsuaa:        { tag: "xsuaa" },
+    destination:  { tag: "destination" },
     connectivity: { tag: "connectivity" },
   });
   xsuaaCredentials        = services.xsuaa;
@@ -37,7 +37,7 @@ try {
   connectivityCredentials = services.connectivity;
   console.log("✅ BTP services loaded from VCAP_SERVICES");
 } catch (err) {
-  console.warn("⚠️ VCAP_SERVICES not found, falling back to env vars...");
+  console.error("❌ Failed to load BTP services:", err.message);
 }
 
 // Fallback: XSUAA
@@ -118,12 +118,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// ─── Step 1: Get Connectivity Token (for Proxy-Authorization header) ──────────
-// IMPORTANT: Must use connectivity service's OWN clientid + clientsecret + token_service_url
-// From your VCAP:
-//   token_service_url = "https://hclbuild-g03o2ijo.authentication.eu10.hana.ondemand.com"
-//   clientid          = "sb-cloned82c24e31e154ce99f229768fd670280!b227908|connectivity!b114511"
-//   clientsecret      = "965f803f-c3cb-4f3f-baa5-..."
+// ─── Step 1: Get Connectivity Token ───────────────────────────────────────────
 
 async function getConnectivityToken() {
   if (!connectivityCredentials) {
@@ -235,9 +230,6 @@ async function fetchSAPTransports() {
       throw new Error("Connectivity service not bound. Cannot reach on-premise SAP system.");
     }
 
-    // From your VCAP:
-    //   onpremise_proxy_host      = "connectivityproxy.internal.cf.eu10-004.hana.ondemand.com"
-    //   onpremise_proxy_http_port = "20003"
     const proxyHost = connectivityCredentials.onpremise_proxy_host;
     const proxyPort = parseInt(connectivityCredentials.onpremise_proxy_http_port || "20003");
 
@@ -250,7 +242,7 @@ async function fetchSAPTransports() {
     const response = await axios.get(sapEndpoint, {
       headers: {
         Authorization:         `Basic ${sapAuth}`,
-        "Proxy-Authorization": `Bearer ${connectivityToken}`, // ✅ Connectivity service token
+        "Proxy-Authorization": `Bearer ${connectivityToken}`,
         Accept:                "application/json",
       },
       proxy: {
@@ -264,13 +256,12 @@ async function fetchSAPTransports() {
     const data = response.data?.d?.results || [];
     console.log(`✅ Fetched ${data.length} transports`);
 
+    // ✅ Correct field mapping based on actual SAP response
     return data.map((t) => ({
-      Transport:     t.Transport,
-      Description:   t.Description,
-      Status:        t.Status,
-      RiskScore:     t.RiskScore     || 0,
-      FailedObjects: t.FailedObjects || [],
-      Logs:          t.Logs          || [],
+      TRKORR:     t.TRKORR     || "",
+      OWNER:      t.OWNER      || "",
+      CREATED_ON: t.CREATED_ON || "",
+      STATUS:     t.STATUS     || "",
     }));
 
   } catch (err) {
