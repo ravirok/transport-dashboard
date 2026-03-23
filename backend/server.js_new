@@ -16,7 +16,7 @@ app.use(express.json());
 app.get("/debug", (req, res) => res.send("BACKEND LIVE ✅"));
 
 // ─── BTP Config ───────────────────────────────────────────────────────────────
-const DESTINATION_NAME = process.env.DESTINATION_NAME || "YOUR_DESTINATION_NAME";
+const DESTINATION_NAME = process.env.DESTINATION_NAME || "S48";
 
 // ─── HTTPS Agent (disable SSL verify for dev — remove rejectUnauthorized in prod) ───
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
