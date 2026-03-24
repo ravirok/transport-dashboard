@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Transport Log Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ─── Variables ─────────────────────────────────────────────────── */
+:root {
+  --bg:         #07090e;
+  --surface:    #0c0f18;
+  --surface2:   #111520;
+  --surface3:   #161b28;
+  --border:     #1a1f30;
+  --border2:    #242c42;
+  --accent:     #4f8ef7;
+  --accent-glow:rgba(79,142,247,.15);
+  --warn:       #f76b4f;
+  --warn-glow:  rgba(247,107,79,.12);
+  --green:      #3dd68c;
+  --green-glow: rgba(61,214,140,.1);
+  --yellow:     #f5c842;
+  --yellow-glow:rgba(245,200,66,.1);
+  --text:       #7a8599;
+  --text-hi:    #d8dfee;
+  --text-lo:    #323a52;
+  --mono:       'JetBrains Mono', monospace;
+  --sans:       'DM Sans', sans-serif;
+  --radius:     4px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ─── Header ────────────────────────────────────────────────────── */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 58px;
+  display: flex; align-items: center; gap: 14px;
+}
+.header::after {
+  content: '';
+  position: absolute; bottom: -1px; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 40%, var(--accent) 60%, transparent 100%);
+  opacity: .25;
+}
+.header-logo {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  background: var(--accent); color: #fff;
+  padding: 5px 9px; letter-spacing: 1px;
+}
+.header-title {
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  color: var(--text-hi); letter-spacing: 2px; text-transform: uppercase;
+}
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.health-label {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--accent); border: 1px solid rgba(79,142,247,.25);
+  padding: 3px 10px; letter-spacing: 1.5px;
+  transition: color .3s, border-color .3s;
+}
+.health-label.err { color: var(--warn); border-color: rgba(247,107,79,.25); }
+.health-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text-lo); transition: background .4s, box-shadow .4s;
+}
+.health-dot.ok  { background: var(--green);  box-shadow: 0 0 8px var(--green); }
+.health-dot.err { background: var(--warn);   box-shadow: 0 0 8px var(--warn); }
+
+/* ─── Page ──────────────────────────────────────────────────────── */
+.page { max-width: 1400px; margin: 0 auto; padding: 28px 32px 60px; }
+
+/* ─── Risk cards ────────────────────────────────────────────────── */
+.risk-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.risk-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  display: flex; align-items: center; gap: 14px;
+  position: relative; overflow: hidden;
+  transition: transform .15s;
+}
+.risk-card:hover { transform: translateY(-2px); }
+.risk-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--card-glow, transparent); pointer-events: none;
+}
+.risk-card.high  { --card-glow: var(--warn-glow);   border-color: rgba(247,107,79,.2); }
+.risk-card.med   { --card-glow: var(--yellow-glow);  border-color: rgba(245,200,66,.2); }
+.risk-card.low   { --card-glow: var(--green-glow);   border-color: rgba(61,214,140,.2); }
+.risk-icon { font-size: 22px; flex-shrink: 0; }
+.risk-label {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-lo); margin-bottom: 2px;
+}
+.risk-value {
+  font-family: var(--mono); font-size: 26px; font-weight: 700; line-height: 1;
+}
+.risk-card.high .risk-value { color: var(--warn); }
+.risk-card.med  .risk-value { color: var(--yellow); }
+.risk-card.low  .risk-value { color: var(--green); }
+.risk-sub { font-size: 11px; color: var(--text-lo); margin-top: 2px; }
+
+/* ─── Main grid ─────────────────────────────────────────────────── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.card-title {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-lo); margin-bottom: 16px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.chart-canvas-wrap {
+  position: relative; height: 220px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ─── Table card ────────────────────────────────────────────────── */
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.table-toolbar {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.toolbar-title {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--text-lo);
+}
+.tr-count {
+  font-family: var(--mono); font-size: 10px;
+  background: var(--border); color: var(--text-lo);
+  padding: 2px 8px; border-radius: 2px;
+}
+.search-box {
+  margin-left: auto;
+  background: var(--bg); border: 1px solid var(--border2);
+  color: var(--text-hi); font-family: var(--mono); font-size: 11px;
+  padding: 6px 12px; outline: none;
+  border-radius: var(--radius); width: 200px;
+  transition: border-color .2s;
+}
+.search-box:focus { border-color: var(--accent); }
+.search-box::placeholder { color: var(--text-lo); }
+
+.transport-table { width: 100%; border-collapse: collapse; }
+.transport-table thead th {
+  background: var(--surface2);
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-lo); padding: 10px 16px;
+  text-align: left; white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.transport-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .12s;
+  animation: rowIn .2s ease both;
+}
+@keyframes rowIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+.transport-table tbody tr:hover { background: var(--surface2); }
+.transport-table tbody tr.modifiable { background: rgba(247,107,79,.04); }
+.transport-table tbody tr.modifiable:hover { background: rgba(247,107,79,.08); }
+.transport-table tbody td { padding: 11px 16px; font-size: 12.5px; color: var(--text); }
+td.td-trkorr { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-hi); }
+td.td-date   { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
+
+/* ─── Badges ────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block; font-family: var(--mono); font-size: 9px;
+  letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 2px;
+}
+.badge-released   { background: var(--green-glow); color: var(--green); border: 1px solid rgba(61,214,140,.2); }
+.badge-modifiable { background: var(--warn-glow);  color: var(--warn);  border: 1px solid rgba(247,107,79,.2); }
+.badge-unknown    { background: var(--border);      color: var(--text-lo); border: 1px solid var(--border2); }
+
+/* ─── State ─────────────────────────────────────────────────────── */
+.state-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; padding: 48px;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text-lo); letter-spacing: 1.5px;
+}
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border2); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .65s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Modal ─────────────────────────────────────────────────────── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
+  align-items: flex-start; justify-content: center;
+  padding: 40px 20px; overflow-y: auto;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius); width: 100%; max-width: 860px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.6);
+  animation: modalIn .2s ease; overflow: hidden;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+.modal-header {
+  display: flex; align-items: center;
+  padding: 16px 22px; border-bottom: 1px solid var(--border);
+  background: var(--surface2); gap: 12px; flex-wrap: wrap;
+}
+.modal-trkorr {
+  font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--text-hi);
+}
+.meta-chip {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-lo); background: var(--border); padding: 2px 8px; border-radius: 2px;
+}
+.modal-close {
+  margin-left: auto; background: none; border: 1px solid var(--border2);
+  color: var(--text-lo); cursor: pointer; font-size: 16px;
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 2px; transition: color .15s, border-color .15s;
+}
+.modal-close:hover { color: var(--warn); border-color: var(--warn); }
+.modal-tabs { display: flex; border-bottom: 1px solid var(--border); }
+.modal-tab {
+  flex: 1; padding: 12px; background: none; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-lo);
+  border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+}
+.modal-tab:hover { color: var(--text); }
+.modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.modal-body { padding: 20px 22px; min-height: 260px; overflow-x: auto; }
+.modal-empty {
+  display: flex; align-items: center; justify-content: center; padding: 48px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-lo); letter-spacing: 1.5px;
+}
+.modal-err { padding: 20px; font-family: var(--mono); font-size: 11px; color: var(--warn); }
+
+/* ─── Inner table ───────────────────────────────────────────────── */
+.inner-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.inner-table thead th {
+  background: var(--surface2); font-family: var(--mono); font-size: 9px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-lo);
+  padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.inner-table tbody tr {
+  border-bottom: 1px solid var(--border); animation: rowIn .15s ease both;
+}
+.inner-table tbody tr:hover { background: var(--surface2); }
+.inner-table tbody td { padding: 8px 12px; color: var(--text); font-size: 11.5px; }
+.inner-table tbody td:first-child {
+  font-family: var(--mono); font-size: 11px; color: var(--text-hi); font-weight: 600;
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <span class="header-logo">TR</span>
+  <span class="header-title">Transport Monitor</span>
+  <div class="header-right">
+    <span class="health-label" id="healthLabel">CONNECTING</span>
+    <div class="health-dot"  id="healthDot"></div>
+  </div>
+</div>
+
+<!-- PAGE -->
+<div class="page">
+
+  <!-- Risk Summary -->
+  <div class="risk-row">
+    <div class="risk-card high">
+      <div class="risk-icon">🔴</div>
+      <div>
+        <div class="risk-label">High Risk</div>
+        <div class="risk-value" id="riskHigh">—</div>
+        <div class="risk-sub">Modifiable (D)</div>
+      </div>
+    </div>
+    <div class="risk-card med">
+      <div class="risk-icon">🟡</div>
+      <div>
+        <div class="risk-label">Medium Risk</div>
+        <div class="risk-value" id="riskMed">—</div>
+        <div class="risk-sub">Other status</div>
+      </div>
+    </div>
+    <div class="risk-card low">
+      <div class="risk-icon">🟢</div>
+      <div>
+        <div class="risk-label">Low Risk</div>
+        <div class="risk-value" id="riskLow">—</div>
+        <div class="risk-sub">Released (R)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart + Table -->
+  <div class="main-grid">
+
+    <div class="chart-card">
+      <div class="card-title">Status Distribution</div>
+      <div class="chart-canvas-wrap">
+        <div class="spinner" id="chartSpinner"></div>
+        <canvas id="statusChart" style="display:none;"></canvas>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-toolbar">
+        <span class="toolbar-title">Transports</span>
+        <span class="tr-count" id="trCount">—</span>
+        <input type="text" class="search-box" id="searchInput" placeholder="Search transport / owner…"/>
+      </div>
+      <div id="tableBody">
+        <div class="state-row"><div class="spinner"></div>&nbsp;LOADING TRANSPORTS</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-trkorr" id="modalTrkorr">—</span>
+      <span class="meta-chip" id="modalOwner"  style="display:none;"></span>
+      <span class="meta-chip" id="modalDate"   style="display:none;"></span>
+      <span id="modalStatus"></span>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="tabObjects" onclick="switchModalTab('objects')">
+        📁 Objects<span id="objCount"></span>
+      </button>
+      <button class="modal-tab" id="tabLogs" onclick="switchModalTab('logs')">
+        📋 Logs<span id="logCount"></span>
+      </button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <div class="state-row"><div class="spinner"></div>&nbsp;LOADING</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────
+let allTransports = [];
+let cachedObjects = null;
+let cachedLogs    = null;
+let modalTab      = 'objects';
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function formatDate(raw) {
+  if (!raw || raw === '-') return '-';
+  const m = String(raw).match(/\/Date\((\d+)\)\//);
+  if (m) return new Date(parseInt(m[1])).toISOString().slice(0, 10);
+  if (/^\d{8}$/.test(String(raw))) return `${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`;
+  return raw;
+}
+
+function statusBadge(s) {
+  if (s === 'R') return '<span class="badge badge-released">Released</span>';
+  if (s === 'D') return '<span class="badge badge-modifiable">Modifiable</span>';
+  return `<span class="badge badge-unknown">${s || 'Unknown'}</span>`;
+}
+
+// ── Health ─────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const d = await fetch('/api/health').then(r => r.json());
+    if (d.status === 'OK') {
+      document.getElementById('healthDot').className   = 'health-dot ok';
+      document.getElementById('healthLabel').textContent = d.config?.destinationName || 'CONNECTED';
+    } else throw 0;
+  } catch {
+    document.getElementById('healthDot').className     = 'health-dot err';
+    document.getElementById('healthLabel').className   = 'health-label err';
+    document.getElementById('healthLabel').textContent = 'OFFLINE';
+  }
+}
+
+// ── Build transport table ──────────────────────────────────────────────
+function buildTable(list) {
+  if (!list.length)
+    return `<div class="state-row">NO TRANSPORTS FOUND</div>`;
+
+  let html = `<table class="transport-table">
+    <thead><tr>
+      <th>Transport ID</th><th>Owner</th><th>Created On</th><th>Status</th>
+    </tr></thead><tbody>`;
+
+  list.forEach((t, i) => {
+    html += `
+      <tr class="${t.STATUS === 'D' ? 'modifiable' : ''}"
+          style="animation-delay:${i * 0.018}s"
+          data-trkorr="${t.TRKORR}" data-owner="${t.OWNER || ''}"
+          data-date="${t.CREATED_ON || ''}" data-status="${t.STATUS || ''}">
+        <td class="td-trkorr">${t.TRKORR || '-'}</td>
+        <td>${t.OWNER || '-'}</td>
+        <td class="td-date">${formatDate(t.CREATED_ON)}</td>
+        <td>${statusBadge(t.STATUS)}</td>
+      </tr>`;
+  });
+  return html + '</tbody></table>';
+}
+
+function attachClicks() {
+  document.querySelectorAll('.transport-table tbody tr[data-trkorr]').forEach(tr => {
+    tr.onclick = () => openModal({
+      TRKORR:     tr.dataset.trkorr,
+      OWNER:      tr.dataset.owner,
+      CREATED_ON: tr.dataset.date,
+      STATUS:     tr.dataset.status,
+    });
+  });
+}
+
+// ── Load transports ────────────────────────────────────────────────────
+fetch('/api/transports')
+  .then(r => r.json())
+  .then(data => {
+    allTransports = data?.d?.results || [];
+    let high = 0, med = 0, low = 0;
+    allTransports.forEach(t => {
+      if      (t.STATUS === 'D') high++;
+      else if (t.STATUS === 'R') low++;
+      else                       med++;
+    });
+
+    document.getElementById('riskHigh').textContent = high;
+    document.getElementById('riskMed').textContent  = med;
+    document.getElementById('riskLow').textContent  = low;
+    document.getElementById('trCount').textContent  = allTransports.length;
+
+    // Chart
+    document.getElementById('chartSpinner').style.display = 'none';
+    const canvas = document.getElementById('statusChart');
+    canvas.style.display = 'block';
+    new Chart(canvas.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Released (R)', 'Modifiable (D)', 'Other'],
+        datasets: [{
+          data: [low, high, med],
+          backgroundColor: ['#3dd68c', '#f76b4f', '#f5c842'],
+          borderWidth: 0, hoverOffset: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '68%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#7a8599', font: { family: "'JetBrains Mono'", size: 10 }, padding: 14, boxWidth: 10 }
+          },
+          tooltip: {
+            backgroundColor: '#0c0f18', borderColor: '#1a1f30', borderWidth: 1,
+            titleFont: { family: "'JetBrains Mono'", size: 11 },
+            bodyFont:  { family: "'JetBrains Mono'", size: 11 },
+            titleColor: '#d8dfee', bodyColor: '#7a8599',
+          }
+        }
+      }
+    });
+
+    document.getElementById('tableBody').innerHTML = buildTable(allTransports);
+    attachClicks();
+  })
+  .catch(err => {
+    document.getElementById('tableBody').innerHTML =
+      `<div class="state-row" style="color:var(--warn);">&#10060; ${err.message}</div>`;
+  });
+
+// ── Search ─────────────────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', function () {
+  const q = this.value.toLowerCase();
+  const filtered = allTransports.filter(t =>
+    (t.TRKORR || '').toLowerCase().includes(q) ||
+    (t.OWNER  || '').toLowerCase().includes(q)
+  );
+  document.getElementById('trCount').textContent  = filtered.length;
+  document.getElementById('tableBody').innerHTML  = buildTable(filtered);
+  attachClicks();
+});
+
+// ── Modal ──────────────────────────────────────────────────────────────
+const overlay = document.getElementById('modalOverlay');
+document.getElementById('modalClose').onclick = closeModal;
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+function closeModal() {
+  overlay.classList.remove('open');
+  cachedObjects = cachedLogs = null;
+  modalTab = 'objects';
+}
+
+async function openModal(t) {
+  modalTab = 'objects';
+  cachedObjects = cachedLogs = null;
+
+  // Populate header
+  document.getElementById('modalTrkorr').textContent = t.TRKORR;
+  document.getElementById('objCount').textContent    = '';
+  document.getElementById('logCount').textContent    = '';
+  document.getElementById('tabObjects').className    = 'modal-tab active';
+  document.getElementById('tabLogs').className       = 'modal-tab';
+
+  const ownerEl  = document.getElementById('modalOwner');
+  const dateEl   = document.getElementById('modalDate');
+  const statusEl = document.getElementById('modalStatus');
+
+  ownerEl.style.display  = t.OWNER      ? '' : 'none';
+  dateEl.style.display   = t.CREATED_ON ? '' : 'none';
+  ownerEl.textContent    = `OWNER: ${t.OWNER}`;
+  dateEl.textContent     = `DATE: ${formatDate(t.CREATED_ON)}`;
+  statusEl.innerHTML     = t.STATUS ? statusBadge(t.STATUS) : '';
+
+  document.getElementById('modalBody').innerHTML =
+    `<div class="state-row"><div class="spinner"></div>&nbsp;LOADING OBJECTS &amp; LOGS</div>`;
+
+  overlay.classList.add('open');
+
+  // Fetch objects + logs in parallel (mirrors bundle.js Promise.all pattern)
+  try {
+    const [objRes, logRes] = await Promise.all([
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/objects`).then(r => r.json()),
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/logs`).then(r => r.json()),
+    ]);
+
+    cachedObjects = objRes?.d?.results || [];
+    cachedLogs    = logRes?.d?.results || [];
+
+    document.getElementById('objCount').textContent = ` (${cachedObjects.length})`;
+    document.getElementById('logCount').textContent = ` (${cachedLogs.length})`;
+
+    renderModalTab('objects');
+  } catch (err) {
+    document.getElementById('modalBody').innerHTML =
+      `<div class="modal-err">&#10060; Failed to load: ${err.message}</div>`;
+  }
+}
+
+function switchModalTab(tab) {
+  modalTab = tab;
+  document.getElementById('tabObjects').className = 'modal-tab' + (tab === 'objects' ? ' active' : '');
+  document.getElementById('tabLogs').className    = 'modal-tab' + (tab === 'logs'    ? ' active' : '');
+  renderModalTab(tab);
+}
+
+function renderModalTab(tab) {
+  const body = document.getElementById('modalBody');
+  const rows = tab === 'objects' ? cachedObjects : cachedLogs;
+
+  if (!rows) {
+    body.innerHTML = `<div class="state-row"><div class="spinner"></div>&nbsp;LOADING</div>`;
+    return;
+  }
+  if (!rows.length) {
+    body.innerHTML = `<div class="modal-empty">NO ${tab.toUpperCase()} FOUND</div>`;
+    return;
+  }
+
+  const cols = tab === 'objects'
+    ? ['OBJECT_NAME', 'OBJECT_TYPE', 'TRANSPORT', 'STATUS']
+    : ['LOG_ID', 'OBJECT_NAME', 'ACTION', 'USER', 'DATE'];
+
+  let html = `<table class="inner-table"><thead><tr>`;
+  cols.forEach(c => { html += `<th>${c.replace(/_/g, ' ')}</th>`; });
+  html += `</tr></thead><tbody>`;
+
+  rows.forEach((row, i) => {
+    html += `<tr style="animation-delay:${i * 0.015}s">`;
+    cols.forEach(c => {
+      let val = row[c] ?? '-';
+      if (c === 'DATE') val = formatDate(val);
+      if (c === 'STATUS') {
+        const color = val === 'E' ? 'var(--warn)' : val === 'R' ? 'var(--green)' : 'var(--text-lo)';
+        val = `<span style="font-family:var(--mono);font-size:10px;color:${color}">${val}</span>`;
+      }
+      html += `<td>${val}</td>`;
+    });
+    html += `</tr>`;
+  });
+
+  html += `</tbody></table>`;
+  body.innerHTML = html;
+}
+
+// ── Init ───────────────────────────────────────────────────────────────
+checkHealth();
+</script>
+</body>
+</html>
