@@ -3,459 +3,785 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Transport Log Monitor</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+<title>TransTrack Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-/* ─── Variables ─────────────────────────────────────────────────── */
 :root {
-  --bg:         #07090e;
-  --surface:    #0c0f18;
-  --surface2:   #111520;
-  --surface3:   #161b28;
-  --border:     #1a1f30;
-  --border2:    #242c42;
-  --accent:     #4f8ef7;
-  --accent-glow:rgba(79,142,247,.15);
-  --warn:       #f76b4f;
-  --warn-glow:  rgba(247,107,79,.12);
-  --green:      #3dd68c;
-  --green-glow: rgba(61,214,140,.1);
-  --yellow:     #f5c842;
-  --yellow-glow:rgba(245,200,66,.1);
-  --text:       #7a8599;
-  --text-hi:    #d8dfee;
-  --text-lo:    #323a52;
-  --mono:       'JetBrains Mono', monospace;
-  --sans:       'DM Sans', sans-serif;
-  --radius:     4px;
+  --bg:          #050810;
+  --bg2:         #080c14;
+  --glass:       rgba(255,255,255,0.04);
+  --glass2:      rgba(255,255,255,0.07);
+  --glassborder: rgba(255,255,255,0.09);
+  --blue:        #3b82f6;
+  --blue-bright: #60a5fa;
+  --blue-dim:    rgba(59,130,246,0.15);
+  --red:         #ef4444;
+  --red-dim:     rgba(239,68,68,0.15);
+  --green:       #22c55e;
+  --green-dim:   rgba(34,197,94,0.15);
+  --amber:       #f59e0b;
+  --amber-dim:   rgba(245,158,11,0.15);
+  --cyan:        #06b6d4;
+  --text:        #94a3b8;
+  --text-hi:     #f1f5f9;
+  --text-lo:     #334155;
+  --mono:        'IBM Plex Mono', monospace;
+  --display:     'Syne', sans-serif;
+  --body:        'DM Sans', sans-serif;
 }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
+html { height: 100%; }
+
 body {
+  min-height: 100vh;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--sans);
-  font-size: 14px;
-  line-height: 1.5;
+  font-family: var(--body);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(59,130,246,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(6,182,212,0.08) 0%, transparent 60%);
   overflow-x: hidden;
 }
-::-webkit-scrollbar { width: 4px; height: 4px; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: var(--text-lo); border-radius: 2px; }
 
-/* ─── Header ────────────────────────────────────────────────────── */
+/* ── HEADER ─────────────────────────────────────────────────────── */
 .header {
-  position: sticky; top: 0; z-index: 100;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 0 32px;
-  height: 58px;
-  display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 28px;
+  height: 62px;
+  background: rgba(8,12,20,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glassborder);
+  position: sticky; top: 0; z-index: 200;
 }
-.header::after {
-  content: '';
-  position: absolute; bottom: -1px; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent 0%, var(--accent) 40%, var(--accent) 60%, transparent 100%);
-  opacity: .25;
+.header-brand {
+  display: flex; align-items: center; gap: 10px;
 }
-.header-logo {
-  font-family: var(--mono); font-size: 11px; font-weight: 700;
-  background: var(--accent); color: #fff;
-  padding: 5px 9px; letter-spacing: 1px;
+.brand-icon {
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: 12px; font-weight: 600; color: #fff;
+  box-shadow: 0 0 20px rgba(59,130,246,0.4);
 }
-.header-title {
-  font-family: var(--mono); font-size: 13px; font-weight: 600;
-  color: var(--text-hi); letter-spacing: 2px; text-transform: uppercase;
+.brand-name {
+  font-family: var(--display); font-size: 16px; font-weight: 700;
+  color: var(--text-hi);
 }
-.header-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
-.health-label {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--accent); border: 1px solid rgba(79,142,247,.25);
-  padding: 3px 10px; letter-spacing: 1.5px;
-  transition: color .3s, border-color .3s;
+.brand-sub {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+  color: var(--text-lo); text-transform: uppercase; margin-top: 1px;
 }
-.health-label.err { color: var(--warn); border-color: rgba(247,107,79,.25); }
-.health-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--text-lo); transition: background .4s, box-shadow .4s;
-}
-.health-dot.ok  { background: var(--green);  box-shadow: 0 0 8px var(--green); }
-.health-dot.err { background: var(--warn);   box-shadow: 0 0 8px var(--warn); }
 
-/* ─── Page ──────────────────────────────────────────────────────── */
-.page { max-width: 1400px; margin: 0 auto; padding: 28px 32px 60px; }
+.header-filters {
+  display: flex; gap: 10px; margin-left: 28px; flex: 1;
+}
+.filter-input, .filter-select {
+  background: var(--glass);
+  border: 1px solid var(--glassborder);
+  color: var(--text-hi);
+  font-family: var(--body); font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color .2s, background .2s;
+  height: 36px;
+}
+.filter-input { width: 170px; }
+.filter-input::placeholder { color: var(--text-lo); }
+.filter-input:focus, .filter-select:focus { border-color: var(--blue); background: var(--glass2); }
+.filter-select { cursor: pointer; min-width: 130px; }
+.filter-select option { background: #0f172a; }
 
-/* ─── Risk cards ────────────────────────────────────────────────── */
-.risk-row {
+.header-right {
+  margin-left: auto; display: flex; align-items: center; gap: 12px;
+}
+.refresh-badge {
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 10px; color: var(--cyan);
+  background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.2);
+  padding: 5px 12px; border-radius: 20px;
+}
+.refresh-icon {
+  font-size: 13px;
+  animation: rotateSlow 4s linear infinite;
+}
+@keyframes rotateSlow { to { transform: rotate(360deg); } }
+#countdown { font-weight: 600; min-width: 28px; }
+
+/* ── PAGE ───────────────────────────────────────────────────────── */
+.page { padding: 24px 28px 48px; max-width: 1440px; margin: 0 auto; }
+
+/* ── KPI CARDS ──────────────────────────────────────────────────── */
+.kpi-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
-.risk-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px 22px;
-  display: flex; align-items: center; gap: 14px;
+.kpi {
+  background: var(--glass);
+  border: 1px solid var(--glassborder);
+  border-radius: 14px;
+  padding: 20px 22px;
   position: relative; overflow: hidden;
-  transition: transform .15s;
+  transition: transform .2s, box-shadow .2s;
+  animation: fadeUp .5s ease both;
 }
-.risk-card:hover { transform: translateY(-2px); }
-.risk-card::before {
-  content: ''; position: absolute; inset: 0;
-  background: var(--card-glow, transparent); pointer-events: none;
+.kpi:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+.kpi::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--kpi-line, linear-gradient(90deg, var(--blue), var(--cyan)));
 }
-.risk-card.high  { --card-glow: var(--warn-glow);   border-color: rgba(247,107,79,.2); }
-.risk-card.med   { --card-glow: var(--yellow-glow);  border-color: rgba(245,200,66,.2); }
-.risk-card.low   { --card-glow: var(--green-glow);   border-color: rgba(61,214,140,.2); }
-.risk-icon { font-size: 22px; flex-shrink: 0; }
-.risk-label {
+.kpi.red   { --kpi-line: linear-gradient(90deg, var(--red),   #ff6b6b); }
+.kpi.green { --kpi-line: linear-gradient(90deg, var(--green), #86efac); }
+.kpi.amber { --kpi-line: linear-gradient(90deg, var(--amber), #fcd34d); }
+
+.kpi-glow {
+  position: absolute; bottom: -20px; right: -20px;
+  width: 80px; height: 80px; border-radius: 50%;
+  background: var(--kpi-glow, rgba(59,130,246,0.12));
+  filter: blur(20px); pointer-events: none;
+}
+.kpi.red   .kpi-glow { background: rgba(239,68,68,0.15); }
+.kpi.green .kpi-glow { background: rgba(34,197,94,0.12); }
+.kpi.amber .kpi-glow { background: rgba(245,158,11,0.12); }
+
+.kpi-label {
   font-family: var(--mono); font-size: 9px;
   letter-spacing: 2px; text-transform: uppercase;
-  color: var(--text-lo); margin-bottom: 2px;
+  color: var(--text-lo); margin-bottom: 10px;
 }
-.risk-value {
-  font-family: var(--mono); font-size: 26px; font-weight: 700; line-height: 1;
+.kpi-value {
+  font-family: var(--display); font-size: 38px; font-weight: 800;
+  line-height: 1; color: var(--text-hi);
+  transition: all .6s;
 }
-.risk-card.high .risk-value { color: var(--warn); }
-.risk-card.med  .risk-value { color: var(--yellow); }
-.risk-card.low  .risk-value { color: var(--green); }
-.risk-sub { font-size: 11px; color: var(--text-lo); margin-top: 2px; }
+.kpi.red   .kpi-value { color: var(--red); }
+.kpi.green .kpi-value { color: var(--green); }
+.kpi.amber .kpi-value { color: var(--amber); }
+.kpi-sub {
+  font-size: 11px; color: var(--text-lo); margin-top: 6px;
+}
 
-/* ─── Main grid ─────────────────────────────────────────────────── */
-.main-grid {
+/* ── CHARTS ROW ─────────────────────────────────────────────────── */
+.charts-row {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 20px;
-  align-items: start;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 14px;
+  margin-bottom: 20px;
 }
-.chart-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
+.card {
+  background: var(--glass);
+  border: 1px solid var(--glassborder);
+  border-radius: 14px;
+  overflow: hidden;
+  animation: fadeUp .5s ease both;
 }
-.card-title {
+.card-head {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--glassborder);
+  display: flex; align-items: center; gap: 10px;
+}
+.card-head-title {
+  font-family: var(--display); font-size: 13px; font-weight: 700;
+  color: var(--text-hi);
+}
+.card-head-count {
+  margin-left: auto;
   font-family: var(--mono); font-size: 10px;
-  letter-spacing: 2px; text-transform: uppercase;
-  color: var(--text-lo); margin-bottom: 16px;
-  padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  color: var(--text-lo);
+  background: var(--glass2);
+  border: 1px solid var(--glassborder);
+  padding: 2px 8px; border-radius: 20px;
 }
-.chart-canvas-wrap {
-  position: relative; height: 220px;
+.card-body { padding: 16px 20px; }
+.chart-wrap {
+  position: relative;
   display: flex; align-items: center; justify-content: center;
+  height: 220px;
 }
 
-/* ─── Table card ────────────────────────────────────────────────── */
+/* ── TABLE CARD ─────────────────────────────────────────────────── */
 .table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--glass);
+  border: 1px solid var(--glassborder);
+  border-radius: 14px;
   overflow: hidden;
+  animation: fadeUp .6s ease both;
 }
 .table-toolbar {
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--glassborder);
+  display: flex; align-items: center; gap: 10px;
 }
-.toolbar-title {
+.table-title {
+  font-family: var(--display); font-size: 13px; font-weight: 700;
+  color: var(--text-hi);
+}
+.tbl-count {
   font-family: var(--mono); font-size: 10px;
-  letter-spacing: 2px; text-transform: uppercase; color: var(--text-lo);
+  color: var(--blue); background: var(--blue-dim);
+  padding: 2px 8px; border-radius: 20px;
 }
-.tr-count {
-  font-family: var(--mono); font-size: 10px;
-  background: var(--border); color: var(--text-lo);
-  padding: 2px 8px; border-radius: 2px;
-}
-.search-box {
+.tbl-search {
   margin-left: auto;
-  background: var(--bg); border: 1px solid var(--border2);
-  color: var(--text-hi); font-family: var(--mono); font-size: 11px;
-  padding: 6px 12px; outline: none;
-  border-radius: var(--radius); width: 200px;
+  background: var(--glass2); border: 1px solid var(--glassborder);
+  color: var(--text-hi); font-family: var(--body); font-size: 12px;
+  padding: 6px 12px; border-radius: 8px; outline: none; width: 200px;
   transition: border-color .2s;
 }
-.search-box:focus { border-color: var(--accent); }
-.search-box::placeholder { color: var(--text-lo); }
+.tbl-search:focus { border-color: var(--blue); }
+.tbl-search::placeholder { color: var(--text-lo); }
 
-.transport-table { width: 100%; border-collapse: collapse; }
-.transport-table thead th {
-  background: var(--surface2);
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table thead th {
+  background: rgba(255,255,255,0.03);
   font-family: var(--mono); font-size: 9px;
   letter-spacing: 1.5px; text-transform: uppercase;
   color: var(--text-lo); padding: 10px 16px;
   text-align: left; white-space: nowrap;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--glassborder);
+  cursor: pointer; user-select: none;
+  transition: color .15s;
 }
-.transport-table tbody tr {
-  border-bottom: 1px solid var(--border);
+.data-table thead th:hover { color: var(--text); }
+.data-table thead th .sort-arrow { margin-left: 4px; opacity: .4; }
+.data-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,.04);
   cursor: pointer; transition: background .12s;
-  animation: rowIn .2s ease both;
+  animation: fadeUp .2s ease both;
 }
-@keyframes rowIn {
-  from { opacity: 0; transform: translateX(-4px); }
-  to   { opacity: 1; transform: none; }
-}
-.transport-table tbody tr:hover { background: var(--surface2); }
-.transport-table tbody tr.modifiable { background: rgba(247,107,79,.04); }
-.transport-table tbody tr.modifiable:hover { background: rgba(247,107,79,.08); }
-.transport-table tbody td { padding: 11px 16px; font-size: 12.5px; color: var(--text); }
-td.td-trkorr { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-hi); }
-td.td-date   { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
+.data-table tbody tr:hover { background: var(--glass2); }
+.data-table tbody tr.failed-row { background: rgba(239,68,68,.04); }
+.data-table tbody tr.failed-row:hover { background: rgba(239,68,68,.08); }
+.data-table tbody td { padding: 12px 16px; font-size: 12.5px; }
 
-/* ─── Badges ────────────────────────────────────────────────────── */
-.badge {
-  display: inline-block; font-family: var(--mono); font-size: 9px;
-  letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 2px;
-}
-.badge-released   { background: var(--green-glow); color: var(--green); border: 1px solid rgba(61,214,140,.2); }
-.badge-modifiable { background: var(--warn-glow);  color: var(--warn);  border: 1px solid rgba(247,107,79,.2); }
-.badge-unknown    { background: var(--border);      color: var(--text-lo); border: 1px solid var(--border2); }
+td.td-id { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-hi); }
+td.td-owner { font-size: 12px; color: var(--text); }
+td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); }
+td.td-objects { font-family: var(--mono); font-size: 12px; color: var(--text-hi); }
+td.td-date { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
 
-/* ─── State ─────────────────────────────────────────────────────── */
+.status-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 22px; border-radius: 6px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: .5px;
+}
+.pill-e { background: var(--red-dim);   color: var(--red); }
+.pill-s { background: var(--green-dim); color: var(--green); }
+.pill-r { background: var(--blue-dim);  color: var(--blue-bright); }
+.pill-d { background: var(--amber-dim); color: var(--amber); }
+.pill-x { background: var(--glass2);    color: var(--text-lo); }
+
+/* ── STATE ──────────────────────────────────────────────────────── */
 .state-row {
   display: flex; align-items: center; justify-content: center;
-  gap: 10px; padding: 48px;
-  font-family: var(--mono); font-size: 11px;
-  color: var(--text-lo); letter-spacing: 1.5px;
+  gap: 10px; padding: 52px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px;
+  color: var(--text-lo);
 }
 .spinner {
   width: 20px; height: 20px;
-  border: 2px solid var(--border2); border-top-color: var(--accent);
+  border: 2px solid var(--glass2); border-top-color: var(--blue);
   border-radius: 50%; animation: spin .65s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* ─── Modal ─────────────────────────────────────────────────────── */
-.modal-overlay {
-  display: none; position: fixed; inset: 0; z-index: 500;
-  background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
-  align-items: flex-start; justify-content: center;
-  padding: 40px 20px; overflow-y: auto;
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
 }
-.modal-overlay.open { display: flex; }
-.modal-box {
-  background: var(--surface); border: 1px solid var(--border2);
-  border-radius: var(--radius); width: 100%; max-width: 860px;
-  box-shadow: 0 24px 80px rgba(0,0,0,.6);
-  animation: modalIn .2s ease; overflow: hidden;
+
+/* ── MODAL ──────────────────────────────────────────────────────── */
+.overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center; padding: 24px;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: #0d1220;
+  border: 1px solid var(--glassborder);
+  border-radius: 16px;
+  width: 100%; max-width: 720px;
+  max-height: 85vh; overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: 0 32px 100px rgba(0,0,0,.7);
+  animation: modalIn .22s cubic-bezier(.34,1.56,.64,1);
 }
 @keyframes modalIn {
-  from { opacity: 0; transform: translateY(12px) scale(.98); }
+  from { opacity: 0; transform: scale(.93) translateY(20px); }
   to   { opacity: 1; transform: none; }
 }
 .modal-header {
-  display: flex; align-items: center;
-  padding: 16px 22px; border-bottom: 1px solid var(--border);
-  background: var(--surface2); gap: 12px; flex-wrap: wrap;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, rgba(59,130,246,.12), rgba(6,182,212,.06));
+  border-bottom: 1px solid var(--glassborder);
+  display: flex; align-items: flex-start; gap: 14px;
 }
-.modal-trkorr {
-  font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--text-hi);
+.modal-icon {
+  width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  display: grid; place-items: center;
+  font-size: 18px;
+  box-shadow: 0 0 20px rgba(59,130,246,.3);
 }
-.meta-chip {
+.modal-title {
+  font-family: var(--display); font-size: 17px; font-weight: 700;
+  color: var(--text-hi); margin-bottom: 4px;
+}
+.modal-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.mchip {
   font-family: var(--mono); font-size: 10px;
-  color: var(--text-lo); background: var(--border); padding: 2px 8px; border-radius: 2px;
+  padding: 3px 9px; border-radius: 20px;
+  background: var(--glass2); color: var(--text-lo);
+  border: 1px solid var(--glassborder);
 }
+.mchip.blue { background: var(--blue-dim); color: var(--blue-bright); border-color: rgba(59,130,246,.2); }
 .modal-close {
-  margin-left: auto; background: none; border: 1px solid var(--border2);
-  color: var(--text-lo); cursor: pointer; font-size: 16px;
-  width: 30px; height: 30px;
+  margin-left: auto; background: var(--glass2); border: 1px solid var(--glassborder);
+  color: var(--text-lo); cursor: pointer; width: 32px; height: 32px;
+  border-radius: 8px; font-size: 14px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 2px; transition: color .15s, border-color .15s;
+  transition: color .15s, border-color .15s, background .15s;
 }
-.modal-close:hover { color: var(--warn); border-color: var(--warn); }
-.modal-tabs { display: flex; border-bottom: 1px solid var(--border); }
-.modal-tab {
-  flex: 1; padding: 12px; background: none; border: none; cursor: pointer;
+.modal-close:hover { color: var(--red); border-color: rgba(239,68,68,.3); background: var(--red-dim); }
+
+.modal-tabs {
+  display: flex; border-bottom: 1px solid var(--glassborder); flex-shrink: 0;
+}
+.mtab {
+  flex: 1; padding: 13px; background: none; border: none; cursor: pointer;
   font-family: var(--mono); font-size: 10px;
   letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-lo);
   border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
 }
-.modal-tab:hover { color: var(--text); }
-.modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-.modal-body { padding: 20px 22px; min-height: 260px; overflow-x: auto; }
-.modal-empty {
-  display: flex; align-items: center; justify-content: center; padding: 48px;
-  font-family: var(--mono); font-size: 11px; color: var(--text-lo); letter-spacing: 1.5px;
-}
-.modal-err { padding: 20px; font-family: var(--mono); font-size: 11px; color: var(--warn); }
+.mtab:hover { color: var(--text); }
+.mtab.active { color: var(--blue-bright); border-bottom-color: var(--blue); }
 
-/* ─── Inner table ───────────────────────────────────────────────── */
-.inner-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.modal-body { padding: 18px 22px; overflow-y: auto; flex: 1; }
+
+.section-label {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-lo); margin-bottom: 10px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--glassborder);
+}
+
+/* inner table */
+.inner-table { width: 100%; border-collapse: collapse; }
 .inner-table thead th {
-  background: var(--surface2); font-family: var(--mono); font-size: 9px;
-  letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-lo);
-  padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-lo); padding: 6px 10px;
+  text-align: left; border-bottom: 1px solid var(--glassborder);
 }
 .inner-table tbody tr {
-  border-bottom: 1px solid var(--border); animation: rowIn .15s ease both;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  animation: fadeUp .15s ease both;
+  transition: background .1s;
 }
-.inner-table tbody tr:hover { background: var(--surface2); }
-.inner-table tbody td { padding: 8px 12px; color: var(--text); font-size: 11.5px; }
+.inner-table tbody tr:hover { background: var(--glass2); }
+.inner-table tbody td {
+  padding: 8px 10px; font-size: 11.5px; color: var(--text);
+}
 .inner-table tbody td:first-child {
-  font-family: var(--mono); font-size: 11px; color: var(--text-hi); font-weight: 600;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text-hi); font-weight: 600;
 }
+.modal-empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 48px; gap: 10px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-lo);
+  letter-spacing: 1.5px;
+}
+.modal-empty .e-icon { font-size: 32px; opacity: .3; }
+
+/* close btn inside modal footer */
+.modal-footer {
+  padding: 14px 22px;
+  border-top: 1px solid var(--glassborder);
+  display: flex; justify-content: flex-end;
+}
+.btn-close {
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  color: #fff; border: none; cursor: pointer;
+  font-family: var(--display); font-size: 13px; font-weight: 600;
+  padding: 9px 24px; border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(59,130,246,.3);
+  transition: opacity .15s, transform .15s;
+}
+.btn-close:hover { opacity: .9; transform: translateY(-1px); }
 </style>
 </head>
 <body>
 
 <!-- HEADER -->
 <div class="header">
-  <span class="header-logo">TR</span>
-  <span class="header-title">Transport Monitor</span>
+  <div class="header-brand">
+    <div class="brand-icon">TT</div>
+    <div>
+      <div class="brand-name">TransTrack Pro</div>
+      <div class="brand-sub">Transport Risk Assessment</div>
+    </div>
+  </div>
+
+  <div class="header-filters">
+    <input  type="text"   class="filter-input"  id="ownerFilter"  placeholder="Filter by Owner"/>
+    <select class="filter-select" id="statusFilter">
+      <option value="">All Status</option>
+      <option value="E">Failed (E)</option>
+      <option value="S">Success (S)</option>
+      <option value="R">Released (R)</option>
+      <option value="D">Modifiable (D)</option>
+    </select>
+    <select class="filter-select" id="targetFilter">
+      <option value="">All Targets</option>
+      <option value="PROD">PROD</option>
+      <option value="QAS">QAS</option>
+      <option value="DEV">DEV</option>
+    </select>
+  </div>
+
   <div class="header-right">
-    <span class="health-label" id="healthLabel">CONNECTING</span>
-    <div class="health-dot"  id="healthDot"></div>
+    <div class="refresh-badge">
+      <span class="refresh-icon">↻</span>
+      Refreshing in <span id="countdown">45</span>s
+    </div>
   </div>
 </div>
 
 <!-- PAGE -->
 <div class="page">
 
-  <!-- Risk Summary -->
-  <div class="risk-row">
-    <div class="risk-card high">
-      <div class="risk-icon">🔴</div>
-      <div>
-        <div class="risk-label">High Risk</div>
-        <div class="risk-value" id="riskHigh">—</div>
-        <div class="risk-sub">Modifiable (D)</div>
-      </div>
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi" style="animation-delay:.05s">
+      <div class="kpi-glow"></div>
+      <div class="kpi-label">Total Transports</div>
+      <div class="kpi-value" id="kpiTotal">—</div>
+      <div class="kpi-sub">All transport records</div>
     </div>
-    <div class="risk-card med">
-      <div class="risk-icon">🟡</div>
-      <div>
-        <div class="risk-label">Medium Risk</div>
-        <div class="risk-value" id="riskMed">—</div>
-        <div class="risk-sub">Other status</div>
-      </div>
+    <div class="kpi red" style="animation-delay:.1s">
+      <div class="kpi-glow"></div>
+      <div class="kpi-label">Failed Transports</div>
+      <div class="kpi-value" id="kpiFailed">—</div>
+      <div class="kpi-sub">Status E errors</div>
     </div>
-    <div class="risk-card low">
-      <div class="risk-icon">🟢</div>
-      <div>
-        <div class="risk-label">Low Risk</div>
-        <div class="risk-value" id="riskLow">—</div>
-        <div class="risk-sub">Released (R)</div>
-      </div>
+    <div class="kpi green" style="animation-delay:.15s">
+      <div class="kpi-glow"></div>
+      <div class="kpi-label">Successful</div>
+      <div class="kpi-value" id="kpiSuccess">—</div>
+      <div class="kpi-sub">Status S / R</div>
+    </div>
+    <div class="kpi amber" style="animation-delay:.2s">
+      <div class="kpi-glow"></div>
+      <div class="kpi-label">Success Rate</div>
+      <div class="kpi-value" id="kpiRate">—</div>
+      <div class="kpi-sub">Based on current data</div>
     </div>
   </div>
 
-  <!-- Chart + Table -->
-  <div class="main-grid">
+  <!-- Charts Row -->
+  <div class="charts-row">
 
-    <div class="chart-card">
-      <div class="card-title">Status Distribution</div>
-      <div class="chart-canvas-wrap">
-        <div class="spinner" id="chartSpinner"></div>
-        <canvas id="statusChart" style="display:none;"></canvas>
+    <!-- Pie chart -->
+    <div class="card" style="animation-delay:.25s">
+      <div class="card-head">
+        <div class="card-head-title">Transport Status Overview</div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <div class="spinner" id="pieSpinner"></div>
+          <canvas id="pieChart" style="display:none;"></canvas>
+        </div>
       </div>
     </div>
 
-    <div class="table-card">
-      <div class="table-toolbar">
-        <span class="toolbar-title">Transports</span>
-        <span class="tr-count" id="trCount">—</span>
-        <input type="text" class="search-box" id="searchInput" placeholder="Search transport / owner…"/>
+    <!-- Bar chart -->
+    <div class="card" style="animation-delay:.3s">
+      <div class="card-head">
+        <div class="card-head-title">Top Failing Owners</div>
+        <span class="card-head-count" id="ownerChartLabel">by error count</span>
       </div>
-      <div id="tableBody">
-        <div class="state-row"><div class="spinner"></div>&nbsp;LOADING TRANSPORTS</div>
+      <div class="card-body">
+        <div class="chart-wrap" style="height:220px;">
+          <div class="spinner" id="barSpinner"></div>
+          <canvas id="barChart" style="display:none; width:100%;"></canvas>
+        </div>
       </div>
     </div>
 
   </div>
+
+  <!-- Transport Table -->
+  <div class="table-card">
+    <div class="table-toolbar">
+      <span class="table-title">Transport Table</span>
+      <span class="tbl-count" id="tblCount">—</span>
+      <input type="text" class="tbl-search" id="tblSearch" placeholder="Search transport / owner…"/>
+    </div>
+    <div id="tableBody">
+      <div class="state-row"><div class="spinner"></div>&nbsp;LOADING TRANSPORTS</div>
+    </div>
+  </div>
+
 </div>
 
 <!-- MODAL -->
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal-box">
+<div class="overlay" id="overlay">
+  <div class="modal">
     <div class="modal-header">
-      <span class="modal-trkorr" id="modalTrkorr">—</span>
-      <span class="meta-chip" id="modalOwner"  style="display:none;"></span>
-      <span class="meta-chip" id="modalDate"   style="display:none;"></span>
-      <span id="modalStatus"></span>
-      <button class="modal-close" id="modalClose">✕</button>
+      <div class="modal-icon">📦</div>
+      <div>
+        <div class="modal-title" id="mTitle">—</div>
+        <div class="modal-chips" id="mChips"></div>
+      </div>
+      <button class="modal-close" id="mClose">✕</button>
     </div>
     <div class="modal-tabs">
-      <button class="modal-tab active" id="tabObjects" onclick="switchModalTab('objects')">
-        📁 Objects<span id="objCount"></span>
-      </button>
-      <button class="modal-tab" id="tabLogs" onclick="switchModalTab('logs')">
-        📋 Logs<span id="logCount"></span>
-      </button>
+      <button class="mtab active" id="mtabObj" onclick="switchTab('objects')">📁 Objects<span id="mObjCount"></span></button>
+      <button class="mtab"        id="mtabLog" onclick="switchTab('logs')">📋 Logs<span id="mLogCount"></span></button>
     </div>
-    <div class="modal-body" id="modalBody">
+    <div class="modal-body" id="mBody">
       <div class="state-row"><div class="spinner"></div>&nbsp;LOADING</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-close" onclick="closeModal()">Close</button>
     </div>
   </div>
 </div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────
+// ── State ──────────────────────────────────────────────────────────
 let allTransports = [];
-let cachedObjects = null;
-let cachedLogs    = null;
-let modalTab      = 'objects';
+let filtered      = [];
+let mObjects      = null;
+let mLogs         = null;
+let mTab          = 'objects';
+let pieChart, barChart;
 
-// ── Helpers ────────────────────────────────────────────────────────────
-function formatDate(raw) {
+// ── Helpers ────────────────────────────────────────────────────────
+function fmt(raw) {
   if (!raw || raw === '-') return '-';
   const m = String(raw).match(/\/Date\((\d+)\)\//);
-  if (m) return new Date(parseInt(m[1])).toISOString().slice(0, 10);
+  if (m) return new Date(+m[1]).toISOString().slice(0,10);
   if (/^\d{8}$/.test(String(raw))) return `${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`;
   return raw;
 }
 
-function statusBadge(s) {
-  if (s === 'R') return '<span class="badge badge-released">Released</span>';
-  if (s === 'D') return '<span class="badge badge-modifiable">Modifiable</span>';
-  return `<span class="badge badge-unknown">${s || 'Unknown'}</span>`;
+function pill(s) {
+  const map = { E:'pill-e', S:'pill-s', R:'pill-r', D:'pill-d' };
+  const cls = map[s] || 'pill-x';
+  return `<span class="status-pill ${cls}">${s || '?'}</span>`;
 }
 
-// ── Health ─────────────────────────────────────────────────────────────
-async function checkHealth() {
+function animCount(el, to) {
+  const start = 0, dur = 900, startTime = performance.now();
+  const isFloat = String(to).includes('.');
+  function step(now) {
+    const p = Math.min((now - startTime) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = isFloat
+      ? (ease * parseFloat(to)).toFixed(1) + '%'
+      : Math.round(ease * parseInt(to));
+    if (p < 1) requestAnimationFrame(step);
+    else el.textContent = isFloat ? to + '%' : to;
+  }
+  requestAnimationFrame(step);
+}
+
+// ── Health & init ──────────────────────────────────────────────────
+async function init() {
   try {
-    const d = await fetch('/api/health').then(r => r.json());
-    if (d.status === 'OK') {
-      document.getElementById('healthDot').className   = 'health-dot ok';
-      document.getElementById('healthLabel').textContent = d.config?.destinationName || 'CONNECTED';
-    } else throw 0;
-  } catch {
-    document.getElementById('healthDot').className     = 'health-dot err';
-    document.getElementById('healthLabel').className   = 'health-label err';
-    document.getElementById('healthLabel').textContent = 'OFFLINE';
+    await fetch('/api/health').then(r => r.json());
+  } catch {}
+  loadTransports();
+}
+
+// ── Countdown ─────────────────────────────────────────────────────
+let cd = 45;
+setInterval(() => {
+  cd--;
+  document.getElementById('countdown').textContent = cd;
+  if (cd <= 0) { cd = 45; loadTransports(); }
+}, 1000);
+
+// ── Load & Render ──────────────────────────────────────────────────
+async function loadTransports() {
+  try {
+    const data = await fetch('/api/transports').then(r => r.json());
+    allTransports = data?.d?.results || [];
+    applyFilters();
+  } catch (e) {
+    document.getElementById('tableBody').innerHTML =
+      `<div class="state-row" style="color:var(--red)">&#10060; ${e.message}</div>`;
   }
 }
 
-// ── Build transport table ──────────────────────────────────────────────
-function buildTable(list) {
-  if (!list.length)
-    return `<div class="state-row">NO TRANSPORTS FOUND</div>`;
+function applyFilters() {
+  const owner  = document.getElementById('ownerFilter').value.toLowerCase();
+  const status = document.getElementById('statusFilter').value;
+  const target = document.getElementById('targetFilter').value;
+  const search = document.getElementById('tblSearch').value.toLowerCase();
 
-  let html = `<table class="transport-table">
+  filtered = allTransports.filter(t =>
+    (!owner  || (t.OWNER      || '').toLowerCase().includes(owner))  &&
+    (!status || t.STATUS === status)                                  &&
+    (!target || (t.TARSYSTEM  || t.TARGET || '').toUpperCase().includes(target)) &&
+    (!search || (t.TRKORR     || '').toLowerCase().includes(search) ||
+                (t.OWNER      || '').toLowerCase().includes(search))
+  );
+
+  updateKPIs(filtered);
+  updateCharts(filtered);
+  renderTable(filtered);
+}
+
+function updateKPIs(list) {
+  const failed  = list.filter(t => t.STATUS === 'E').length;
+  const success = list.filter(t => t.STATUS === 'S' || t.STATUS === 'R').length;
+  const rate    = list.length ? ((success / list.length) * 100).toFixed(1) : '0.0';
+
+  animCount(document.getElementById('kpiTotal'),   list.length);
+  animCount(document.getElementById('kpiFailed'),  failed);
+  animCount(document.getElementById('kpiSuccess'), success);
+  document.getElementById('kpiRate').textContent = rate + '%';
+  document.getElementById('tblCount').textContent = filtered.length;
+}
+
+function updateCharts(list) {
+  const failed  = list.filter(t => t.STATUS === 'E').length;
+  const success = list.filter(t => t.STATUS === 'S' || t.STATUS === 'R').length;
+  const other   = list.length - failed - success;
+
+  // Pie
+  document.getElementById('pieSpinner').style.display = 'none';
+  const pieCanvas = document.getElementById('pieChart');
+  pieCanvas.style.display = 'block';
+  if (pieChart) pieChart.destroy();
+  pieChart = new Chart(pieCanvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Success', 'Failed', 'Other'],
+      datasets: [{
+        data: [success, failed, other],
+        backgroundColor: ['rgba(34,197,94,.8)', 'rgba(239,68,68,.8)', 'rgba(245,158,11,.8)'],
+        borderColor:     ['#22c55e','#ef4444','#f59e0b'],
+        borderWidth: 2, hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#94a3b8', font: { family: "'IBM Plex Mono'", size: 10 }, padding: 16, boxWidth: 12, borderRadius: 3 }
+        },
+        tooltip: {
+          backgroundColor: '#0d1220', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1,
+          titleFont: { family: "'IBM Plex Mono'", size: 11 },
+          bodyFont:  { family: "'IBM Plex Mono'", size: 11 },
+          titleColor: '#f1f5f9', bodyColor: '#94a3b8',
+        }
+      }
+    }
+  });
+
+  // Bar — top failing owners
+  const ownerMap = {};
+  list.filter(t => t.STATUS === 'E').forEach(t => {
+    ownerMap[t.OWNER || 'UNKNOWN'] = (ownerMap[t.OWNER || 'UNKNOWN'] || 0) + 1;
+  });
+  const sorted = Object.entries(ownerMap).sort((a,b) => b[1]-a[1]).slice(0,6);
+
+  document.getElementById('barSpinner').style.display = 'none';
+  const barCanvas = document.getElementById('barChart');
+  barCanvas.style.display = 'block';
+  if (barChart) barChart.destroy();
+  barChart = new Chart(barCanvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(s => s[0]),
+      datasets: [{
+        label: 'Error Count',
+        data: sorted.map(s => s[1]),
+        backgroundColor: sorted.map((_, i) =>
+          `rgba(239,68,68,${0.9 - i * 0.1})`),
+        borderColor: '#ef4444',
+        borderWidth: 0,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d1220', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1,
+          titleFont: { family: "'IBM Plex Mono'", size: 11 },
+          bodyFont:  { family: "'IBM Plex Mono'", size: 11 },
+          titleColor: '#f1f5f9', bodyColor: '#94a3b8',
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,.04)' },
+          ticks: { color: '#475569', font: { family: "'IBM Plex Mono'", size: 10 } }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,.04)' },
+          ticks: { color: '#475569', font: { family: "'IBM Plex Mono'", size: 10 }, stepSize: 2 },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+
+function renderTable(list) {
+  if (!list.length) {
+    document.getElementById('tableBody').innerHTML =
+      `<div class="state-row">NO TRANSPORTS FOUND</div>`;
+    return;
+  }
+
+  let html = `<table class="data-table">
     <thead><tr>
-      <th>Transport ID</th><th>Owner</th><th>Created On</th><th>Status</th>
+      <th>Transport #</th>
+      <th>Status</th>
+      <th>Owner</th>
+      <th>Target</th>
+      <th>Created On</th>
     </tr></thead><tbody>`;
 
   list.forEach((t, i) => {
-    html += `
-      <tr class="${t.STATUS === 'D' ? 'modifiable' : ''}"
-          style="animation-delay:${i * 0.018}s"
-          data-trkorr="${t.TRKORR}" data-owner="${t.OWNER || ''}"
-          data-date="${t.CREATED_ON || ''}" data-status="${t.STATUS || ''}">
-        <td class="td-trkorr">${t.TRKORR || '-'}</td>
-        <td>${t.OWNER || '-'}</td>
-        <td class="td-date">${formatDate(t.CREATED_ON)}</td>
-        <td>${statusBadge(t.STATUS)}</td>
-      </tr>`;
+    const cls = t.STATUS === 'E' ? 'failed-row' : '';
+    html += `<tr class="${cls}" style="animation-delay:${i*0.015}s"
+        data-trkorr="${t.TRKORR}" data-owner="${t.OWNER||''}"
+        data-date="${t.CREATED_ON||''}" data-status="${t.STATUS||''}">
+      <td class="td-id">${t.TRKORR||'-'}</td>
+      <td>${pill(t.STATUS)}</td>
+      <td class="td-owner">${t.OWNER||'-'}</td>
+      <td class="td-target">${t.TARSYSTEM||t.TARGET||'PROD'}</td>
+      <td class="td-date">${fmt(t.CREATED_ON)}</td>
+    </tr>`;
   });
-  return html + '</tbody></table>';
-}
 
-function attachClicks() {
-  document.querySelectorAll('.transport-table tbody tr[data-trkorr]').forEach(tr => {
+  html += '</tbody></table>';
+  document.getElementById('tableBody').innerHTML = html;
+
+  document.querySelectorAll('.data-table tbody tr[data-trkorr]').forEach(tr => {
     tr.onclick = () => openModal({
       TRKORR:     tr.dataset.trkorr,
       OWNER:      tr.dataset.owner,
@@ -465,179 +791,93 @@ function attachClicks() {
   });
 }
 
-// ── Load transports ────────────────────────────────────────────────────
-fetch('/api/transports')
-  .then(r => r.json())
-  .then(data => {
-    allTransports = data?.d?.results || [];
-    let high = 0, med = 0, low = 0;
-    allTransports.forEach(t => {
-      if      (t.STATUS === 'D') high++;
-      else if (t.STATUS === 'R') low++;
-      else                       med++;
-    });
-
-    document.getElementById('riskHigh').textContent = high;
-    document.getElementById('riskMed').textContent  = med;
-    document.getElementById('riskLow').textContent  = low;
-    document.getElementById('trCount').textContent  = allTransports.length;
-
-    // Chart
-    document.getElementById('chartSpinner').style.display = 'none';
-    const canvas = document.getElementById('statusChart');
-    canvas.style.display = 'block';
-    new Chart(canvas.getContext('2d'), {
-      type: 'doughnut',
-      data: {
-        labels: ['Released (R)', 'Modifiable (D)', 'Other'],
-        datasets: [{
-          data: [low, high, med],
-          backgroundColor: ['#3dd68c', '#f76b4f', '#f5c842'],
-          borderWidth: 0, hoverOffset: 6,
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, cutout: '68%',
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: { color: '#7a8599', font: { family: "'JetBrains Mono'", size: 10 }, padding: 14, boxWidth: 10 }
-          },
-          tooltip: {
-            backgroundColor: '#0c0f18', borderColor: '#1a1f30', borderWidth: 1,
-            titleFont: { family: "'JetBrains Mono'", size: 11 },
-            bodyFont:  { family: "'JetBrains Mono'", size: 11 },
-            titleColor: '#d8dfee', bodyColor: '#7a8599',
-          }
-        }
-      }
-    });
-
-    document.getElementById('tableBody').innerHTML = buildTable(allTransports);
-    attachClicks();
-  })
-  .catch(err => {
-    document.getElementById('tableBody').innerHTML =
-      `<div class="state-row" style="color:var(--warn);">&#10060; ${err.message}</div>`;
-  });
-
-// ── Search ─────────────────────────────────────────────────────────────
-document.getElementById('searchInput').addEventListener('input', function () {
-  const q = this.value.toLowerCase();
-  const filtered = allTransports.filter(t =>
-    (t.TRKORR || '').toLowerCase().includes(q) ||
-    (t.OWNER  || '').toLowerCase().includes(q)
-  );
-  document.getElementById('trCount').textContent  = filtered.length;
-  document.getElementById('tableBody').innerHTML  = buildTable(filtered);
-  attachClicks();
+// ── Filters ────────────────────────────────────────────────────────
+['ownerFilter','statusFilter','targetFilter','tblSearch'].forEach(id => {
+  document.getElementById(id).addEventListener('input', applyFilters);
 });
 
-// ── Modal ──────────────────────────────────────────────────────────────
-const overlay = document.getElementById('modalOverlay');
-document.getElementById('modalClose').onclick = closeModal;
+// ── Modal ──────────────────────────────────────────────────────────
+const overlay = document.getElementById('overlay');
+document.getElementById('mClose').onclick = closeModal;
 overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 
 function closeModal() {
   overlay.classList.remove('open');
-  cachedObjects = cachedLogs = null;
-  modalTab = 'objects';
+  mObjects = mLogs = null; mTab = 'objects';
 }
 
 async function openModal(t) {
-  modalTab = 'objects';
-  cachedObjects = cachedLogs = null;
+  mTab = 'objects'; mObjects = mLogs = null;
+  document.getElementById('mTitle').textContent   = `Transport ${t.TRKORR} Details`;
+  document.getElementById('mObjCount').textContent = '';
+  document.getElementById('mLogCount').textContent = '';
+  document.getElementById('mtabObj').className = 'mtab active';
+  document.getElementById('mtabLog').className = 'mtab';
 
-  // Populate header
-  document.getElementById('modalTrkorr').textContent = t.TRKORR;
-  document.getElementById('objCount').textContent    = '';
-  document.getElementById('logCount').textContent    = '';
-  document.getElementById('tabObjects').className    = 'modal-tab active';
-  document.getElementById('tabLogs').className       = 'modal-tab';
+  document.getElementById('mChips').innerHTML = [
+    t.OWNER      ? `<span class="mchip blue">OWNER: ${t.OWNER}</span>` : '',
+    t.CREATED_ON ? `<span class="mchip">DATE: ${fmt(t.CREATED_ON)}</span>` : '',
+    t.STATUS     ? `<span class="mchip">${pill(t.STATUS)}</span>` : '',
+  ].join('');
 
-  const ownerEl  = document.getElementById('modalOwner');
-  const dateEl   = document.getElementById('modalDate');
-  const statusEl = document.getElementById('modalStatus');
-
-  ownerEl.style.display  = t.OWNER      ? '' : 'none';
-  dateEl.style.display   = t.CREATED_ON ? '' : 'none';
-  ownerEl.textContent    = `OWNER: ${t.OWNER}`;
-  dateEl.textContent     = `DATE: ${formatDate(t.CREATED_ON)}`;
-  statusEl.innerHTML     = t.STATUS ? statusBadge(t.STATUS) : '';
-
-  document.getElementById('modalBody').innerHTML =
-    `<div class="state-row"><div class="spinner"></div>&nbsp;LOADING OBJECTS &amp; LOGS</div>`;
+  document.getElementById('mBody').innerHTML =
+    `<div class="state-row"><div class="spinner"></div>&nbsp;LOADING</div>`;
 
   overlay.classList.add('open');
 
-  // Fetch objects + logs in parallel (mirrors bundle.js Promise.all pattern)
   try {
-    const [objRes, logRes] = await Promise.all([
-      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/objects`).then(r => r.json()),
-      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/logs`).then(r => r.json()),
+    const [oRes, lRes] = await Promise.all([
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/objects`).then(r=>r.json()),
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/logs`).then(r=>r.json()),
     ]);
-
-    cachedObjects = objRes?.d?.results || [];
-    cachedLogs    = logRes?.d?.results || [];
-
-    document.getElementById('objCount').textContent = ` (${cachedObjects.length})`;
-    document.getElementById('logCount').textContent = ` (${cachedLogs.length})`;
-
+    mObjects = oRes?.d?.results || [];
+    mLogs    = lRes?.d?.results || [];
+    document.getElementById('mObjCount').textContent = ` (${mObjects.length})`;
+    document.getElementById('mLogCount').textContent = ` (${mLogs.length})`;
     renderModalTab('objects');
-  } catch (err) {
-    document.getElementById('modalBody').innerHTML =
-      `<div class="modal-err">&#10060; Failed to load: ${err.message}</div>`;
+  } catch(e) {
+    document.getElementById('mBody').innerHTML =
+      `<div class="modal-empty"><div class="e-icon">⚠️</div>Failed: ${e.message}</div>`;
   }
 }
 
-function switchModalTab(tab) {
-  modalTab = tab;
-  document.getElementById('tabObjects').className = 'modal-tab' + (tab === 'objects' ? ' active' : '');
-  document.getElementById('tabLogs').className    = 'modal-tab' + (tab === 'logs'    ? ' active' : '');
+function switchTab(tab) {
+  mTab = tab;
+  document.getElementById('mtabObj').className = 'mtab' + (tab==='objects'?' active':'');
+  document.getElementById('mtabLog').className = 'mtab' + (tab==='logs'   ?' active':'');
   renderModalTab(tab);
 }
 
 function renderModalTab(tab) {
-  const body = document.getElementById('modalBody');
-  const rows = tab === 'objects' ? cachedObjects : cachedLogs;
-
-  if (!rows) {
-    body.innerHTML = `<div class="state-row"><div class="spinner"></div>&nbsp;LOADING</div>`;
-    return;
-  }
-  if (!rows.length) {
-    body.innerHTML = `<div class="modal-empty">NO ${tab.toUpperCase()} FOUND</div>`;
-    return;
-  }
+  const body = document.getElementById('mBody');
+  const rows = tab === 'objects' ? mObjects : mLogs;
+  if (!rows) { body.innerHTML=`<div class="state-row"><div class="spinner"></div>&nbsp;LOADING</div>`; return; }
+  if (!rows.length) { body.innerHTML=`<div class="modal-empty"><div class="e-icon">📭</div>NO ${tab.toUpperCase()} FOUND</div>`; return; }
 
   const cols = tab === 'objects'
-    ? ['OBJECT_NAME', 'OBJECT_TYPE', 'TRANSPORT', 'STATUS']
-    : ['LOG_ID', 'OBJECT_NAME', 'ACTION', 'USER', 'DATE'];
+    ? ['OBJECT_NAME','OBJECT_TYPE','TRANSPORT','STATUS']
+    : ['LOG_ID','OBJECT_NAME','ACTION','USER','DATE'];
 
-  let html = `<table class="inner-table"><thead><tr>`;
-  cols.forEach(c => { html += `<th>${c.replace(/_/g, ' ')}</th>`; });
+  let html = `<div class="section-label">${tab === 'objects' ? 'Objects' : 'Activity Logs'}</div>
+    <table class="inner-table"><thead><tr>`;
+  cols.forEach(c => { html += `<th>${c.replace(/_/g,' ')}</th>`; });
   html += `</tr></thead><tbody>`;
-
-  rows.forEach((row, i) => {
-    html += `<tr style="animation-delay:${i * 0.015}s">`;
+  rows.forEach((r, i) => {
+    html += `<tr style="animation-delay:${i*.012}s">`;
     cols.forEach(c => {
-      let val = row[c] ?? '-';
-      if (c === 'DATE') val = formatDate(val);
-      if (c === 'STATUS') {
-        const color = val === 'E' ? 'var(--warn)' : val === 'R' ? 'var(--green)' : 'var(--text-lo)';
-        val = `<span style="font-family:var(--mono);font-size:10px;color:${color}">${val}</span>`;
-      }
-      html += `<td>${val}</td>`;
+      let v = r[c] ?? '-';
+      if (c === 'DATE') v = fmt(v);
+      if (c === 'STATUS') v = pill(v);
+      html += `<td>${v}</td>`;
     });
     html += `</tr>`;
   });
-
   html += `</tbody></table>`;
   body.innerHTML = html;
 }
 
-// ── Init ───────────────────────────────────────────────────────────────
-checkHealth();
+// ── Boot ───────────────────────────────────────────────────────────
+init();
 </script>
 </body>
 </html>
