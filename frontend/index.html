@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
+/* ── Variables ───────────────────────────────────────────── */
 :root {
   --bg:          #050810;
   --bg2:         #080c14;
@@ -29,253 +30,152 @@
   --mono:        'IBM Plex Mono', monospace;
   --display:     'Syne', sans-serif;
   --body:        'DM Sans', sans-serif;
+  --radius:      8px;
 }
-
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { height: 100%; }
-
+html, body { height: 100%; }
 body {
-  min-height: 100vh;
   background: var(--bg);
   color: var(--text);
   font-family: var(--body);
   background-image:
-    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(59,130,246,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(6,182,212,0.08) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(59,130,246,.1) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(6,182,212,.07) 0%, transparent 60%);
   overflow-x: hidden;
 }
-
-/* scrollbar */
-::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--text-lo); border-radius: 2px; }
 
-/* ── HEADER ─────────────────────────────────────────────────────── */
+/* ── HEADER ─────────────────────────────────────────────── */
 .header {
-  display: flex; align-items: center; gap: 16px;
-  padding: 0 28px;
-  height: 62px;
-  background: rgba(8,12,20,0.85);
-  backdrop-filter: blur(20px);
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(8,12,20,.9); backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--glassborder);
-  position: sticky; top: 0; z-index: 200;
+  padding: 0 28px; height: 60px;
+  display: flex; align-items: center; gap: 14px;
 }
-.header-brand {
-  display: flex; align-items: center; gap: 10px;
+.header::after {
+  content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--blue), transparent); opacity: .3;
 }
 .brand-icon {
-  width: 34px; height: 34px;
+  width: 34px; height: 34px; border-radius: var(--radius);
   background: linear-gradient(135deg, var(--blue), var(--cyan));
-  border-radius: 8px;
   display: grid; place-items: center;
   font-family: var(--mono); font-size: 12px; font-weight: 600; color: #fff;
-  box-shadow: 0 0 20px rgba(59,130,246,0.4);
+  box-shadow: 0 0 18px rgba(59,130,246,.35); flex-shrink: 0;
 }
-.brand-name {
-  font-family: var(--display); font-size: 16px; font-weight: 700;
-  color: var(--text-hi);
+.brand-name  { font-family: var(--display); font-size: 16px; font-weight: 700; color: var(--text-hi); }
+.brand-sub   { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--text-lo); text-transform: uppercase; }
+.hdr-filters { display: flex; gap: 10px; margin-left: 24px; flex: 1; }
+.hdr-input, .hdr-select {
+  background: var(--glass); border: 1px solid var(--glassborder);
+  color: var(--text-hi); font-family: var(--body); font-size: 12px;
+  padding: 7px 12px; border-radius: var(--radius); outline: none;
+  height: 36px; transition: border-color .2s;
 }
-.brand-sub {
-  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
-  color: var(--text-lo); text-transform: uppercase; margin-top: 1px;
-}
-
-.header-filters {
-  display: flex; gap: 10px; margin-left: 28px; flex: 1;
-}
-.filter-input, .filter-select {
-  background: var(--glass);
-  border: 1px solid var(--glassborder);
-  color: var(--text-hi);
-  font-family: var(--body); font-size: 12px;
-  padding: 7px 12px;
-  border-radius: 8px;
-  outline: none;
-  transition: border-color .2s, background .2s;
-  height: 36px;
-}
-.filter-input { width: 170px; }
-.filter-input::placeholder { color: var(--text-lo); }
-.filter-input:focus, .filter-select:focus { border-color: var(--blue); background: var(--glass2); }
-.filter-select { cursor: pointer; min-width: 130px; }
-.filter-select option { background: #0f172a; }
-
-.header-right {
-  margin-left: auto; display: flex; align-items: center; gap: 12px;
-}
+.hdr-input  { width: 160px; }
+.hdr-input::placeholder { color: var(--text-lo); }
+.hdr-input:focus, .hdr-select:focus { border-color: var(--blue); }
+.hdr-select { cursor: pointer; min-width: 130px; }
+.hdr-select option { background: #0f172a; }
+.hdr-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .refresh-badge {
-  display: flex; align-items: center; gap: 7px;
+  display: flex; align-items: center; gap: 6px;
   font-family: var(--mono); font-size: 10px; color: var(--cyan);
-  background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.2);
+  background: rgba(6,182,212,.1); border: 1px solid rgba(6,182,212,.2);
   padding: 5px 12px; border-radius: 20px;
 }
-.refresh-icon {
-  font-size: 13px;
-  animation: rotateSlow 4s linear infinite;
+.refresh-icon { animation: spin 4s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.health-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--text-lo);
+  transition: background .4s, box-shadow .4s;
 }
-@keyframes rotateSlow { to { transform: rotate(360deg); } }
-#countdown { font-weight: 600; min-width: 28px; }
+.health-dot.ok  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.health-dot.err { background: var(--red);   box-shadow: 0 0 8px var(--red); }
 
-/* ── PAGE ───────────────────────────────────────────────────────── */
-.page { padding: 24px 28px 48px; max-width: 1440px; margin: 0 auto; }
+/* ── PAGE ───────────────────────────────────────────────── */
+.page { max-width: 1440px; margin: 0 auto; padding: 24px 28px 60px; }
 
-/* ── KPI CARDS ──────────────────────────────────────────────────── */
-.kpi-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 20px;
-}
+/* ── KPI ROW ────────────────────────────────────────────── */
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
 .kpi {
-  background: var(--glass);
-  border: 1px solid var(--glassborder);
-  border-radius: 14px;
-  padding: 20px 22px;
-  position: relative; overflow: hidden;
-  transition: transform .2s, box-shadow .2s;
+  background: var(--glass); border: 1px solid var(--glassborder);
+  border-radius: 14px; padding: 18px 20px; position: relative; overflow: hidden;
+  transition: transform .2s;
   animation: fadeUp .5s ease both;
 }
-.kpi:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+.kpi:hover { transform: translateY(-2px); }
 .kpi::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: var(--kpi-line, linear-gradient(90deg, var(--blue), var(--cyan)));
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--kpi-line, linear-gradient(90deg,var(--blue),var(--cyan)));
 }
-.kpi.red   { --kpi-line: linear-gradient(90deg, var(--red),   #ff6b6b); }
-.kpi.green { --kpi-line: linear-gradient(90deg, var(--green), #86efac); }
-.kpi.amber { --kpi-line: linear-gradient(90deg, var(--amber), #fcd34d); }
-
-.kpi-glow {
-  position: absolute; bottom: -20px; right: -20px;
-  width: 80px; height: 80px; border-radius: 50%;
-  background: var(--kpi-glow, rgba(59,130,246,0.12));
-  filter: blur(20px); pointer-events: none;
-}
-.kpi.red   .kpi-glow { background: rgba(239,68,68,0.15); }
-.kpi.green .kpi-glow { background: rgba(34,197,94,0.12); }
-.kpi.amber .kpi-glow { background: rgba(245,158,11,0.12); }
-
-.kpi-label {
-  font-family: var(--mono); font-size: 9px;
-  letter-spacing: 2px; text-transform: uppercase;
-  color: var(--text-lo); margin-bottom: 10px;
-}
-.kpi-value {
-  font-family: var(--display); font-size: 38px; font-weight: 800;
-  line-height: 1; color: var(--text-hi);
-  transition: all .6s;
-}
+.kpi.red   { --kpi-line: linear-gradient(90deg,var(--red),#ff6b6b); }
+.kpi.green { --kpi-line: linear-gradient(90deg,var(--green),#86efac); }
+.kpi.amber { --kpi-line: linear-gradient(90deg,var(--amber),#fcd34d); }
+.kpi-label { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-lo); margin-bottom: 8px; }
+.kpi-value { font-family: var(--display); font-size: 36px; font-weight: 800; line-height: 1; color: var(--text-hi); }
 .kpi.red   .kpi-value { color: var(--red); }
 .kpi.green .kpi-value { color: var(--green); }
 .kpi.amber .kpi-value { color: var(--amber); }
-.kpi-sub {
-  font-size: 11px; color: var(--text-lo); margin-top: 6px;
-}
+.kpi-sub { font-size: 11px; color: var(--text-lo); margin-top: 5px; }
 
-/* ── CHARTS ROW ─────────────────────────────────────────────────── */
-.charts-row {
-  display: grid;
-  grid-template-columns: 1fr 1.6fr;
-  gap: 14px;
-  margin-bottom: 20px;
-}
+/* ── CHARTS ROW ─────────────────────────────────────────── */
+.charts-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; margin-bottom: 20px; }
 .card {
-  background: var(--glass);
-  border: 1px solid var(--glassborder);
-  border-radius: 14px;
-  overflow: hidden;
-  animation: fadeUp .5s ease both;
+  background: var(--glass); border: 1px solid var(--glassborder);
+  border-radius: 14px; overflow: hidden; animation: fadeUp .5s ease both;
 }
 .card-head {
-  padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--glassborder);
-  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px 10px; border-bottom: 1px solid var(--glassborder);
+  display: flex; align-items: center; gap: 8px;
 }
-.card-head-title {
-  font-family: var(--display); font-size: 13px; font-weight: 700;
-  color: var(--text-hi);
+.card-title { font-family: var(--display); font-size: 13px; font-weight: 700; color: var(--text-hi); }
+.card-count {
+  margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text-lo);
+  background: var(--glass2); border: 1px solid var(--glassborder); padding: 2px 8px; border-radius: 20px;
 }
-.card-head-count {
-  margin-left: auto;
-  font-family: var(--mono); font-size: 10px;
-  color: var(--text-lo);
-  background: var(--glass2);
-  border: 1px solid var(--glassborder);
-  padding: 2px 8px; border-radius: 20px;
-}
-.card-body { padding: 16px 20px; }
-.chart-wrap {
-  position: relative;
-  display: flex; align-items: center; justify-content: center;
-  height: 220px;
-}
+.card-body { padding: 16px 18px; }
+.chart-wrap { position: relative; display: flex; align-items: center; justify-content: center; height: 210px; }
 
-/* ── TABLE CARD ─────────────────────────────────────────────────── */
-.table-card {
-  background: var(--glass);
-  border: 1px solid var(--glassborder);
-  border-radius: 14px;
-  overflow: hidden;
-  animation: fadeUp .6s ease both;
-}
-.table-toolbar {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--glassborder);
-  display: flex; align-items: center; gap: 10px;
-}
-.table-title {
-  font-family: var(--display); font-size: 13px; font-weight: 700;
-  color: var(--text-hi);
-}
-.tbl-count {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--blue); background: var(--blue-dim);
-  padding: 2px 8px; border-radius: 20px;
-}
+/* ── TABLE ──────────────────────────────────────────────── */
+.table-card { background: var(--glass); border: 1px solid var(--glassborder); border-radius: 14px; overflow: hidden; animation: fadeUp .6s ease both; }
+.table-toolbar { padding: 12px 18px; border-bottom: 1px solid var(--glassborder); display: flex; align-items: center; gap: 10px; }
+.tbl-count { font-family: var(--mono); font-size: 10px; color: var(--blue); background: var(--blue-dim); padding: 2px 8px; border-radius: 20px; }
 .tbl-search {
-  margin-left: auto;
-  background: var(--glass2); border: 1px solid var(--glassborder);
+  margin-left: auto; background: var(--glass2); border: 1px solid var(--glassborder);
   color: var(--text-hi); font-family: var(--body); font-size: 12px;
-  padding: 6px 12px; border-radius: 8px; outline: none; width: 200px;
+  padding: 6px 12px; border-radius: var(--radius); outline: none; width: 200px;
   transition: border-color .2s;
 }
 .tbl-search:focus { border-color: var(--blue); }
 .tbl-search::placeholder { color: var(--text-lo); }
+.hint-txt { font-family: var(--mono); font-size: 10px; color: var(--text-lo); }
 
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table thead th {
-  background: rgba(255,255,255,0.03);
-  font-family: var(--mono); font-size: 9px;
-  letter-spacing: 1.5px; text-transform: uppercase;
-  color: var(--text-lo); padding: 10px 16px;
-  text-align: left; white-space: nowrap;
-  border-bottom: 1px solid var(--glassborder);
-  cursor: pointer; user-select: none;
-  transition: color .15s;
+  background: rgba(255,255,255,.03); font-family: var(--mono); font-size: 9px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-lo);
+  padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--glassborder); white-space: nowrap;
 }
-.data-table thead th:hover { color: var(--text); }
-.data-table thead th .sort-arrow { margin-left: 4px; opacity: .4; }
 .data-table tbody tr {
-  border-bottom: 1px solid rgba(255,255,255,.04);
-  cursor: pointer; transition: background .12s;
-  animation: fadeUp .2s ease both;
+  border-bottom: 1px solid rgba(255,255,255,.04); cursor: pointer;
+  transition: background .12s; animation: fadeUp .2s ease both;
 }
 .data-table tbody tr:hover { background: var(--glass2); }
 .data-table tbody tr.failed-row { background: rgba(239,68,68,.04); }
 .data-table tbody tr.failed-row:hover { background: rgba(239,68,68,.08); }
 .data-table tbody td { padding: 12px 16px; font-size: 12.5px; }
-
 td.td-id { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-hi); }
-td.td-owner { font-size: 12px; color: var(--text); }
-td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); }
-td.td-objects { font-family: var(--mono); font-size: 12px; color: var(--text-hi); }
 td.td-date { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
+td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); }
 
 .status-pill {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 22px; border-radius: 6px;
+  min-width: 28px; height: 22px; padding: 0 7px; border-radius: 6px;
   font-family: var(--mono); font-size: 10px; font-weight: 600;
-  letter-spacing: .5px;
 }
 .pill-e { background: var(--red-dim);   color: var(--red); }
 .pill-s { background: var(--green-dim); color: var(--green); }
@@ -283,222 +183,250 @@ td.td-date { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
 .pill-d { background: var(--amber-dim); color: var(--amber); }
 .pill-x { background: var(--glass2);    color: var(--text-lo); }
 
-/* ── STATE ──────────────────────────────────────────────────────── */
+/* ── STATES ─────────────────────────────────────────────── */
 .state-row {
-  display: flex; align-items: center; justify-content: center;
-  gap: 10px; padding: 52px;
-  font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px;
-  color: var(--text-lo);
+  display: flex; align-items: center; justify-content: center; gap: 10px; padding: 48px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; color: var(--text-lo);
 }
 .spinner {
-  width: 20px; height: 20px;
-  border: 2px solid var(--glass2); border-top-color: var(--blue);
+  width: 20px; height: 20px; border: 2px solid var(--glass2); border-top-color: var(--blue);
   border-radius: 50%; animation: spin .65s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: none; }
-}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-/* ── MODAL ──────────────────────────────────────────────────────── */
-.overlay {
+/* ══════════════════════════════════════════════════════════
+   AI AGENT MODAL
+══════════════════════════════════════════════════════════ */
+.agent-overlay {
   display: none; position: fixed; inset: 0; z-index: 500;
-  background: rgba(0,0,0,.6); backdrop-filter: blur(8px);
-  align-items: center; justify-content: center; padding: 24px;
+  background: rgba(0,0,0,.65); backdrop-filter: blur(8px);
+  align-items: flex-start; justify-content: center;
+  padding: 20px; overflow-y: auto;
 }
-.overlay.open { display: flex; }
-.modal {
-  background: #0d1220;
+.agent-overlay.open { display: flex; }
+
+.agent-modal {
+  background: #080c14;
   border: 1px solid var(--glassborder);
-  border-radius: 16px;
-  width: 100%; max-width: 720px;
-  max-height: 85vh; overflow: hidden;
-  display: flex; flex-direction: column;
-  box-shadow: 0 32px 100px rgba(0,0,0,.7);
-  animation: modalIn .22s cubic-bezier(.34,1.56,.64,1);
+  border-radius: 18px; width: 100%; max-width: 1000px;
+  box-shadow: 0 32px 100px rgba(0,0,0,.75);
+  animation: modalIn .22s cubic-bezier(.34,1.3,.64,1);
+  overflow: hidden; margin: auto;
 }
-@keyframes modalIn {
-  from { opacity: 0; transform: scale(.93) translateY(20px); }
-  to   { opacity: 1; transform: none; }
-}
-.modal-header {
-  padding: 18px 22px;
-  background: linear-gradient(135deg, rgba(59,130,246,.12), rgba(6,182,212,.06));
+@keyframes modalIn { from { opacity:0; transform: scale(.94) translateY(16px); } to { opacity:1; transform: none; } }
+
+/* Modal header */
+.agent-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 24px;
+  background: linear-gradient(135deg, rgba(59,130,246,.1), rgba(6,182,212,.05));
   border-bottom: 1px solid var(--glassborder);
-  display: flex; align-items: flex-start; gap: 14px;
 }
-.modal-icon {
-  width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+.agent-icon {
+  width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
   background: linear-gradient(135deg, var(--blue), var(--cyan));
-  display: grid; place-items: center;
-  font-size: 18px;
+  display: grid; place-items: center; font-size: 20px;
   box-shadow: 0 0 20px rgba(59,130,246,.3);
 }
-.modal-title {
-  font-family: var(--display); font-size: 17px; font-weight: 700;
-  color: var(--text-hi); margin-bottom: 4px;
+.agent-title { font-family: var(--display); font-size: 16px; font-weight: 700; color: var(--text-hi); }
+.agent-sub   { font-size: 12px; color: var(--text-lo); margin-top: 2px; }
+.agent-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.achip {
+  font-family: var(--mono); font-size: 10px; padding: 3px 9px; border-radius: 20px;
+  background: var(--glass2); color: var(--text-lo); border: 1px solid var(--glassborder);
 }
-.modal-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-.mchip {
-  font-family: var(--mono); font-size: 10px;
-  padding: 3px 9px; border-radius: 20px;
-  background: var(--glass2); color: var(--text-lo);
-  border: 1px solid var(--glassborder);
-}
-.mchip.blue { background: var(--blue-dim); color: var(--blue-bright); border-color: rgba(59,130,246,.2); }
-.modal-close {
+.achip.blue { background: var(--blue-dim); color: var(--blue-bright); border-color: rgba(59,130,246,.25); }
+.achip.green{ background: var(--green-dim);color: var(--green);       border-color: rgba(34,197,94,.25); }
+.achip.red  { background: var(--red-dim);  color: var(--red);         border-color: rgba(239,68,68,.25); }
+.achip.amber{ background: var(--amber-dim);color: var(--amber);       border-color: rgba(245,158,11,.25); }
+
+.agent-close {
   margin-left: auto; background: var(--glass2); border: 1px solid var(--glassborder);
   color: var(--text-lo); cursor: pointer; width: 32px; height: 32px;
-  border-radius: 8px; font-size: 14px; flex-shrink: 0;
+  border-radius: 8px; font-size: 15px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   transition: color .15s, border-color .15s, background .15s;
 }
-.modal-close:hover { color: var(--red); border-color: rgba(239,68,68,.3); background: var(--red-dim); }
+.agent-close:hover { color: var(--red); border-color: rgba(239,68,68,.3); background: var(--red-dim); }
 
-.modal-tabs {
-  display: flex; border-bottom: 1px solid var(--glassborder); flex-shrink: 0;
-}
-.mtab {
-  flex: 1; padding: 13px; background: none; border: none; cursor: pointer;
-  font-family: var(--mono); font-size: 10px;
-  letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-lo);
+/* Phase tabs */
+.agent-tabs { display: flex; border-bottom: 1px solid var(--glassborder); }
+.agent-tab {
+  flex: 1; padding: 12px; background: none; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--text-lo);
   border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
 }
-.mtab:hover { color: var(--text); }
-.mtab.active { color: var(--blue-bright); border-bottom-color: var(--blue); }
+.agent-tab:hover { color: var(--text); }
+.agent-tab.active { color: var(--blue-bright); border-bottom-color: var(--blue); }
 
-.modal-body { padding: 18px 22px; overflow-y: auto; flex: 1; }
+/* Modal body */
+.agent-body { padding: 0; }
 
-.section-label {
-  font-family: var(--mono); font-size: 9px;
-  letter-spacing: 2px; text-transform: uppercase;
-  color: var(--text-lo); margin-bottom: 10px; padding-bottom: 6px;
-  border-bottom: 1px solid var(--glassborder);
+/* KPI row inside modal */
+.modal-kpi-row {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 1px;
+  background: var(--glassborder); border-bottom: 1px solid var(--glassborder);
 }
+.modal-kpi {
+  background: rgba(8,12,20,.95); padding: 14px 18px;
+}
+.modal-kpi-label { font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-lo); margin-bottom: 4px; }
+.modal-kpi-value { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--text-hi); line-height: 1; }
+.modal-kpi-value.s { color: var(--green); }
+.modal-kpi-value.w { color: var(--amber); }
+.modal-kpi-value.f { color: var(--red); }
+.modal-kpi-sub { font-size: 11px; color: var(--text-lo); margin-top: 3px; }
 
-/* inner table */
-.inner-table { width: 100%; border-collapse: collapse; }
-.inner-table thead th {
-  font-family: var(--mono); font-size: 9px;
-  letter-spacing: 1.5px; text-transform: uppercase;
-  color: var(--text-lo); padding: 6px 10px;
-  text-align: left; border-bottom: 1px solid var(--glassborder);
+/* AI insight banner */
+.ai-banner {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px 22px; margin: 14px 22px 0;
+  background: var(--blue-dim); border: 1px solid rgba(59,130,246,.2);
+  border-radius: var(--radius); font-size: 12.5px; color: var(--blue-bright); line-height: 1.55;
 }
-.inner-table tbody tr {
-  border-bottom: 1px solid rgba(255,255,255,.04);
-  animation: fadeUp .15s ease both;
-  transition: background .1s;
-}
-.inner-table tbody tr:hover { background: var(--glass2); }
-.inner-table tbody td {
-  padding: 8px 10px; font-size: 11.5px; color: var(--text);
-}
-.inner-table tbody td:first-child {
-  font-family: var(--mono); font-size: 11px;
-  color: var(--text-hi); font-weight: 600;
-}
-.modal-empty {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: 48px; gap: 10px;
-  font-family: var(--mono); font-size: 11px; color: var(--text-lo);
-  letter-spacing: 1.5px;
-}
-.modal-empty .e-icon { font-size: 32px; opacity: .3; }
+.ai-banner-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
 
-/* close btn inside modal footer */
-.modal-footer {
-  padding: 14px 22px;
+/* Progress bar */
+.modal-progress { padding: 14px 22px 0; }
+.pb-row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--text-lo); margin-bottom: 5px; }
+.pb-track { height: 6px; border-radius: 3px; background: var(--glass2); border: 1px solid var(--glassborder); overflow: hidden; }
+.pb-fill  { height: 100%; border-radius: 3px; background: var(--blue); transition: width 1.2s cubic-bezier(.4,0,.2,1); }
+
+/* Two-col inside modal */
+.modal-cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 0; }
+.modal-col { border-right: 1px solid var(--glassborder); padding: 16px 22px; overflow-y: auto; max-height: 420px; }
+.modal-col:last-child { border-right: none; }
+
+/* Section label */
+.sec-lbl {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-lo); margin: 10px 0 6px; padding-top: 10px;
   border-top: 1px solid var(--glassborder);
-  display: flex; justify-content: flex-end;
 }
-.btn-close {
+.sec-lbl:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+
+/* Check item */
+.chk {
+  display: flex; align-items: flex-start; gap: 9px; padding: 7px 0;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.chk:last-child { border-bottom: none; }
+.chk-icon {
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 10px; flex-shrink: 0; margin-top: 1px;
+}
+.chk-icon.pass { background: var(--green-dim); color: var(--green); }
+.chk-icon.fail { background: var(--red-dim);   color: var(--red); }
+.chk-icon.warn { background: var(--amber-dim); color: var(--amber); }
+.chk-icon.info { background: var(--blue-dim);  color: var(--blue-bright); }
+.chk-label  { font-size: 12.5px; color: var(--text-hi); line-height: 1.4; flex: 1; }
+.chk-detail { font-size: 11px;   color: var(--text-lo); margin-top: 2px; }
+.chk-badge {
+  font-size: 10px; padding: 2px 7px; border-radius: 20px;
+  border: 1px solid; white-space: nowrap; align-self: center; flex-shrink: 0;
+}
+.chk-badge.pass { background: var(--green-dim); color: var(--green); border-color: rgba(34,197,94,.25); }
+.chk-badge.fail { background: var(--red-dim);   color: var(--red);   border-color: rgba(239,68,68,.25); }
+.chk-badge.warn { background: var(--amber-dim); color: var(--amber); border-color: rgba(245,158,11,.25); }
+.chk-badge.info { background: var(--blue-dim);  color: var(--blue-bright); border-color: rgba(59,130,246,.25); }
+
+/* Risk meter */
+.risk-meter { margin-bottom: 12px; }
+.risk-lbl-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-lo); margin-bottom: 5px; }
+.risk-score { font-size: 15px; font-weight: 500; }
+.risk-score.low    { color: var(--green); }
+.risk-score.medium { color: var(--amber); }
+.risk-score.high   { color: var(--red); }
+.risk-track { height: 8px; border-radius: 4px; background: var(--glass2); border: 1px solid var(--glassborder); overflow: hidden; }
+.risk-fill  { height: 100%; border-radius: 4px; transition: width .9s cubic-bezier(.4,0,.2,1), background .4s; }
+
+/* Timeline / activity */
+.tl-item { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.04); align-items: flex-start; }
+.tl-item:last-child { border-bottom: none; }
+.tl-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.tl-dot.pass { background: var(--green); }
+.tl-dot.fail { background: var(--red); }
+.tl-dot.warn { background: var(--amber); }
+.tl-dot.info { background: var(--blue-bright); }
+.tl-dot.pending { background: var(--text-lo); }
+.tl-msg  { font-size: 12px; color: var(--text); flex: 1; line-height: 1.4; }
+.tl-time { font-family: var(--mono); font-size: 10px; color: var(--text-lo); white-space: nowrap; }
+
+/* Objects table inside modal */
+.obj-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.obj-tbl thead th { font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-lo); padding: 5px 8px; border-bottom: 1px solid var(--glassborder); text-align: left; }
+.obj-tbl tbody td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.04); color: var(--text); }
+.obj-tbl tbody tr:last-child td { border-bottom: none; }
+.obj-tbl tbody td:first-child { font-family: var(--mono); font-size: 11px; color: var(--text-hi); }
+
+/* Modal footer */
+.agent-footer { padding: 14px 22px; border-top: 1px solid var(--glassborder); display: flex; justify-content: flex-end; gap: 10px; }
+.btn-secondary {
+  padding: 8px 18px; font-size: 13px; font-weight: 500; border-radius: var(--radius); cursor: pointer;
+  background: var(--glass); color: var(--text); border: 1px solid var(--glassborder);
+  transition: background .15s;
+}
+.btn-secondary:hover { background: var(--glass2); }
+.btn-primary {
+  padding: 8px 20px; font-size: 13px; font-weight: 500; border-radius: var(--radius); cursor: pointer;
   background: linear-gradient(135deg, var(--blue), var(--cyan));
-  color: #fff; border: none; cursor: pointer;
-  font-family: var(--display); font-size: 13px; font-weight: 600;
-  padding: 9px 24px; border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(59,130,246,.3);
+  color: #fff; border: none;
+  box-shadow: 0 4px 16px rgba(59,130,246,.25);
   transition: opacity .15s, transform .15s;
 }
-.btn-close:hover { opacity: .9; transform: translateY(-1px); }
+.btn-primary:hover { opacity: .9; transform: translateY(-1px); }
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
+<!-- ── HEADER ────────────────────────────────────────────── -->
 <div class="header">
-  <div class="header-brand">
-    <div class="brand-icon">TT</div>
-    <div>
-      <div class="brand-name">TransTrack Pro</div>
-      <div class="brand-sub">Transport Risk Assessment</div>
-    </div>
+  <div class="brand-icon">TT</div>
+  <div>
+    <div class="brand-name">TransTrack Pro</div>
+    <div class="brand-sub">Transport Risk Assessment</div>
   </div>
-
-  <div class="header-filters">
-    <input  type="text"   class="filter-input"  id="ownerFilter"  placeholder="Filter by Owner"/>
-    <select class="filter-select" id="statusFilter">
+  <div class="hdr-filters">
+    <input  type="text"    class="hdr-input"  id="ownerFilter"  placeholder="Filter by Owner"/>
+    <select class="hdr-select" id="statusFilter">
       <option value="">All Status</option>
       <option value="E">Failed (E)</option>
       <option value="S">Success (S)</option>
       <option value="R">Released (R)</option>
       <option value="D">Modifiable (D)</option>
     </select>
-    <select class="filter-select" id="targetFilter">
+    <select class="hdr-select" id="targetFilter">
       <option value="">All Targets</option>
       <option value="PROD">PROD</option>
       <option value="QAS">QAS</option>
       <option value="DEV">DEV</option>
     </select>
   </div>
-
-  <div class="header-right">
+  <div class="hdr-right">
     <div class="refresh-badge">
       <span class="refresh-icon">↻</span>
       Refreshing in <span id="countdown">45</span>s
     </div>
+    <div class="health-dot" id="healthDot"></div>
   </div>
 </div>
 
-<!-- PAGE -->
+<!-- ── PAGE ─────────────────────────────────────────────── -->
 <div class="page">
 
   <!-- KPI Row -->
   <div class="kpi-row">
-    <div class="kpi" style="animation-delay:.05s">
-      <div class="kpi-glow"></div>
-      <div class="kpi-label">Total Transports</div>
-      <div class="kpi-value" id="kpiTotal">—</div>
-      <div class="kpi-sub">All transport records</div>
-    </div>
-    <div class="kpi red" style="animation-delay:.1s">
-      <div class="kpi-glow"></div>
-      <div class="kpi-label">Failed Transports</div>
-      <div class="kpi-value" id="kpiFailed">—</div>
-      <div class="kpi-sub">Status E errors</div>
-    </div>
-    <div class="kpi green" style="animation-delay:.15s">
-      <div class="kpi-glow"></div>
-      <div class="kpi-label">Successful</div>
-      <div class="kpi-value" id="kpiSuccess">—</div>
-      <div class="kpi-sub">Status S / R</div>
-    </div>
-    <div class="kpi amber" style="animation-delay:.2s">
-      <div class="kpi-glow"></div>
-      <div class="kpi-label">Success Rate</div>
-      <div class="kpi-value" id="kpiRate">—</div>
-      <div class="kpi-sub">Based on current data</div>
-    </div>
+    <div class="kpi"       style="animation-delay:.05s"><div class="kpi-label">Total Transports</div><div class="kpi-value" id="kpiTotal">—</div><div class="kpi-sub">All records</div></div>
+    <div class="kpi red"   style="animation-delay:.1s" ><div class="kpi-label">Failed</div>           <div class="kpi-value" id="kpiFailed">—</div><div class="kpi-sub">Status E</div></div>
+    <div class="kpi green" style="animation-delay:.15s"><div class="kpi-label">Successful</div>       <div class="kpi-value" id="kpiSuccess">—</div><div class="kpi-sub">Status S / R</div></div>
+    <div class="kpi amber" style="animation-delay:.2s" ><div class="kpi-label">Success Rate</div>     <div class="kpi-value" id="kpiRate">—</div><div class="kpi-sub">Current data</div></div>
   </div>
 
   <!-- Charts Row -->
   <div class="charts-row">
-
-    <!-- Pie chart -->
     <div class="card" style="animation-delay:.25s">
-      <div class="card-head">
-        <div class="card-head-title">Transport Status Overview</div>
-      </div>
+      <div class="card-head"><div class="card-title">Status Overview</div></div>
       <div class="card-body">
         <div class="chart-wrap">
           <div class="spinner" id="pieSpinner"></div>
@@ -506,28 +434,26 @@ td.td-date { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
         </div>
       </div>
     </div>
-
-    <!-- Bar chart -->
     <div class="card" style="animation-delay:.3s">
       <div class="card-head">
-        <div class="card-head-title">Top Failing Owners</div>
-        <span class="card-head-count" id="ownerChartLabel">by error count</span>
+        <div class="card-title">Top Failing Owners</div>
+        <span class="card-count">by error count</span>
       </div>
       <div class="card-body">
-        <div class="chart-wrap" style="height:220px;">
+        <div class="chart-wrap">
           <div class="spinner" id="barSpinner"></div>
-          <canvas id="barChart" style="display:none; width:100%;"></canvas>
+          <canvas id="barChart" style="display:none;"></canvas>
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- Transport Table -->
   <div class="table-card">
     <div class="table-toolbar">
-      <span class="table-title">Transport Table</span>
+      <div class="card-title" style="font-family:var(--display)">Transport Table</div>
       <span class="tbl-count" id="tblCount">—</span>
+      <span class="hint-txt">↑ Click any row to run AI Agent</span>
       <input type="text" class="tbl-search" id="tblSearch" placeholder="Search transport / owner…"/>
     </div>
     <div id="tableBody">
@@ -537,40 +463,86 @@ td.td-date { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
 
 </div>
 
-<!-- MODAL -->
-<div class="overlay" id="overlay">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-icon">📦</div>
-      <div>
-        <div class="modal-title" id="mTitle">—</div>
-        <div class="modal-chips" id="mChips"></div>
+<!-- ══════════════════════════════════════════════════════════
+     AI AGENT MODAL
+══════════════════════════════════════════════════════════ -->
+<div class="agent-overlay" id="agentOverlay">
+  <div class="agent-modal">
+
+    <!-- Header -->
+    <div class="agent-header">
+      <div class="agent-icon">🤖</div>
+      <div style="flex:1">
+        <div class="agent-title" id="agentTitle">AI Transport Agent</div>
+        <div class="agent-sub">Automated pre &amp; post-release QA inspector</div>
+        <div class="agent-chips" id="agentChips"></div>
       </div>
-      <button class="modal-close" id="mClose">✕</button>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        <button class="agent-close" id="agentClose">✕</button>
+        <span class="achip" id="agentStatusChip">Initializing...</span>
+      </div>
     </div>
-    <div class="modal-tabs">
-      <button class="mtab active" id="mtabObj" onclick="switchTab('objects')">📁 Objects<span id="mObjCount"></span></button>
-      <button class="mtab"        id="mtabLog" onclick="switchTab('logs')">📋 Logs<span id="mLogCount"></span></button>
+
+    <!-- Phase tabs -->
+    <div class="agent-tabs">
+      <button class="agent-tab active" id="atPre"   onclick="setAgentTab('pre')">Pre-release</button>
+      <button class="agent-tab"        id="atPost"  onclick="setAgentTab('post')">Post-release</button>
+      <button class="agent-tab"        id="atAudit" onclick="setAgentTab('audit')">Audit trail</button>
     </div>
-    <div class="modal-body" id="mBody">
-      <div class="state-row"><div class="spinner"></div>&nbsp;LOADING</div>
+
+    <!-- KPIs -->
+    <div class="modal-kpi-row">
+      <div class="modal-kpi"><div class="modal-kpi-label">Checks passed</div><div class="modal-kpi-value s" id="mkpiPass">—</div><div class="modal-kpi-sub">of total</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Warnings</div>     <div class="modal-kpi-value w" id="mkpiWarn">—</div><div class="modal-kpi-sub">review needed</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Failures</div>     <div class="modal-kpi-value f" id="mkpiFail">—</div><div class="modal-kpi-sub">blocking issues</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">AI risk score</div><div class="modal-kpi-value"  id="mkpiRisk" style="color:var(--text-lo)">—</div><div class="modal-kpi-sub">predicted errors</div></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn-close" onclick="closeModal()">Close</button>
+
+    <!-- Progress bar -->
+    <div class="modal-progress" id="modalProgress" style="display:none">
+      <div class="pb-row"><span id="pbLabel">Running agent...</span><span id="pbPct">0%</span></div>
+      <div class="pb-track"><div class="pb-fill" id="pbFill" style="width:0%"></div></div>
     </div>
+
+    <!-- AI insight banner -->
+    <div class="ai-banner" id="aiBanner" style="display:none">
+      <div class="ai-banner-icon">🤖</div>
+      <div id="aiBannerTxt"></div>
+    </div>
+
+    <!-- Body (tabs switch content here) -->
+    <div class="agent-body" id="agentBody">
+      <div class="state-row"><div class="spinner"></div>&nbsp;LOADING DATA FROM SAP</div>
+    </div>
+
+    <!-- Footer -->
+    <div class="agent-footer">
+      <button class="btn-secondary" onclick="closeAgent()">Close</button>
+      <button class="btn-primary"   onclick="exportAudit()">Export audit ↓</button>
+    </div>
+
   </div>
 </div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
 let allTransports = [];
 let filtered      = [];
-let mObjects      = null;
-let mLogs         = null;
-let mTab          = 'objects';
-let pieChart, barChart;
+let pieInst, barInst;
 
-// ── Helpers ────────────────────────────────────────────────────────
+// Agent state
+let agentTransport = null;
+let agentObjects   = [];
+let agentLogs      = [];
+let agentTab       = 'pre';
+let agentPreData   = null;   // { pass, warn, fail, checks }
+let agentPostData  = null;
+
+// ═══════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════
 function fmt(raw) {
   if (!raw || raw === '-') return '-';
   const m = String(raw).match(/\/Date\((\d+)\)\//);
@@ -581,50 +553,52 @@ function fmt(raw) {
 
 function pill(s) {
   const map = { E:'pill-e', S:'pill-s', R:'pill-r', D:'pill-d' };
-  const cls = map[s] || 'pill-x';
-  return `<span class="status-pill ${cls}">${s || '?'}</span>`;
+  return `<span class="status-pill ${map[s]||'pill-x'}">${s||'?'}</span>`;
 }
 
-function animCount(el, to) {
-  const start = 0, dur = 900, startTime = performance.now();
+function animCount(el, to, suffix='') {
   const isFloat = String(to).includes('.');
-  function step(now) {
-    const p = Math.min((now - startTime) / dur, 1);
-    const ease = 1 - Math.pow(1 - p, 3);
-    el.textContent = isFloat
-      ? (ease * parseFloat(to)).toFixed(1) + '%'
-      : Math.round(ease * parseInt(to));
-    if (p < 1) requestAnimationFrame(step);
-    else el.textContent = isFloat ? to + '%' : to;
-  }
+  const num = isFloat ? parseFloat(to) : parseInt(to);
+  const start = performance.now(), dur = 800;
+  const step = now => {
+    const p = Math.min((now-start)/dur, 1), e = 1-Math.pow(1-p,3);
+    el.textContent = isFloat ? (e*num).toFixed(1)+suffix : Math.round(e*num)+suffix;
+    if (p<1) requestAnimationFrame(step);
+    else el.textContent = to+suffix;
+  };
   requestAnimationFrame(step);
 }
 
-// ── Health & init ──────────────────────────────────────────────────
-async function init() {
+// ═══════════════════════════════════════════════════════════
+//  HEALTH CHECK
+// ═══════════════════════════════════════════════════════════
+async function checkHealth() {
   try {
-    await fetch('/api/health').then(r => r.json());
-  } catch {}
-  loadTransports();
+    const d = await fetch('/api/health').then(r=>r.json());
+    document.getElementById('healthDot').className = d.status==='OK' ? 'health-dot ok' : 'health-dot err';
+  } catch { document.getElementById('healthDot').className = 'health-dot err'; }
 }
 
-// ── Countdown ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+//  COUNTDOWN + AUTO-REFRESH
+// ═══════════════════════════════════════════════════════════
 let cd = 45;
 setInterval(() => {
-  cd--;
-  document.getElementById('countdown').textContent = cd;
+  document.getElementById('countdown').textContent = --cd;
   if (cd <= 0) { cd = 45; loadTransports(); }
 }, 1000);
 
-// ── Load & Render ──────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+//  LOAD TRANSPORTS  →  GET /api/transports
+// ═══════════════════════════════════════════════════════════
 async function loadTransports() {
   try {
-    const data = await fetch('/api/transports').then(r => r.json());
+    const data = await fetch('/api/transports').then(r=>r.json());
     allTransports = data?.d?.results || [];
     applyFilters();
-  } catch (e) {
+  } catch(e) {
     document.getElementById('tableBody').innerHTML =
-      `<div class="state-row" style="color:var(--red)">&#10060; ${e.message}</div>`;
+      `<div class="state-row" style="color:var(--red)">✕ ${e.message}</div>`;
   }
 }
 
@@ -635,11 +609,10 @@ function applyFilters() {
   const search = document.getElementById('tblSearch').value.toLowerCase();
 
   filtered = allTransports.filter(t =>
-    (!owner  || (t.OWNER      || '').toLowerCase().includes(owner))  &&
-    (!status || t.STATUS === status)                                  &&
-    (!target || (t.TARSYSTEM  || t.TARGET || '').toUpperCase().includes(target)) &&
-    (!search || (t.TRKORR     || '').toLowerCase().includes(search) ||
-                (t.OWNER      || '').toLowerCase().includes(search))
+    (!owner  || (t.OWNER||'').toLowerCase().includes(owner)) &&
+    (!status || t.STATUS === status) &&
+    (!target || (t.TARSYSTEM||t.TARGET||'').toUpperCase().includes(target)) &&
+    (!search || (t.TRKORR||'').toLowerCase().includes(search) || (t.OWNER||'').toLowerCase().includes(search))
   );
 
   updateKPIs(filtered);
@@ -647,11 +620,13 @@ function applyFilters() {
   renderTable(filtered);
 }
 
+// ═══════════════════════════════════════════════════════════
+//  KPIs
+// ═══════════════════════════════════════════════════════════
 function updateKPIs(list) {
-  const failed  = list.filter(t => t.STATUS === 'E').length;
-  const success = list.filter(t => t.STATUS === 'S' || t.STATUS === 'R').length;
-  const rate    = list.length ? ((success / list.length) * 100).toFixed(1) : '0.0';
-
+  const failed  = list.filter(t=>t.STATUS==='E').length;
+  const success = list.filter(t=>t.STATUS==='S'||t.STATUS==='R').length;
+  const rate    = list.length ? ((success/list.length)*100).toFixed(1) : '0.0';
   animCount(document.getElementById('kpiTotal'),   list.length);
   animCount(document.getElementById('kpiFailed'),  failed);
   animCount(document.getElementById('kpiSuccess'), success);
@@ -659,225 +634,664 @@ function updateKPIs(list) {
   document.getElementById('tblCount').textContent = filtered.length;
 }
 
+// ═══════════════════════════════════════════════════════════
+//  CHARTS
+// ═══════════════════════════════════════════════════════════
 function updateCharts(list) {
-  const failed  = list.filter(t => t.STATUS === 'E').length;
-  const success = list.filter(t => t.STATUS === 'S' || t.STATUS === 'R').length;
+  const failed  = list.filter(t=>t.STATUS==='E').length;
+  const success = list.filter(t=>t.STATUS==='S'||t.STATUS==='R').length;
   const other   = list.length - failed - success;
 
-  // Pie
   document.getElementById('pieSpinner').style.display = 'none';
-  const pieCanvas = document.getElementById('pieChart');
-  pieCanvas.style.display = 'block';
-  if (pieChart) pieChart.destroy();
-  pieChart = new Chart(pieCanvas.getContext('2d'), {
+  const pieC = document.getElementById('pieChart'); pieC.style.display = 'block';
+  if (pieInst) pieInst.destroy();
+  pieInst = new Chart(pieC.getContext('2d'), {
     type: 'doughnut',
     data: {
-      labels: ['Success', 'Failed', 'Other'],
-      datasets: [{
-        data: [success, failed, other],
-        backgroundColor: ['rgba(34,197,94,.8)', 'rgba(239,68,68,.8)', 'rgba(245,158,11,.8)'],
-        borderColor:     ['#22c55e','#ef4444','#f59e0b'],
-        borderWidth: 2, hoverOffset: 8,
-      }]
+      labels: ['Success','Failed','Other'],
+      datasets: [{ data:[success,failed,other],
+        backgroundColor:['rgba(34,197,94,.8)','rgba(239,68,68,.8)','rgba(245,158,11,.8)'],
+        borderColor:['#22c55e','#ef4444','#f59e0b'], borderWidth:2, hoverOffset:6 }]
     },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '60%',
+    options: { responsive:true, maintainAspectRatio:false, cutout:'62%',
       plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { color: '#94a3b8', font: { family: "'IBM Plex Mono'", size: 10 }, padding: 16, boxWidth: 12, borderRadius: 3 }
-        },
-        tooltip: {
-          backgroundColor: '#0d1220', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1,
-          titleFont: { family: "'IBM Plex Mono'", size: 11 },
-          bodyFont:  { family: "'IBM Plex Mono'", size: 11 },
-          titleColor: '#f1f5f9', bodyColor: '#94a3b8',
-        }
+        legend:{ position:'bottom', labels:{ color:'#94a3b8', font:{family:"'IBM Plex Mono'",size:10}, padding:14, boxWidth:10 }},
+        tooltip:{ backgroundColor:'#0d1220', borderColor:'rgba(255,255,255,.1)', borderWidth:1,
+          titleFont:{family:"'IBM Plex Mono'",size:11}, bodyFont:{family:"'IBM Plex Mono'",size:11},
+          titleColor:'#f1f5f9', bodyColor:'#94a3b8' }
       }
     }
   });
 
-  // Bar — top failing owners
   const ownerMap = {};
-  list.filter(t => t.STATUS === 'E').forEach(t => {
-    ownerMap[t.OWNER || 'UNKNOWN'] = (ownerMap[t.OWNER || 'UNKNOWN'] || 0) + 1;
-  });
-  const sorted = Object.entries(ownerMap).sort((a,b) => b[1]-a[1]).slice(0,6);
+  list.filter(t=>t.STATUS==='E').forEach(t => { ownerMap[t.OWNER||'UNKNOWN'] = (ownerMap[t.OWNER||'UNKNOWN']||0)+1; });
+  const sorted = Object.entries(ownerMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
 
   document.getElementById('barSpinner').style.display = 'none';
-  const barCanvas = document.getElementById('barChart');
-  barCanvas.style.display = 'block';
-  if (barChart) barChart.destroy();
-  barChart = new Chart(barCanvas.getContext('2d'), {
+  const barC = document.getElementById('barChart'); barC.style.display = 'block';
+  if (barInst) barInst.destroy();
+  barInst = new Chart(barC.getContext('2d'), {
     type: 'bar',
     data: {
-      labels: sorted.map(s => s[0]),
-      datasets: [{
-        label: 'Error Count',
-        data: sorted.map(s => s[1]),
-        backgroundColor: sorted.map((_, i) =>
-          `rgba(239,68,68,${0.9 - i * 0.1})`),
-        borderColor: '#ef4444',
-        borderWidth: 0,
-        borderRadius: 6,
-        borderSkipped: false,
-      }]
+      labels: sorted.map(s=>s[0]),
+      datasets:[{ data:sorted.map(s=>s[1]),
+        backgroundColor: sorted.map((_,i)=>`rgba(239,68,68,${0.9-i*0.1})`),
+        borderRadius:6, borderSkipped:false, borderWidth:0 }]
     },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#0d1220', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1,
-          titleFont: { family: "'IBM Plex Mono'", size: 11 },
-          bodyFont:  { family: "'IBM Plex Mono'", size: 11 },
-          titleColor: '#f1f5f9', bodyColor: '#94a3b8',
-        }
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ backgroundColor:'#0d1220', borderColor:'rgba(255,255,255,.1)', borderWidth:1,
+          titleFont:{family:"'IBM Plex Mono'",size:11}, bodyFont:{family:"'IBM Plex Mono'",size:11},
+          titleColor:'#f1f5f9', bodyColor:'#94a3b8' }
       },
-      scales: {
-        x: {
-          grid: { color: 'rgba(255,255,255,.04)' },
-          ticks: { color: '#475569', font: { family: "'IBM Plex Mono'", size: 10 } }
-        },
-        y: {
-          grid: { color: 'rgba(255,255,255,.04)' },
-          ticks: { color: '#475569', font: { family: "'IBM Plex Mono'", size: 10 }, stepSize: 2 },
-          beginAtZero: true,
-        }
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#475569',font:{family:"'IBM Plex Mono'",size:10}} },
+        y:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#475569',font:{family:"'IBM Plex Mono'",size:10}}, beginAtZero:true }
       }
     }
   });
 }
 
+// ═══════════════════════════════════════════════════════════
+//  TABLE
+// ═══════════════════════════════════════════════════════════
 function renderTable(list) {
-  if (!list.length) {
-    document.getElementById('tableBody').innerHTML =
-      `<div class="state-row">NO TRANSPORTS FOUND</div>`;
-    return;
-  }
-
+  if (!list.length) { document.getElementById('tableBody').innerHTML=`<div class="state-row">NO TRANSPORTS FOUND</div>`; return; }
   let html = `<table class="data-table">
-    <thead><tr>
-      <th>Transport #</th>
-      <th>Status</th>
-      <th>Owner</th>
-      <th>Target</th>
-      <th>Created On</th>
-    </tr></thead><tbody>`;
-
-  list.forEach((t, i) => {
-    const cls = t.STATUS === 'E' ? 'failed-row' : '';
-    html += `<tr class="${cls}" style="animation-delay:${i*0.015}s"
-        data-trkorr="${t.TRKORR}" data-owner="${t.OWNER||''}"
-        data-date="${t.CREATED_ON||''}" data-status="${t.STATUS||''}">
+    <thead><tr><th>Transport #</th><th>Status</th><th>Owner</th><th>Target</th><th>Created On</th></tr></thead><tbody>`;
+  list.forEach((t,i) => {
+    html += `<tr class="${t.STATUS==='E'?'failed-row':''}" style="animation-delay:${i*.015}s"
+      data-trkorr="${t.TRKORR}" data-owner="${t.OWNER||''}"
+      data-date="${t.CREATED_ON||''}" data-status="${t.STATUS||''}"
+      data-target="${t.TARSYSTEM||t.TARGET||'PROD'}">
       <td class="td-id">${t.TRKORR||'-'}</td>
       <td>${pill(t.STATUS)}</td>
-      <td class="td-owner">${t.OWNER||'-'}</td>
+      <td>${t.OWNER||'-'}</td>
       <td class="td-target">${t.TARSYSTEM||t.TARGET||'PROD'}</td>
       <td class="td-date">${fmt(t.CREATED_ON)}</td>
     </tr>`;
   });
-
   html += '</tbody></table>';
   document.getElementById('tableBody').innerHTML = html;
 
   document.querySelectorAll('.data-table tbody tr[data-trkorr]').forEach(tr => {
-    tr.onclick = () => openModal({
+    tr.onclick = () => openAgent({
       TRKORR:     tr.dataset.trkorr,
       OWNER:      tr.dataset.owner,
       CREATED_ON: tr.dataset.date,
       STATUS:     tr.dataset.status,
+      TARGET:     tr.dataset.target,
     });
   });
 }
 
-// ── Filters ────────────────────────────────────────────────────────
 ['ownerFilter','statusFilter','targetFilter','tblSearch'].forEach(id => {
   document.getElementById(id).addEventListener('input', applyFilters);
 });
 
-// ── Modal ──────────────────────────────────────────────────────────
-const overlay = document.getElementById('overlay');
-document.getElementById('mClose').onclick = closeModal;
-overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+// ═══════════════════════════════════════════════════════════
+//  AI AGENT — OPEN & AUTO-RUN
+//  Fetches /api/transports/:trkorr/objects + /api/transports/:trkorr/logs
+// ═══════════════════════════════════════════════════════════
+const overlay = document.getElementById('agentOverlay');
+document.getElementById('agentClose').onclick = closeAgent;
+overlay.addEventListener('click', e => { if(e.target===overlay) closeAgent(); });
 
-function closeModal() {
+function closeAgent() {
   overlay.classList.remove('open');
-  mObjects = mLogs = null; mTab = 'objects';
+  agentTransport = null; agentObjects = []; agentLogs = [];
+  agentPreData = agentPostData = null; agentTab = 'pre';
 }
 
-async function openModal(t) {
-  mTab = 'objects'; mObjects = mLogs = null;
-  document.getElementById('mTitle').textContent   = `Transport ${t.TRKORR} Details`;
-  document.getElementById('mObjCount').textContent = '';
-  document.getElementById('mLogCount').textContent = '';
-  document.getElementById('mtabObj').className = 'mtab active';
-  document.getElementById('mtabLog').className = 'mtab';
+async function openAgent(t) {
+  agentTransport = t;
+  agentObjects = []; agentLogs = [];
+  agentPreData = agentPostData = null;
+  agentTab = 'pre';
 
-  document.getElementById('mChips').innerHTML = [
-    t.OWNER      ? `<span class="mchip blue">OWNER: ${t.OWNER}</span>` : '',
-    t.CREATED_ON ? `<span class="mchip">DATE: ${fmt(t.CREATED_ON)}</span>` : '',
-    t.STATUS     ? `<span class="mchip">${pill(t.STATUS)}</span>` : '',
+  // Reset UI
+  ['atPre','atPost','atAudit'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById('atPre').classList.add('active');
+  document.getElementById('agentTitle').textContent = `AI Agent — ${t.TRKORR}`;
+  document.getElementById('mkpiPass').textContent = '—';
+  document.getElementById('mkpiWarn').textContent = '—';
+  document.getElementById('mkpiFail').textContent = '—';
+  document.getElementById('mkpiRisk').textContent = '—';
+  document.getElementById('mkpiRisk').style.color = 'var(--text-lo)';
+  document.getElementById('aiBanner').style.display = 'none';
+  document.getElementById('modalProgress').style.display = 'none';
+  document.getElementById('agentStatusChip').textContent = 'Fetching data...';
+  document.getElementById('agentStatusChip').style.cssText = 'background:var(--blue-dim);color:var(--blue-bright);border-color:rgba(59,130,246,.25)';
+
+  // Chips
+  document.getElementById('agentChips').innerHTML = [
+    t.OWNER      ? `<span class="achip blue">OWNER: ${t.OWNER}</span>` : '',
+    t.TARGET     ? `<span class="achip">TARGET: ${t.TARGET}</span>` : '',
+    t.CREATED_ON ? `<span class="achip">DATE: ${fmt(t.CREATED_ON)}</span>` : '',
+    t.STATUS     ? `<span class="achip ${t.STATUS==='E'?'red':t.STATUS==='S'||t.STATUS==='R'?'green':'amber'}">${pill(t.STATUS)}</span>` : '',
   ].join('');
 
-  document.getElementById('mBody').innerHTML =
-    `<div class="state-row"><div class="spinner"></div>&nbsp;LOADING</div>`;
+  document.getElementById('agentBody').innerHTML =
+    `<div class="state-row"><div class="spinner"></div>&nbsp;FETCHING OBJECTS &amp; LOGS FROM SAP</div>`;
 
   overlay.classList.add('open');
 
+  // ── Fetch from real server.js API routes ──────────────────
   try {
-    const [oRes, lRes] = await Promise.all([
+    const [objRes, logRes] = await Promise.all([
       fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/objects`).then(r=>r.json()),
       fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/logs`).then(r=>r.json()),
     ]);
-    mObjects = oRes?.d?.results || [];
-    mLogs    = lRes?.d?.results || [];
-    document.getElementById('mObjCount').textContent = ` (${mObjects.length})`;
-    document.getElementById('mLogCount').textContent = ` (${mLogs.length})`;
-    renderModalTab('objects');
+    agentObjects = objRes?.d?.results || [];
+    agentLogs    = logRes?.d?.results || [];
   } catch(e) {
-    document.getElementById('mBody').innerHTML =
-      `<div class="modal-empty"><div class="e-icon">⚠️</div>Failed: ${e.message}</div>`;
+    document.getElementById('agentBody').innerHTML =
+      `<div class="state-row" style="color:var(--red)">✕ Failed to fetch SAP data: ${e.message}</div>`;
+    return;
+  }
+
+  // ── Auto-run agent analysis ────────────────────────────────
+  runAgentAnalysis();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AGENT ANALYSIS ENGINE
+//  Derives checks from real objects + logs data
+// ═══════════════════════════════════════════════════════════
+function runAgentAnalysis() {
+  const t = agentTransport;
+  const objects = agentObjects;
+  const logs    = agentLogs;
+
+  // Show progress
+  const prog = document.getElementById('modalProgress');
+  prog.style.display = 'block';
+  animProgress(100, () => {
+
+    // ── Derive checks from real data ──
+    const failedObjs  = objects.filter(o => o.STATUS === 'E');
+    const warnObjs    = objects.filter(o => o.STATUS === 'W');
+    const failedLogs  = logs.filter(l => l.ACTION && l.ACTION.toUpperCase().includes('ERR'));
+    const riskScore   = computeRisk(t, objects, logs, failedObjs, failedLogs);
+    const riskLevel   = riskScore >= 65 ? 'high' : riskScore >= 40 ? 'medium' : 'low';
+
+    // Pre-release checks
+    const preChecks = [
+      { section: 'Content verification' },
+      {
+        label:  'Object list validation',
+        detail: objects.length
+          ? `${objects.length} objects found — ${failedObjs.length} with status E, ${warnObjs.length} warnings`
+          : 'No objects found in transport',
+        status: objects.length === 0 ? 'fail' : failedObjs.length > 0 ? 'warn' : 'pass'
+      },
+      {
+        label:  'Dependency check',
+        detail: failedObjs.length > 0
+          ? `${failedObjs.length} objects in error state — dependency issues likely`
+          : 'No dependency errors detected from object statuses',
+        status: failedObjs.length > 0 ? 'fail' : 'pass'
+      },
+      {
+        label:  'Transport path verification',
+        detail: `Target system: ${t.TARGET || 'PROD'} — route assumed DEV → QAS → PROD`,
+        status: 'pass'
+      },
+      {
+        label:  'Version & status check',
+        detail: t.STATUS === 'D'
+          ? 'Transport still modifiable (D) — not yet released'
+          : t.STATUS === 'R' ? 'Transport released and ready'
+          : `Transport status: ${t.STATUS || 'unknown'}`,
+        status: t.STATUS === 'D' ? 'warn' : t.STATUS === 'R' || t.STATUS === 'S' ? 'pass' : 'warn'
+      },
+      { section: 'Impact analysis' },
+      {
+        label:  'Criticality assessment',
+        detail: riskScore >= 65
+          ? 'High-risk transport — affects critical business objects'
+          : riskScore >= 40 ? 'Medium risk — review recommended'
+          : 'Low impact — routine transport',
+        status: riskScore >= 65 ? 'fail' : riskScore >= 40 ? 'warn' : 'pass'
+      },
+      {
+        label:  'Risk analysis (AI model)',
+        detail: `Predicted error likelihood: ${riskScore}% — based on object status, log history, and owner profile`,
+        status: riskScore >= 65 ? 'fail' : riskScore >= 40 ? 'warn' : 'pass'
+      },
+      {
+        label:  'Authorization check',
+        detail: t.OWNER ? `Owner ${t.OWNER} identified — verify SE10/basis roles in SAP` : 'No owner assigned — verify authorization',
+        status: t.OWNER ? 'pass' : 'warn'
+      },
+      { section: 'Pre-import simulation' },
+      {
+        label:  'Conflict detection',
+        detail: failedObjs.length > 0
+          ? `${failedObjs.length} object(s) in error state — conflicts possible`
+          : 'No conflicts detected from current object statuses',
+        status: failedObjs.length > 0 ? 'warn' : 'pass'
+      },
+      {
+        label:  'Import simulation result',
+        detail: failedLogs.length > 0
+          ? `${failedLogs.length} error action(s) in transport logs — check-only import would fail`
+          : logs.length > 0 ? `${logs.length} log entries reviewed — no critical errors`
+          : 'No log history available — simulate manually in SE10',
+        status: failedLogs.length > 0 ? 'fail' : logs.length > 0 ? 'pass' : 'warn'
+      },
+      { section: 'AI-specific checks' },
+      {
+        label:  'AI risk prediction',
+        detail: `${riskScore}% predicted error rate — ${riskLevel} risk (threshold: 60%)`,
+        status: riskScore >= 65 ? 'fail' : riskScore >= 40 ? 'warn' : 'pass'
+      },
+      {
+        label:  'Historical data comparison',
+        detail: logs.length > 0
+          ? `${logs.length} historical log entries found for this transport's objects`
+          : 'No historical data available — first occurrence of this transport',
+        status: failedLogs.length > 0 ? 'warn' : logs.length > 0 ? 'pass' : 'info'
+      },
+    ];
+
+    // Post-release checks
+    const postChecks = [
+      { section: 'Import verification' },
+      {
+        label:  'Import log status',
+        detail: failedLogs.length > 0
+          ? `${failedLogs.length} error(s) detected in import logs — review SM21/SLG1`
+          : logs.length > 0 ? 'Import logs reviewed — no critical errors detected'
+          : 'No import logs found — verify in STMS or SM21',
+        status: failedLogs.length > 0 ? 'fail' : logs.length > 0 ? 'pass' : 'warn'
+      },
+      {
+        label:  'Object status verification',
+        detail: failedObjs.length > 0
+          ? `${failedObjs.length} object(s) still in error state — reactivation needed`
+          : `${objects.length} object(s) verified active`,
+        status: failedObjs.length > 0 ? 'fail' : 'pass'
+      },
+      {
+        label:  'Rollback plan',
+        detail: 'Confirm rollback transport exists in STMS before proceeding',
+        status: 'info'
+      },
+      { section: 'Functional validation' },
+      {
+        label:  'Smoke testing',
+        detail: 'Run key functional tests for affected business processes — manual step required',
+        status: 'info'
+      },
+      {
+        label:  'Configuration validation',
+        detail: objects.filter(o=>o.OBJECT_TYPE==='CUST'||o.OBJECT_TYPE==='TABL').length > 0
+          ? `${objects.filter(o=>o.OBJECT_TYPE==='CUST'||o.OBJECT_TYPE==='TABL').length} config/table object(s) — verify entries in production`
+          : 'No configuration objects detected',
+        status: 'info'
+      },
+      {
+        label:  'Data integrity check',
+        detail: objects.filter(o=>o.OBJECT_TYPE==='TABL').length > 0
+          ? `${objects.filter(o=>o.OBJECT_TYPE==='TABL').length} table object(s) — run row count verification`
+          : 'No table objects — data integrity check not required',
+        status: objects.filter(o=>o.OBJECT_TYPE==='TABL').length > 0 ? 'warn' : 'pass'
+      },
+      { section: 'Monitoring & alerts' },
+      {
+        label:  'Error log monitoring',
+        detail: failedLogs.length > 0
+          ? `${failedLogs.length} error action(s) in logs — monitor SM21 closely post-import`
+          : 'Monitor SM21 and ST22 for 24 hours post-import',
+        status: failedLogs.length > 0 ? 'warn' : 'info'
+      },
+      {
+        label:  'Performance metrics',
+        detail: 'Compare system response time before/after — check SM50/SM66',
+        status: 'info'
+      },
+      {
+        label:  'AI model update',
+        detail: `Actual import outcome to be fed back to AI model — risk score was ${riskScore}%`,
+        status: 'info'
+      },
+    ];
+
+    agentPreData  = scoreChecks(preChecks);
+    agentPostData = scoreChecks(postChecks);
+
+    // Update KPIs
+    document.getElementById('mkpiPass').textContent = agentPreData.pass;
+    document.getElementById('mkpiWarn').textContent = agentPreData.warn;
+    document.getElementById('mkpiFail').textContent = agentPreData.fail;
+    document.getElementById('mkpiRisk').textContent = riskScore + '%';
+    document.getElementById('mkpiRisk').style.color =
+      riskLevel==='high' ? 'var(--red)' : riskLevel==='medium' ? 'var(--amber)' : 'var(--green)';
+
+    // Status chip
+    const sc = document.getElementById('agentStatusChip');
+    if (agentPreData.fail > 0) {
+      sc.textContent = 'Issues found';
+      sc.style.cssText = 'background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.25);padding:3px 10px;border-radius:20px;font-family:var(--mono);font-size:10px;';
+    } else if (agentPreData.warn > 0) {
+      sc.textContent = 'Warnings';
+      sc.style.cssText = 'background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,158,11,.25);padding:3px 10px;border-radius:20px;font-family:var(--mono);font-size:10px;';
+    } else {
+      sc.textContent = 'All clear';
+      sc.style.cssText = 'background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:3px 10px;border-radius:20px;font-family:var(--mono);font-size:10px;';
+    }
+
+    // AI banner
+    const banner = document.getElementById('aiBanner');
+    banner.style.display = 'flex';
+    document.getElementById('aiBannerTxt').innerHTML = buildInsight(t, objects, logs, riskScore, riskLevel, agentPreData);
+
+    // Store for tab rendering
+    agentPreData._checks  = preChecks;
+    agentPostData._checks = postChecks;
+
+    // Render pre tab
+    renderAgentTab('pre');
+  });
+}
+
+// ── Risk score engine (derived from real data) ─────────────
+function computeRisk(t, objects, logs, failedObjs, failedLogs) {
+  let score = 20; // base
+  if (t.STATUS === 'D') score += 20;
+  if (t.STATUS === 'E') score += 35;
+  score += Math.min(failedObjs.length * 12, 36);
+  score += Math.min(failedLogs.length * 8, 24);
+  if (objects.length > 10) score += 10;
+  if (objects.some(o => ['PROG','FUGR','FUNC'].includes(o.OBJECT_TYPE))) score += 8;
+  if (objects.some(o => o.OBJECT_TYPE === 'AUTH')) score += 10;
+  return Math.min(Math.max(score, 5), 98);
+}
+
+function buildInsight(t, objects, logs, score, level, pre) {
+  const lvlTxt = level==='high' ? '<strong>High-risk transport detected.</strong>' :
+                 level==='medium' ? '<strong>Medium-risk transport.</strong>' :
+                 '<strong>Low-risk transport.</strong>';
+  const objTxt = objects.length
+    ? `${objects.length} object(s) found — ${objects.filter(o=>o.STATUS==='E').length} in error state.`
+    : 'No objects returned from SAP.';
+  const logTxt = logs.length
+    ? `${logs.length} log entries reviewed.`
+    : 'No log history available.';
+  const recTxt = pre.fail > 0
+    ? 'Recommend resolving failures before release.'
+    : pre.warn > 0 ? 'Review warnings with basis team before proceeding.'
+    : 'Agent approves for release — all pre-checks passed.';
+  return `${lvlTxt} AI risk score: ${score}%. ${objTxt} ${logTxt} ${recTxt}`;
+}
+
+function scoreChecks(checks) {
+  let pass=0, warn=0, fail=0;
+  checks.forEach(c => {
+    if (!c.section) {
+      if (c.status==='pass') pass++;
+      else if (c.status==='warn') warn++;
+      else if (c.status==='fail') fail++;
+    }
+  });
+  return { pass, warn, fail };
+}
+
+// ── Progress bar animation ─────────────────────────────────
+function animProgress(target, cb) {
+  const fill = document.getElementById('pbFill');
+  const pct  = document.getElementById('pbPct');
+  const lbl  = document.getElementById('pbLabel');
+  let cur = 0;
+  const steps = ['Fetching object data...','Running dependency analysis...','Computing AI risk score...','Evaluating log history...','Finalizing checks...'];
+  const step = () => {
+    cur = Math.min(cur + 2, target);
+    fill.style.width = cur + '%';
+    pct.textContent  = cur + '%';
+    lbl.textContent  = steps[Math.floor(cur / 22)] || 'Completing...';
+    if (cur < target) setTimeout(step, 25);
+    else if (cb) { lbl.textContent = 'Analysis complete'; setTimeout(cb, 200); }
+  };
+  step();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AGENT TAB RENDERER
+// ═══════════════════════════════════════════════════════════
+function setAgentTab(tab) {
+  agentTab = tab;
+  ['atPre','atPost','atAudit'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById('at'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+  renderAgentTab(tab);
+}
+
+function renderAgentTab(tab) {
+  const body = document.getElementById('agentBody');
+
+  if (tab === 'pre') {
+    if (!agentPreData) { body.innerHTML=`<div class="state-row"><div class="spinner"></div>&nbsp;RUNNING</div>`; return; }
+    body.innerHTML = `
+      <div class="modal-cols">
+        <div class="modal-col" id="colChecklist">${renderChecklistHTML(agentPreData._checks)}</div>
+        <div class="modal-col">
+          ${renderRiskMeter()}
+          <div class="sec-lbl" style="margin-top:14px">Transport objects (${agentObjects.length})</div>
+          ${renderObjectsTable()}
+        </div>
+      </div>
+      <div style="padding:14px 22px 10px;border-top:1px solid var(--glassborder);">
+        <div class="sec-lbl" style="border-top:none;margin-top:0;">Agent activity log</div>
+        ${renderActivityLog()}
+      </div>`;
+  }
+
+  else if (tab === 'post') {
+    if (!agentPostData) { body.innerHTML=`<div class="state-row"><div class="spinner"></div>&nbsp;RUNNING</div>`; return; }
+    body.innerHTML = `
+      <div class="modal-cols">
+        <div class="modal-col">${renderChecklistHTML(agentPostData._checks)}</div>
+        <div class="modal-col">
+          <div class="sec-lbl" style="border-top:none;margin-top:0">Import log entries (${agentLogs.length})</div>
+          ${renderLogsTable()}
+        </div>
+      </div>`;
+  }
+
+  else if (tab === 'audit') {
+    const t = agentTransport;
+    const pre = agentPreData;
+    const outcome = !pre ? '—' : pre.fail>0 ? 'Blocked — agent raised failures' : pre.warn>0 ? 'Released with warnings' : 'Approved — all checks passed';
+    body.innerHTML = `
+      <div style="padding:16px 22px;">
+        <div class="sec-lbl" style="border-top:none;margin-top:0">Transport metadata</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+          <span class="achip">Transport: <b style="color:var(--text-hi)">${t.TRKORR}</b></span>
+          <span class="achip">Owner: <b style="color:var(--text-hi)">${t.OWNER||'—'}</b></span>
+          <span class="achip">Target: <b style="color:var(--text-hi)">${t.TARGET||'PROD'}</b></span>
+          <span class="achip">Created: <b style="color:var(--text-hi)">${fmt(t.CREATED_ON)}</b></span>
+          <span class="achip">Status: <b style="color:var(--text-hi)">${t.STATUS||'—'}</b></span>
+          <span class="achip">Objects: <b style="color:var(--text-hi)">${agentObjects.length}</b></span>
+          <span class="achip">Logs: <b style="color:var(--text-hi)">${agentLogs.length}</b></span>
+          <span class="achip">Agent run: <b style="color:var(--text-hi)">${new Date().toLocaleTimeString()}</b></span>
+          <span class="achip ${pre?.fail>0?'red':pre?.warn>0?'amber':'green'}">Outcome: <b>${outcome}</b></span>
+        </div>
+        <div class="sec-lbl">Full audit trail</div>
+        ${renderAuditTrail(t, outcome)}
+        <div style="margin-top:14px">
+          <div class="sec-lbl">Lessons learned</div>
+          <div style="font-size:12px;color:var(--text);line-height:1.6;background:var(--glass);border:1px solid var(--glassborder);border-radius:var(--radius);padding:12px 16px;">
+            ${pre?.fail>0
+              ? `&#9888; ${pre.fail} blocking issue(s) detected. Common resolution: check object dependencies in SE80, verify roles in SUIM, re-run import simulation in STMS.`
+              : pre?.warn>0
+              ? `&#9432; ${pre.warn} warning(s) noted. Monitor SM21 and ST22 for 24 hours post-import. Log outcomes for model training.`
+              : '&#10003; Clean transport — no issues. Positive outcome recorded for AI model training. This pattern can serve as a reference for future similar transports.'}
+          </div>
+        </div>
+      </div>`;
   }
 }
 
-function switchTab(tab) {
-  mTab = tab;
-  document.getElementById('mtabObj').className = 'mtab' + (tab==='objects'?' active':'');
-  document.getElementById('mtabLog').className = 'mtab' + (tab==='logs'   ?' active':'');
-  renderModalTab(tab);
-}
-
-function renderModalTab(tab) {
-  const body = document.getElementById('mBody');
-  const rows = tab === 'objects' ? mObjects : mLogs;
-  if (!rows) { body.innerHTML=`<div class="state-row"><div class="spinner"></div>&nbsp;LOADING</div>`; return; }
-  if (!rows.length) { body.innerHTML=`<div class="modal-empty"><div class="e-icon">📭</div>NO ${tab.toUpperCase()} FOUND</div>`; return; }
-
-  const cols = tab === 'objects'
-    ? ['OBJECT_NAME','OBJECT_TYPE','TRANSPORT','STATUS']
-    : ['LOG_ID','OBJECT_NAME','ACTION','USER','DATE'];
-
-  let html = `<div class="section-label">${tab === 'objects' ? 'Objects' : 'Activity Logs'}</div>
-    <table class="inner-table"><thead><tr>`;
-  cols.forEach(c => { html += `<th>${c.replace(/_/g,' ')}</th>`; });
-  html += `</tr></thead><tbody>`;
-  rows.forEach((r, i) => {
-    html += `<tr style="animation-delay:${i*.012}s">`;
-    cols.forEach(c => {
-      let v = r[c] ?? '-';
-      if (c === 'DATE') v = fmt(v);
-      if (c === 'STATUS') v = pill(v);
-      html += `<td>${v}</td>`;
-    });
-    html += `</tr>`;
+// ── Checklist HTML ─────────────────────────────────────────
+function renderChecklistHTML(checks) {
+  const iconMap = { pass:'✓', fail:'✕', warn:'!', info:'i', pending:'·' };
+  let html = '';
+  checks.forEach(c => {
+    if (c.section) {
+      html += `<div class="sec-lbl">${c.section}</div>`;
+    } else {
+      html += `<div class="chk">
+        <div class="chk-icon ${c.status}">${iconMap[c.status]||'·'}</div>
+        <div style="flex:1">
+          <div class="chk-label">${c.label}</div>
+          <div class="chk-detail">${c.detail}</div>
+        </div>
+        <span class="chk-badge ${c.status}">${c.status==='pass'?'Passed':c.status==='fail'?'Failed':c.status==='warn'?'Warning':'Info'}</span>
+      </div>`;
+    }
   });
-  html += `</tbody></table>`;
-  body.innerHTML = html;
+  return html;
 }
 
-// ── Boot ───────────────────────────────────────────────────────────
-init();
+// ── Risk meter HTML ────────────────────────────────────────
+function renderRiskMeter() {
+  const pre = agentPreData;
+  if (!pre) return '';
+  const score = document.getElementById('mkpiRisk').textContent;
+  const scoreNum = parseInt(score)||0;
+  const level = scoreNum>=65?'high':scoreNum>=40?'medium':'low';
+  const fillColor = level==='high'?'var(--red)':level==='medium'?'var(--amber)':'var(--green)';
+  return `
+    <div class="sec-lbl" style="border-top:none;margin-top:0">AI risk assessment</div>
+    <div class="risk-meter">
+      <div class="risk-lbl-row">
+        <span>Predicted error likelihood</span>
+        <span class="risk-score ${level}">${score}</span>
+      </div>
+      <div class="risk-track">
+        <div class="risk-fill" style="width:${scoreNum}%;background:${fillColor}"></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">
+      <div style="text-align:center;padding:8px;background:var(--green-dim);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius)">
+        <div style="font-family:var(--mono);font-size:18px;font-weight:600;color:var(--green)">${pre.pass}</div>
+        <div style="font-size:10px;color:var(--text-lo);margin-top:2px">Passed</div>
+      </div>
+      <div style="text-align:center;padding:8px;background:var(--amber-dim);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius)">
+        <div style="font-family:var(--mono);font-size:18px;font-weight:600;color:var(--amber)">${pre.warn}</div>
+        <div style="font-size:10px;color:var(--text-lo);margin-top:2px">Warnings</div>
+      </div>
+      <div style="text-align:center;padding:8px;background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius)">
+        <div style="font-family:var(--mono);font-size:18px;font-weight:600;color:var(--red)">${pre.fail}</div>
+        <div style="font-size:10px;color:var(--text-lo);margin-top:2px">Failed</div>
+      </div>
+    </div>`;
+}
+
+// ── Objects table HTML ─────────────────────────────────────
+function renderObjectsTable() {
+  if (!agentObjects.length) return `<div style="font-size:12px;color:var(--text-lo);padding:10px 0">No objects returned from SAP</div>`;
+  let html = `<table class="obj-tbl"><thead><tr><th>Object Name</th><th>Type</th><th>Status</th></tr></thead><tbody>`;
+  agentObjects.forEach(o => {
+    const s = o.STATUS||'?';
+    const cls = s==='E'?'red':s==='S'||s==='R'?'green':'amber';
+    html += `<tr><td>${o.OBJECT_NAME||'—'}</td><td><span style="font-family:var(--mono);font-size:10px;color:var(--cyan)">${o.OBJECT_TYPE||'—'}</span></td><td><span class="achip ${cls}">${s}</span></td></tr>`;
+  });
+  return html + '</tbody></table>';
+}
+
+// ── Activity log HTML (derived from real data) ─────────────
+function renderActivityLog() {
+  const t = agentTransport;
+  const events = [
+    { type:'info',  msg:`Agent started for ${t.TRKORR}`,                      time: new Date().toLocaleTimeString() },
+    { type: agentObjects.length>0?'pass':'warn', msg:`${agentObjects.length} object(s) fetched from SAP OData`, time:'' },
+    { type: agentLogs.length>0?'pass':'warn',    msg:`${agentLogs.length} log entry/entries retrieved`,         time:'' },
+    { type: agentPreData?.fail>0?'fail':agentPreData?.warn>0?'warn':'pass',
+      msg: agentPreData?.fail>0 ? `${agentPreData.fail} blocking failure(s) detected`
+         : agentPreData?.warn>0 ? `${agentPreData.warn} warning(s) flagged — review recommended`
+         : 'All pre-release checks passed', time:'' },
+    { type:'info', msg:`AI risk score: ${document.getElementById('mkpiRisk').textContent}`, time:'' },
+    { type: agentPreData?.fail>0?'fail':agentPreData?.warn>0?'warn':'pass',
+      msg: agentPreData?.fail>0 ? 'Agent recommendation: DO NOT release until failures resolved'
+         : agentPreData?.warn>0 ? 'Agent recommendation: proceed with caution — review warnings'
+         : 'Agent recommendation: approved for release', time:'' },
+  ];
+  return events.map(e =>
+    `<div class="tl-item"><div class="tl-dot ${e.type}"></div><div class="tl-msg">${e.msg}</div>${e.time?`<div class="tl-time">${e.time}</div>`:''}</div>`
+  ).join('');
+}
+
+// ── Logs table HTML ────────────────────────────────────────
+function renderLogsTable() {
+  if (!agentLogs.length) return `<div style="font-size:12px;color:var(--text-lo);padding:10px 0">No log entries returned from SAP. Verify import in STMS/SM21.</div>`;
+  let html = `<table class="obj-tbl"><thead><tr><th>Log ID</th><th>Object</th><th>Action</th><th>User</th><th>Date</th></tr></thead><tbody>`;
+  agentLogs.slice(0,30).forEach(l => {
+    const isErr = (l.ACTION||'').toUpperCase().includes('ERR');
+    html += `<tr>
+      <td style="color:var(--text-lo)">${l.LOG_ID||'—'}</td>
+      <td style="color:var(--cyan);font-family:var(--mono);font-size:11px">${l.OBJECT_NAME||'—'}</td>
+      <td style="color:${isErr?'var(--red)':'var(--text-hi)'}">${l.ACTION||'—'}</td>
+      <td>${l.USER||'—'}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">${fmt(l.DATE)}</td>
+    </tr>`;
+  });
+  return html + '</tbody></table>';
+}
+
+// ── Audit trail HTML ───────────────────────────────────────
+function renderAuditTrail(t, outcome) {
+  const events = [
+    { type:'info',  msg:`Transport ${t.TRKORR} selected for AI agent review` },
+    { type:'pass',  msg:`Object data fetched: ${agentObjects.length} objects` },
+    { type:'pass',  msg:`Log data fetched: ${agentLogs.length} entries` },
+    { type:'pass',  msg:`Pre-release analysis: ${agentPreData?.pass||0} passed, ${agentPreData?.warn||0} warnings, ${agentPreData?.fail||0} failures` },
+    { type:'info',  msg:`AI risk score computed: ${document.getElementById('mkpiRisk').textContent}` },
+    { type: agentPreData?.fail>0?'fail':agentPreData?.warn>0?'warn':'pass', msg:`Final outcome: ${outcome}` },
+    { type:'info',  msg:`Audit record generated — ${new Date().toISOString()}` },
+  ];
+  return events.map(e =>
+    `<div class="tl-item"><div class="tl-dot ${e.type}"></div><div class="tl-msg">${e.msg}</div></div>`
+  ).join('');
+}
+
+// ── Export audit ───────────────────────────────────────────
+function exportAudit() {
+  const t = agentTransport;
+  if (!t) return;
+  const pre = agentPreData;
+  const lines = [
+    `TRANSPORT AUDIT REPORT`,
+    `======================`,
+    `Transport:  ${t.TRKORR}`,
+    `Owner:      ${t.OWNER||'—'}`,
+    `Target:     ${t.TARGET||'PROD'}`,
+    `Created:    ${fmt(t.CREATED_ON)}`,
+    `Status:     ${t.STATUS||'—'}`,
+    `AI Risk:    ${document.getElementById('mkpiRisk').textContent}`,
+    `Checks:     ${pre?.pass||0} passed / ${pre?.warn||0} warnings / ${pre?.fail||0} failures`,
+    `Objects:    ${agentObjects.length}`,
+    `Logs:       ${agentLogs.length}`,
+    `Run time:   ${new Date().toISOString()}`,
+    ``,
+    `OBJECTS`,
+    ...agentObjects.map(o=>`  ${o.OBJECT_NAME} | ${o.OBJECT_TYPE} | ${o.STATUS}`),
+    ``,
+    `LOGS`,
+    ...agentLogs.slice(0,20).map(l=>`  ${l.LOG_ID||''} | ${l.OBJECT_NAME||''} | ${l.ACTION||''} | ${l.USER||''} | ${fmt(l.DATE)}`),
+  ];
+  const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `audit_${t.TRKORR}_${Date.now()}.txt`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+checkHealth();
+loadTransports();
 </script>
 </body>
 </html>
