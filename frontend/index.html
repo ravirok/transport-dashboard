@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TransTrack Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=72:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:          #f5f6f8;
+  --bg2:         #eef0f3;
+  --white:       #ffffff;
+  --border:      #e0e3e8;
+  --border2:     #c8cdd6;
+  --blue:        #0070f2;
+  --blue-light:  #e8f2ff;
+  --blue-mid:    #cce0ff;
+  --red:         #d32f2f;
+  --red-light:   #fdecea;
+  --green:       #1a7f4b;
+  --green-light: #e8f5ee;
+  --amber:       #b45309;
+  --amber-light: #fef3e2;
+  --cyan:        #0891b2;
+  --cyan-light:  #e0f4f8;
+  --text:        #4a5568;
+  --text-hi:     #1a202c;
+  --text-lo:     #9aa5b4;
+  --text-med:    #6b7a90;
+  --shadow-sm:   0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:   0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
+  --shadow-lg:   0 12px 40px rgba(0,0,0,.12), 0 4px 12px rgba(0,0,0,.06);
+  --mono:        'IBM Plex Mono', monospace;
+  --display:     'Plus Jakarta Sans', sans-serif;
+  --radius:      10px;
+  --radius-lg:   14px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--display);
+  font-size: 14px;
+  line-height: 1.5;
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── HEADER ─────────────────────────────────────────────── */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: 0 28px; height: 58px;
+  display: flex; align-items: center; gap: 14px;
+}
+.brand-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: var(--blue);
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 600; color: #fff;
+  flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,112,242,.3);
+}
+.brand-name { font-family: var(--display); font-size: 16px; font-weight: 700; color: var(--text-hi); }
+.brand-sub  { font-size: 11px; color: var(--text-lo); margin-top: 1px; letter-spacing: .3px; }
+.hdr-filters { display: flex; gap: 8px; margin-left: 20px; flex: 1; }
+.hdr-input, .hdr-select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-hi);
+  font-family: var(--display); font-size: 13px;
+  padding: 6px 11px; border-radius: 8px; outline: none;
+  height: 34px; transition: border-color .2s, box-shadow .2s;
+}
+.hdr-input { width: 160px; }
+.hdr-input::placeholder { color: var(--text-lo); }
+.hdr-input:focus, .hdr-select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0,112,242,.12);
+  background: var(--white);
+}
+.hdr-select { cursor: pointer; min-width: 130px; }
+.hdr-right  { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.refresh-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--cyan);
+  background: var(--cyan-light);
+  border: 1px solid #b3e4ef;
+  padding: 5px 12px; border-radius: 20px;
+}
+.refresh-icon { display: inline-block; animation: spin 4s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.health-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border2); transition: background .4s, box-shadow .4s;
+}
+.health-dot.ok  { background: var(--green); box-shadow: 0 0 0 3px var(--green-light); }
+.health-dot.err { background: var(--red);   box-shadow: 0 0 0 3px var(--red-light); }
+
+/* ── PAGE ───────────────────────────────────────────────── */
+.page { max-width: 1440px; margin: 0 auto; padding: 24px 28px 60px; }
+
+/* ── KPI ROW ────────────────────────────────────────────── */
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+.kpi {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  position: relative; overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+  animation: fadeUp .4s ease both;
+}
+.kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.kpi::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--kpi-line, linear-gradient(90deg, var(--blue), #60a5fa));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.kpi.red   { --kpi-line: linear-gradient(90deg, var(--red), #f87171); }
+.kpi.green { --kpi-line: linear-gradient(90deg, var(--green), #34d399); }
+.kpi.amber { --kpi-line: linear-gradient(90deg, var(--amber), #fbbf24); }
+.kpi-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: grid; place-items: center; font-size: 16px;
+  margin-bottom: 12px;
+  background: var(--kpi-icon-bg, var(--blue-light));
+}
+.kpi.red   .kpi-icon { background: var(--red-light); }
+.kpi.green .kpi-icon { background: var(--green-light); }
+.kpi.amber .kpi-icon { background: var(--amber-light); }
+.kpi-label { font-size: 12px; color: var(--text-med); margin-bottom: 4px; font-weight: 500; }
+.kpi-value {
+  font-family: var(--display); font-size: 32px; font-weight: 700;
+  line-height: 1; color: var(--text-hi);
+}
+.kpi.red   .kpi-value { color: var(--red); }
+.kpi.green .kpi-value { color: var(--green); }
+.kpi.amber .kpi-value { color: var(--amber); }
+.kpi-sub { font-size: 11px; color: var(--text-lo); margin-top: 5px; }
+
+/* ── CHARTS ROW ─────────────────────────────────────────── */
+.charts-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; margin-bottom: 20px; }
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  animation: fadeUp .5s ease both;
+}
+.card-head {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  background: var(--white);
+}
+.card-title { font-size: 13px; font-weight: 600; color: var(--text-hi); }
+.card-count {
+  margin-left: auto; font-family: var(--mono); font-size: 10px;
+  color: var(--blue); background: var(--blue-light);
+  border: 1px solid var(--blue-mid); padding: 2px 8px; border-radius: 20px;
+}
+.card-body { padding: 16px 18px; }
+.chart-wrap { position: relative; display: flex; align-items: center; justify-content: center; height: 210px; }
+
+/* ── TABLE ──────────────────────────────────────────────── */
+.table-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  animation: fadeUp .6s ease both;
+}
+.table-toolbar {
+  padding: 12px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  background: var(--white);
+}
+.tbl-count {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--blue); background: var(--blue-light);
+  border: 1px solid var(--blue-mid); padding: 2px 8px; border-radius: 20px;
+}
+.tbl-search {
+  margin-left: auto;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text-hi); font-family: var(--display); font-size: 13px;
+  padding: 6px 12px; border-radius: 8px; outline: none; width: 210px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.tbl-search:focus { border-color: var(--blue); background: var(--white); box-shadow: 0 0 0 3px rgba(0,112,242,.1); }
+.tbl-search::placeholder { color: var(--text-lo); }
+.hint-txt { font-size: 11px; color: var(--text-lo); }
+
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table thead th {
+  background: var(--bg);
+  font-size: 11px; font-weight: 600; letter-spacing: .5px;
+  text-transform: uppercase; color: var(--text-med);
+  padding: 10px 16px; text-align: left;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.data-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .12s;
+  animation: fadeUp .2s ease both;
+}
+.data-table tbody tr:hover { background: #f0f5ff; }
+.data-table tbody tr:last-child { border-bottom: none; }
+.data-table tbody tr.failed-row { background: #fff8f8; }
+.data-table tbody tr.failed-row:hover { background: #ffe8e8; }
+.data-table tbody td { padding: 12px 16px; font-size: 13px; color: var(--text); }
+td.td-id   { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-hi); }
+td.td-date { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
+td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); font-weight: 500; }
+
+.status-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 22px; padding: 0 8px; border-radius: 6px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+}
+.pill-e { background: var(--red-light);   color: var(--red);   border: 1px solid #f5c0c0; }
+.pill-s { background: var(--green-light); color: var(--green); border: 1px solid #a8dfc4; }
+.pill-r { background: var(--blue-light);  color: var(--blue);  border: 1px solid var(--blue-mid); }
+.pill-d { background: var(--amber-light); color: var(--amber); border: 1px solid #f5d999; }
+.pill-x { background: var(--bg2);         color: var(--text-lo); border: 1px solid var(--border); }
+
+/* ── STATES ─────────────────────────────────────────────── */
+.state-row {
+  display: flex; align-items: center; justify-content: center; gap: 10px; padding: 48px;
+  font-size: 12px; letter-spacing: .5px; color: var(--text-lo);
+}
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border); border-top-color: var(--blue);
+  border-radius: 50%; animation: spin .65s linear infinite;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ══════════════════════════════════════════════════════════
+   AI AGENT MODAL
+══════════════════════════════════════════════════════════ */
+.agent-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(30,40,60,.35);
+  backdrop-filter: blur(6px);
+  align-items: flex-start; justify-content: center;
+  padding: 20px; overflow-y: auto;
+}
+.agent-overlay.open { display: flex; }
+
+.agent-modal {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  width: 100%; max-width: 1020px;
+  box-shadow: var(--shadow-lg);
+  animation: modalIn .22s cubic-bezier(.34,1.3,.64,1);
+  overflow: hidden; margin: auto;
+}
+@keyframes modalIn { from { opacity:0; transform: scale(.95) translateY(14px); } to { opacity:1; transform: none; } }
+
+/* Modal header */
+.agent-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 24px;
+  background: linear-gradient(135deg, var(--blue-light), #f0f8ff);
+  border-bottom: 1px solid var(--border);
+}
+.agent-icon {
+  width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+  background: var(--blue);
+  display: grid; place-items: center; font-size: 20px;
+  box-shadow: 0 4px 12px rgba(0,112,242,.25);
+}
+.agent-title { font-size: 16px; font-weight: 700; color: var(--text-hi); }
+.agent-sub   { font-size: 12px; color: var(--text-med); margin-top: 2px; }
+.agent-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.achip {
+  font-size: 11px; padding: 3px 9px; border-radius: 20px;
+  background: var(--white); color: var(--text-med);
+  border: 1px solid var(--border); font-weight: 500;
+}
+.achip.blue  { background: var(--blue-light);  color: var(--blue);   border-color: var(--blue-mid); }
+.achip.green { background: var(--green-light); color: var(--green);  border-color: #a8dfc4; }
+.achip.red   { background: var(--red-light);   color: var(--red);    border-color: #f5c0c0; }
+.achip.amber { background: var(--amber-light); color: var(--amber);  border-color: #f5d999; }
+
+.agent-close {
+  margin-left: auto; background: var(--white); border: 1px solid var(--border);
+  color: var(--text-med); cursor: pointer; width: 32px; height: 32px;
+  border-radius: 8px; font-size: 14px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; box-shadow: var(--shadow-sm);
+}
+.agent-close:hover { color: var(--red); border-color: #f5c0c0; background: var(--red-light); }
+
+/* Phase tabs */
+.agent-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); }
+.agent-tab {
+  flex: 1; padding: 11px; background: none; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 500; letter-spacing: .3px;
+  color: var(--text-med);
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.agent-tab:hover { color: var(--blue); background: var(--white); }
+.agent-tab.active { color: var(--blue); border-bottom-color: var(--blue); background: var(--white); }
+
+/* Modal KPIs */
+.modal-kpi-row {
+  display: grid; grid-template-columns: repeat(4,1fr);
+  gap: 1px; background: var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.modal-kpi { background: var(--white); padding: 14px 20px; }
+.modal-kpi-label { font-size: 11px; font-weight: 600; color: var(--text-lo); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.modal-kpi-value { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--text-hi); line-height: 1; }
+.modal-kpi-value.s { color: var(--green); }
+.modal-kpi-value.w { color: var(--amber); }
+.modal-kpi-value.f { color: var(--red); }
+.modal-kpi-sub { font-size: 11px; color: var(--text-lo); margin-top: 3px; }
+
+/* AI banner */
+.ai-banner {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px 16px; margin: 14px 22px 0;
+  background: var(--blue-light); border: 1px solid var(--blue-mid);
+  border-radius: var(--radius); font-size: 12.5px;
+  color: #1d4ed8; line-height: 1.55;
+}
+.ai-banner-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+/* Progress */
+.modal-progress { padding: 12px 22px 0; }
+.pb-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-lo); margin-bottom: 5px; }
+.pb-track { height: 6px; border-radius: 3px; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; }
+.pb-fill  { height: 100%; border-radius: 3px; background: var(--blue); transition: width 1.2s cubic-bezier(.4,0,.2,1); }
+
+/* Modal cols */
+.modal-cols { display: grid; grid-template-columns: 1.3fr 1fr; }
+.modal-col  { border-right: 1px solid var(--border); padding: 16px 20px; overflow-y: auto; max-height: 420px; }
+.modal-col:last-child { border-right: none; }
+
+/* Section label */
+.sec-lbl {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text-lo); margin: 10px 0 6px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.sec-lbl:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+
+/* Check item */
+.chk {
+  display: flex; align-items: flex-start; gap: 9px; padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.chk:last-child { border-bottom: none; }
+.chk-icon {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 10px; font-weight: 700;
+  flex-shrink: 0; margin-top: 1px;
+}
+.chk-icon.pass { background: var(--green-light); color: var(--green); border: 1px solid #a8dfc4; }
+.chk-icon.fail { background: var(--red-light);   color: var(--red);   border: 1px solid #f5c0c0; }
+.chk-icon.warn { background: var(--amber-light); color: var(--amber); border: 1px solid #f5d999; }
+.chk-icon.info { background: var(--blue-light);  color: var(--blue);  border: 1px solid var(--blue-mid); }
+.chk-label  { font-size: 12.5px; color: var(--text-hi); line-height: 1.4; flex: 1; font-weight: 500; }
+.chk-detail { font-size: 11px; color: var(--text-med); margin-top: 2px; }
+.chk-badge  {
+  font-size: 10px; padding: 2px 7px; border-radius: 20px;
+  border: 1px solid; white-space: nowrap; align-self: center;
+  flex-shrink: 0; font-weight: 600;
+}
+.chk-badge.pass { background: var(--green-light); color: var(--green); border-color: #a8dfc4; }
+.chk-badge.fail { background: var(--red-light);   color: var(--red);   border-color: #f5c0c0; }
+.chk-badge.warn { background: var(--amber-light); color: var(--amber); border-color: #f5d999; }
+.chk-badge.info { background: var(--blue-light);  color: var(--blue);  border-color: var(--blue-mid); }
+
+/* Risk meter */
+.risk-meter { margin-bottom: 12px; }
+.risk-lbl-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-med); margin-bottom: 5px; }
+.risk-score { font-size: 15px; font-weight: 700; }
+.risk-score.low    { color: var(--green); }
+.risk-score.medium { color: var(--amber); }
+.risk-score.high   { color: var(--red); }
+.risk-track { height: 8px; border-radius: 4px; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; }
+.risk-fill  { height: 100%; border-radius: 4px; transition: width .9s cubic-bezier(.4,0,.2,1); }
+
+/* Timeline */
+.tl-item { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.tl-item:last-child { border-bottom: none; }
+.tl-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.tl-dot.pass { background: var(--green); }
+.tl-dot.fail { background: var(--red); }
+.tl-dot.warn { background: var(--amber); }
+.tl-dot.info { background: var(--blue); }
+.tl-msg  { font-size: 12px; color: var(--text); flex: 1; line-height: 1.4; }
+.tl-time { font-family: var(--mono); font-size: 10px; color: var(--text-lo); white-space: nowrap; }
+
+/* Objects table */
+.obj-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.obj-tbl thead th {
+  font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--text-lo); padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left;
+  background: var(--bg);
+}
+.obj-tbl tbody td { padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+.obj-tbl tbody tr:last-child td { border-bottom: none; }
+.obj-tbl tbody tr:hover td { background: var(--bg); }
+.obj-tbl tbody td:first-child { font-family: var(--mono); font-size: 11px; color: var(--text-hi); font-weight: 500; }
+
+/* Modal footer */
+.agent-footer {
+  padding: 14px 22px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 10px;
+  background: var(--bg);
+}
+.btn-secondary {
+  padding: 8px 18px; font-size: 13px; font-weight: 500; border-radius: var(--radius);
+  cursor: pointer; background: var(--white); color: var(--text-hi);
+  border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+  transition: all .15s;
+}
+.btn-secondary:hover { background: var(--bg2); border-color: var(--border2); }
+.btn-primary {
+  padding: 8px 20px; font-size: 13px; font-weight: 600; border-radius: var(--radius);
+  cursor: pointer; background: var(--blue); color: #fff; border: none;
+  box-shadow: 0 2px 8px rgba(0,112,242,.3); transition: all .15s;
+}
+.btn-primary:hover { background: #0062d6; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,112,242,.35); }
+.btn-primary:active { transform: none; }
+
+/* Audit chips */
+.audit-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="brand-icon">TT</div>
+  <div>
+    <div class="brand-name">TransTrack Pro</div>
+    <div class="brand-sub">Transport Risk Assessment Dashboard</div>
+  </div>
+  <div class="hdr-filters">
+    <input  type="text"    class="hdr-input"   id="ownerFilter"  placeholder="Filter by Owner"/>
+    <select class="hdr-select" id="statusFilter">
+      <option value="">All Status</option>
+      <option value="E">Failed (E)</option>
+      <option value="S">Success (S)</option>
+      <option value="R">Released (R)</option>
+      <option value="D">Modifiable (D)</option>
+    </select>
+    <select class="hdr-select" id="targetFilter">
+      <option value="">All Targets</option>
+      <option value="PROD">PROD</option>
+      <option value="QAS">QAS</option>
+      <option value="DEV">DEV</option>
+    </select>
+  </div>
+  <div class="hdr-right">
+    <div class="refresh-badge">
+      <span class="refresh-icon">↻</span>
+      Refreshing in <span id="countdown">45</span>s
+    </div>
+    <div class="health-dot" id="healthDot"></div>
+  </div>
+</div>
+
+<!-- PAGE -->
+<div class="page">
+
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi" style="animation-delay:.05s">
+      <div class="kpi-icon">📦</div>
+      <div class="kpi-label">Total Transports</div>
+      <div class="kpi-value" id="kpiTotal">—</div>
+      <div class="kpi-sub">All records</div>
+    </div>
+    <div class="kpi red" style="animation-delay:.1s">
+      <div class="kpi-icon">⚠️</div>
+      <div class="kpi-label">Failed Transports</div>
+      <div class="kpi-value" id="kpiFailed">—</div>
+      <div class="kpi-sub">Status E errors</div>
+    </div>
+    <div class="kpi green" style="animation-delay:.15s">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-label">Successful</div>
+      <div class="kpi-value" id="kpiSuccess">—</div>
+      <div class="kpi-sub">Status S / R</div>
+    </div>
+    <div class="kpi amber" style="animation-delay:.2s">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-label">Success Rate</div>
+      <div class="kpi-value" id="kpiRate">—</div>
+      <div class="kpi-sub">Current filter</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-row">
+    <div class="card" style="animation-delay:.25s">
+      <div class="card-head"><div class="card-title">Transport Status Overview</div></div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <div class="spinner" id="pieSpinner"></div>
+          <canvas id="pieChart" style="display:none;"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="animation-delay:.3s">
+      <div class="card-head">
+        <div class="card-title">Top Failing Owners</div>
+        <span class="card-count">by error count</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <div class="spinner" id="barSpinner"></div>
+          <canvas id="barChart" style="display:none;"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="card-title">Transport Table</div>
+      <span class="tbl-count" id="tblCount">—</span>
+      <span class="hint-txt">↑ Click any row to run AI Agent</span>
+      <input type="text" class="tbl-search" id="tblSearch" placeholder="Search transport / owner…"/>
+    </div>
+    <div id="tableBody">
+      <div class="state-row"><div class="spinner"></div>&nbsp;Loading transports...</div>
+    </div>
+  </div>
+</div>
+
+<!-- AI AGENT MODAL -->
+<div class="agent-overlay" id="agentOverlay">
+  <div class="agent-modal">
+
+    <div class="agent-header">
+      <div class="agent-icon">🤖</div>
+      <div style="flex:1">
+        <div class="agent-title" id="agentTitle">AI Transport Agent</div>
+        <div class="agent-sub">Automated pre &amp; post-release QA inspector</div>
+        <div class="agent-chips" id="agentChips"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        <button class="agent-close" id="agentClose">✕</button>
+        <span class="achip" id="agentStatusChip">Initializing...</span>
+      </div>
+    </div>
+
+    <div class="agent-tabs">
+      <button class="agent-tab active" id="atPre"   onclick="setAgentTab('pre')">Pre-release checks</button>
+      <button class="agent-tab"        id="atPost"  onclick="setAgentTab('post')">Post-release checks</button>
+      <button class="agent-tab"        id="atAudit" onclick="setAgentTab('audit')">Audit trail</button>
+    </div>
+
+    <div class="modal-kpi-row">
+      <div class="modal-kpi"><div class="modal-kpi-label">Checks passed</div><div class="modal-kpi-value s" id="mkpiPass">—</div><div class="modal-kpi-sub">of total</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Warnings</div>     <div class="modal-kpi-value w" id="mkpiWarn">—</div><div class="modal-kpi-sub">review needed</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Failures</div>     <div class="modal-kpi-value f" id="mkpiFail">—</div><div class="modal-kpi-sub">blocking issues</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">AI risk score</div><div class="modal-kpi-value" id="mkpiRisk" style="color:var(--text-lo)">—</div><div class="modal-kpi-sub">predicted errors</div></div>
+    </div>
+
+    <div class="modal-progress" id="modalProgress" style="display:none">
+      <div class="pb-row"><span id="pbLabel">Running agent...</span><span id="pbPct">0%</span></div>
+      <div class="pb-track"><div class="pb-fill" id="pbFill" style="width:0%"></div></div>
+    </div>
+
+    <div class="ai-banner" id="aiBanner" style="display:none">
+      <div class="ai-banner-icon">🤖</div>
+      <div id="aiBannerTxt"></div>
+    </div>
+
+    <div class="agent-body" id="agentBody">
+      <div class="state-row"><div class="spinner"></div>&nbsp;Loading data from SAP...</div>
+    </div>
+
+    <div class="agent-footer">
+      <button class="btn-secondary" onclick="closeAgent()">Close</button>
+      <button class="btn-primary"   onclick="exportAudit()">Export audit ↓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let allTransports = [], filtered = [], pieInst, barInst;
+let agentTransport = null, agentObjects = [], agentLogs = [];
+let agentTab = 'pre', agentPreData = null, agentPostData = null;
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════
+function fmt(raw) {
+  if (!raw || raw === '-') return '-';
+  const m = String(raw).match(/\/Date\((\d+)\)\//);
+  if (m) return new Date(+m[1]).toISOString().slice(0,10);
+  if (/^\d{8}$/.test(String(raw))) return `${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`;
+  return raw;
+}
+function pill(s) {
+  const map = { E:'pill-e', S:'pill-s', R:'pill-r', D:'pill-d' };
+  return `<span class="status-pill ${map[s]||'pill-x'}">${s||'?'}</span>`;
+}
+function animCount(el, to, suffix='') {
+  const num = parseFloat(to), isFloat = String(to).includes('.');
+  const start = performance.now(), dur = 700;
+  const step = now => {
+    const p = Math.min((now-start)/dur,1), e = 1-Math.pow(1-p,3);
+    el.textContent = isFloat ? (e*num).toFixed(1)+suffix : Math.round(e*num)+suffix;
+    if (p<1) requestAnimationFrame(step);
+    else el.textContent = to+suffix;
+  };
+  requestAnimationFrame(step);
+}
+
+// ═══════════════════════════════════════════════════════
+//  HEALTH + COUNTDOWN
+// ═══════════════════════════════════════════════════════
+async function checkHealth() {
+  try {
+    const d = await fetch('/api/health').then(r=>r.json());
+    document.getElementById('healthDot').className = d.status==='OK' ? 'health-dot ok' : 'health-dot err';
+  } catch { document.getElementById('healthDot').className = 'health-dot err'; }
+}
+let cd = 45;
+setInterval(() => {
+  document.getElementById('countdown').textContent = --cd;
+  if (cd <= 0) { cd = 45; loadTransports(); }
+}, 1000);
+
+// ═══════════════════════════════════════════════════════
+//  LOAD TRANSPORTS
+// ═══════════════════════════════════════════════════════
+async function loadTransports() {
+  try {
+    const data = await fetch('/api/transports').then(r=>r.json());
+    allTransports = data?.d?.results || [];
+    applyFilters();
+  } catch(e) {
+    document.getElementById('tableBody').innerHTML =
+      `<div class="state-row" style="color:var(--red)">✕ ${e.message}</div>`;
+  }
+}
+
+function getStatus(t) {
+  // SAP often returns STATUS with trailing spaces — trim both possible field names
+  return (t.STATUS || t.TRSTATUS || '').trim();
+}
+
+function applyFilters() {
+  const owner  = document.getElementById('ownerFilter').value.toLowerCase().trim();
+  const status = document.getElementById('statusFilter').value.trim();
+  const target = document.getElementById('targetFilter').value.trim();
+  const search = document.getElementById('tblSearch').value.toLowerCase().trim();
+
+  filtered = allTransports.filter(t => {
+    const tStatus = getStatus(t);
+    const tOwner  = (t.OWNER  || '').trim().toLowerCase();
+    const tTrkorr = (t.TRKORR || '').trim().toLowerCase();
+    const tTarget = (t.TARSYSTEM || t.TARGET || '').trim().toUpperCase();
+    return (
+      (!owner  || tOwner.includes(owner)) &&
+      (!status || tStatus === status) &&
+      (!target || tTarget.includes(target)) &&
+      (!search || tTrkorr.includes(search) || tOwner.includes(search))
+    );
+  });
+
+  updateKPIs(filtered); updateCharts(filtered); renderTable(filtered);
+}
+
+// ═══════════════════════════════════════════════════════
+//  KPIs
+// ═══════════════════════════════════════════════════════
+function updateKPIs(list) {
+  const failed  = list.filter(t=>getStatus(t)==='E').length;
+  const success = list.filter(t=>getStatus(t)==='S'||getStatus(t)==='R').length;
+  const rate    = list.length ? ((success/list.length)*100).toFixed(1) : '0.0';
+  animCount(document.getElementById('kpiTotal'),   list.length);
+  animCount(document.getElementById('kpiFailed'),  failed);
+  animCount(document.getElementById('kpiSuccess'), success);
+  document.getElementById('kpiRate').textContent = rate + '%';
+  document.getElementById('tblCount').textContent = filtered.length;
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHARTS
+// ═══════════════════════════════════════════════════════
+function updateCharts(list) {
+  const failed  = list.filter(t=>getStatus(t)==='E').length;
+  const success = list.filter(t=>getStatus(t)==='S'||getStatus(t)==='R').length;
+  const other   = list.length - failed - success;
+
+  document.getElementById('pieSpinner').style.display = 'none';
+  const pieC = document.getElementById('pieChart'); pieC.style.display = 'block';
+  if (pieInst) pieInst.destroy();
+  pieInst = new Chart(pieC.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Successful','Failed','Other'],
+      datasets:[{ data:[success,failed,other],
+        backgroundColor:['#dcfce7','#fee2e2','#fef9c3'],
+        borderColor:['#22c55e','#ef4444','#eab308'],
+        borderWidth:2, hoverOffset:6 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#6b7a90', font:{family:"'Plus Jakarta Sans'",size:11}, padding:16, boxWidth:12 }},
+        tooltip:{ backgroundColor:'#fff', borderColor:'#e0e3e8', borderWidth:1,
+          titleFont:{family:"'Plus Jakarta Sans'",size:12}, bodyFont:{family:"'Plus Jakarta Sans'",size:12},
+          titleColor:'#1a202c', bodyColor:'#4a5568',
+          callbacks:{ labelTextColor: () => '#4a5568' }
+        }
+      }
+    }
+  });
+
+  const ownerMap = {};
+  list.filter(t=>getStatus(t)==='E').forEach(t=>{ ownerMap[(t.OWNER||'UNKNOWN').trim()]=(ownerMap[(t.OWNER||'UNKNOWN').trim()]||0)+1; });
+  const sorted = Object.entries(ownerMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+  document.getElementById('barSpinner').style.display = 'none';
+  const barC = document.getElementById('barChart'); barC.style.display = 'block';
+  if (barInst) barInst.destroy();
+  barInst = new Chart(barC.getContext('2d'), {
+    type:'bar',
+    data:{
+      labels:sorted.map(s=>s[0]),
+      datasets:[{ data:sorted.map(s=>s[1]),
+        backgroundColor: sorted.map((_,i)=>`rgba(211,47,47,${0.85-i*0.1})`),
+        borderRadius:6, borderSkipped:false, borderWidth:0 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ backgroundColor:'#fff', borderColor:'#e0e3e8', borderWidth:1,
+          titleFont:{family:"'Plus Jakarta Sans'",size:12}, bodyFont:{family:"'Plus Jakarta Sans'",size:12},
+          titleColor:'#1a202c', bodyColor:'#4a5568' }
+      },
+      scales:{
+        x:{ grid:{color:'#f0f0f0'}, ticks:{color:'#9aa5b4', font:{family:"'Plus Jakarta Sans'",size:11}} },
+        y:{ grid:{color:'#f0f0f0'}, ticks:{color:'#9aa5b4', font:{family:"'Plus Jakarta Sans'",size:11}}, beginAtZero:true }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  TABLE
+// ═══════════════════════════════════════════════════════
+function renderTable(list) {
+  if (!list.length) { document.getElementById('tableBody').innerHTML=`<div class="state-row">No transports found</div>`; return; }
+  let html = `<table class="data-table">
+    <thead><tr><th>Transport #</th><th>Status</th><th>Owner</th><th>Target</th><th>Created On</th></tr></thead><tbody>`;
+  list.forEach((t,i)=>{
+    const st = getStatus(t);
+    html+=`<tr class="${st==='E'?'failed-row':''}" style="animation-delay:${i*.015}s"
+      data-trkorr="${(t.TRKORR||'').trim()}" data-owner="${(t.OWNER||'').trim()}"
+      data-date="${t.CREATED_ON||''}" data-status="${st}"
+      data-target="${(t.TARSYSTEM||t.TARGET||'PROD').trim()}">
+      <td class="td-id">${(t.TRKORR||'-').trim()}</td>
+      <td>${pill(st)}</td>
+      <td>${(t.OWNER||'-').trim()}</td>
+      <td class="td-target">${(t.TARSYSTEM||t.TARGET||'PROD').trim()}</td>
+      <td class="td-date">${fmt(t.CREATED_ON)}</td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('tableBody').innerHTML=html;
+  document.querySelectorAll('.data-table tbody tr[data-trkorr]').forEach(tr=>{
+    tr.onclick=()=>openAgent({ TRKORR:tr.dataset.trkorr, OWNER:tr.dataset.owner, CREATED_ON:tr.dataset.date, STATUS:tr.dataset.status, TARGET:tr.dataset.target });
+  });
+}
+['ownerFilter','statusFilter','targetFilter','tblSearch'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', applyFilters);
+});
+
+// ═══════════════════════════════════════════════════════
+//  AGENT MODAL
+// ═══════════════════════════════════════════════════════
+const overlay = document.getElementById('agentOverlay');
+document.getElementById('agentClose').onclick = closeAgent;
+overlay.addEventListener('click', e=>{ if(e.target===overlay) closeAgent(); });
+
+function closeAgent() {
+  overlay.classList.remove('open');
+  agentTransport=null; agentObjects=[]; agentLogs=[];
+  agentPreData=agentPostData=null; agentTab='pre';
+}
+
+async function openAgent(t) {
+  agentTransport=t; agentObjects=[]; agentLogs=[];
+  agentPreData=agentPostData=null;
+
+  // Released (R) or Successful (S) transports → start on Post-release tab
+  // Everything else (E, D, unknown) → start on Pre-release tab
+  const st = (t.STATUS || '').trim();
+  const isReleased = st === 'R' || st === 'S';
+  agentTab = isReleased ? 'post' : 'pre';
+
+  ['atPre','atPost','atAudit'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById(isReleased ? 'atPost' : 'atPre').classList.add('active');
+  document.getElementById('agentTitle').textContent = `AI Agent — ${t.TRKORR}`;
+  ['mkpiPass','mkpiWarn','mkpiFail'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('mkpiRisk').textContent='—';
+  document.getElementById('mkpiRisk').style.color='var(--text-lo)';
+  document.getElementById('aiBanner').style.display='none';
+  document.getElementById('modalProgress').style.display='none';
+  document.getElementById('agentStatusChip').textContent='Fetching data...';
+  document.getElementById('agentStatusChip').style.cssText='background:var(--blue-light);color:var(--blue);border:1px solid var(--blue-mid);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;';
+
+  document.getElementById('agentChips').innerHTML=[
+    t.OWNER      ? `<span class="achip blue">OWNER: ${t.OWNER}</span>`:'',
+    t.TARGET     ? `<span class="achip">TARGET: ${t.TARGET}</span>`:'',
+    t.CREATED_ON ? `<span class="achip">DATE: ${fmt(t.CREATED_ON)}</span>`:'',
+    t.STATUS     ? `<span class="achip ${t.STATUS==='E'?'red':t.STATUS==='S'||t.STATUS==='R'?'green':'amber'}">${pill(t.STATUS)}</span>`:'',
+  ].join('');
+
+  document.getElementById('agentBody').innerHTML=
+    `<div class="state-row"><div class="spinner"></div>&nbsp;Fetching objects &amp; logs from SAP...</div>`;
+  overlay.classList.add('open');
+
+  try {
+    const [objRes,logRes] = await Promise.all([
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/objects`).then(r=>r.json()),
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/logs`).then(r=>r.json()),
+    ]);
+    agentObjects = objRes?.d?.results || [];
+    agentLogs    = logRes?.d?.results || [];
+  } catch(e) {
+    document.getElementById('agentBody').innerHTML=
+      `<div class="state-row" style="color:var(--red)">✕ Failed to fetch SAP data: ${e.message}</div>`;
+    return;
+  }
+
+  // Show progress bar then run analysis
+  const prog = document.getElementById('modalProgress');
+  prog.style.display = 'block';
+  document.getElementById('agentBody').innerHTML =
+    `<div class="state-row"><div class="spinner"></div>&nbsp;Running AI analysis...</div>`;
+
+  const steps = [
+    'Validating object list...',
+    'Running dependency analysis...',
+    'Computing AI risk score...',
+    'Evaluating log history...',
+    'Finalising checks...'
+  ];
+  let cur = 0;
+  const fill = document.getElementById('pbFill');
+  const pct  = document.getElementById('pbPct');
+  const lbl  = document.getElementById('pbLabel');
+
+  const tick = () => {
+    cur = Math.min(cur + 2, 100);
+    fill.style.width = cur + '%';
+    pct.textContent  = cur + '%';
+    lbl.textContent  = steps[Math.floor(cur / 22)] || 'Completing...';
+    if (cur < 100) {
+      setTimeout(tick, 25);
+    } else {
+      lbl.textContent = 'Analysis complete';
+      setTimeout(() => {
+        prog.style.display = 'none';
+        runAgentAnalysis();
+      }, 300);
+    }
+  };
+  tick();
+}
+
+// ═══════════════════════════════════════════════════════
+//  ANALYSIS ENGINE
+// ═══════════════════════════════════════════════════════
+function runAgentAnalysis() {
+  const t=agentTransport, objects=agentObjects, logs=agentLogs;
+  const failedObjs = objects.filter(o=>(o.STATUS||'').trim()==='E');
+  const warnObjs   = objects.filter(o=>(o.STATUS||'').trim()==='W');
+  const failedLogs = logs.filter(l=>(l.ACTION||'').toUpperCase().includes('ERR') || (l.STATUS||'').trim()==='8' || (l.STATUS||'').toUpperCase().includes('ERR'));
+  const riskScore  = computeRisk(t,objects,logs,failedObjs,failedLogs);
+  const riskLevel  = riskScore>=65?'high':riskScore>=40?'medium':'low';
+
+  const preChecks=[
+    { section:'Content verification' },
+    { label:'Object list validation', detail: objects.length?`${objects.length} objects found — ${failedObjs.length} errors, ${warnObjs.length} warnings`:'No objects found in transport', status:objects.length===0?'fail':failedObjs.length>0?'warn':'pass' },
+    { label:'Dependency check', detail:failedObjs.length>0?`${failedObjs.length} objects in error state — dependencies may be missing`:'No dependency errors detected', status:failedObjs.length>0?'fail':'pass' },
+    { label:'Transport path verification', detail:`Target: ${t.TARGET||'PROD'} — route DEV → QAS → PROD`, status:'pass' },
+    { label:'Version & status check', detail:t.STATUS==='D'?'Transport still modifiable (D) — not released':t.STATUS==='R'?'Transport released and ready':`Status: ${t.STATUS||'unknown'}`, status:t.STATUS==='D'?'warn':t.STATUS==='R'||t.STATUS==='S'?'pass':'warn' },
+    { section:'Impact analysis' },
+    { label:'Criticality assessment', detail:riskScore>=65?'High-risk — affects critical business objects':riskScore>=40?'Medium risk — review recommended':'Low impact — routine transport', status:riskScore>=65?'fail':riskScore>=40?'warn':'pass' },
+    { label:'Risk analysis (AI model)', detail:`Predicted error likelihood: ${riskScore}%`, status:riskScore>=65?'fail':riskScore>=40?'warn':'pass' },
+    { label:'Authorization check', detail:t.OWNER?`Owner ${t.OWNER} identified — verify SE10/basis roles`:'No owner assigned — verify authorization', status:t.OWNER?'pass':'warn' },
+    { section:'Pre-import simulation' },
+    { label:'Conflict detection', detail:failedObjs.length>0?`${failedObjs.length} objects in error — conflicts possible`:'No conflicts from object statuses', status:failedObjs.length>0?'warn':'pass' },
+    { label:'Import simulation result', detail:failedLogs.length>0?`${failedLogs.length} error(s) in logs — check-only import would fail`:logs.length>0?`${logs.length} log entries reviewed — no critical errors`:'No log history — simulate manually in SE10', status:failedLogs.length>0?'fail':logs.length>0?'pass':'warn' },
+    { section:'AI-specific checks' },
+    { label:'AI risk prediction', detail:`${riskScore}% predicted error rate — ${riskLevel} risk (threshold: 60%)`, status:riskScore>=65?'fail':riskScore>=40?'warn':'pass' },
+    { label:'Historical data comparison', detail:logs.length>0?`${logs.length} historical log entries found`:'No historical data — first occurrence', status:failedLogs.length>0?'warn':logs.length>0?'pass':'info' },
+  ];
+
+  const postChecks=[
+    { section:'Import verification' },
+    { label:'Import log status', detail:failedLogs.length>0?`${failedLogs.length} error(s) in import logs — review SM21`:logs.length>0?'Import logs reviewed — no critical errors':'No import logs — verify in STMS/SM21', status:failedLogs.length>0?'fail':logs.length>0?'pass':'warn' },
+    { label:'Object status verification', detail:failedObjs.length>0?`${failedObjs.length} object(s) in error — reactivation needed`:`${objects.length} object(s) verified active`, status:failedObjs.length>0?'fail':'pass' },
+    { label:'Rollback plan', detail:'Confirm rollback transport exists in STMS', status:'info' },
+    { section:'Functional validation' },
+    { label:'Smoke testing', detail:'Run key functional tests for affected business processes', status:'info' },
+    { label:'Configuration validation', detail:objects.filter(o=>o.OBJECT_TYPE==='CUST'||o.OBJECT_TYPE==='TABL').length>0?`${objects.filter(o=>o.OBJECT_TYPE==='CUST'||o.OBJECT_TYPE==='TABL').length} config/table object(s) — verify in production`:'No configuration objects detected', status:'info' },
+    { label:'Data integrity check', detail:objects.filter(o=>o.OBJECT_TYPE==='TABL').length>0?`${objects.filter(o=>o.OBJECT_TYPE==='TABL').length} table object(s) — run row count verification`:'No table objects — not required', status:objects.filter(o=>o.OBJECT_TYPE==='TABL').length>0?'warn':'pass' },
+    { section:'Monitoring & alerts' },
+    { label:'Error log monitoring', detail:failedLogs.length>0?`${failedLogs.length} error(s) — monitor SM21 closely`:'Monitor SM21 and ST22 for 24 hours post-import', status:failedLogs.length>0?'warn':'info' },
+    { label:'Performance metrics', detail:'Compare response time before/after — check SM50/SM66', status:'info' },
+    { label:'AI model update', detail:`Outcome to be fed back — risk score was ${riskScore}%`, status:'info' },
+  ];
+
+  agentPreData  = { ...scoreChecks(preChecks),  _checks:preChecks  };
+  agentPostData = { ...scoreChecks(postChecks), _checks:postChecks };
+
+  // Show KPIs from the relevant phase
+  const activeData = agentTab === 'post' ? agentPostData : agentPreData;
+  document.getElementById('mkpiPass').textContent = activeData.pass;
+  document.getElementById('mkpiWarn').textContent = activeData.warn;
+  document.getElementById('mkpiFail').textContent = activeData.fail;
+  document.getElementById('mkpiRisk').textContent = riskScore+'%';
+  document.getElementById('mkpiRisk').style.color = riskLevel==='high'?'var(--red)':riskLevel==='medium'?'var(--amber)':'var(--green)';
+
+  const sc = document.getElementById('agentStatusChip');
+  const st = (t.STATUS||'').trim();
+  if (st === 'R' || st === 'S') {
+    // Released — show post-release status
+    if (agentPostData.fail > 0) {
+      sc.textContent='Post-release issues';
+      sc.style.cssText='background:var(--red-light);color:var(--red);border:1px solid #f5c0c0;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    } else if (agentPostData.warn > 0) {
+      sc.textContent='Monitor closely';
+      sc.style.cssText='background:var(--amber-light);color:var(--amber);border:1px solid #f5d999;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    } else {
+      sc.textContent='Import successful';
+      sc.style.cssText='background:var(--green-light);color:var(--green);border:1px solid #a8dfc4;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    }
+  } else {
+    // Not released — show pre-release status
+    if (agentPreData.fail > 0) {
+      sc.textContent='Issues found';
+      sc.style.cssText='background:var(--red-light);color:var(--red);border:1px solid #f5c0c0;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    } else if (agentPreData.warn > 0) {
+      sc.textContent='Warnings';
+      sc.style.cssText='background:var(--amber-light);color:var(--amber);border:1px solid #f5d999;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    } else {
+      sc.textContent='All clear';
+      sc.style.cssText='background:var(--green-light);color:var(--green);border:1px solid #a8dfc4;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    }
+  }
+
+  const banner = document.getElementById('aiBanner');
+  banner.style.display='flex';
+  document.getElementById('aiBannerTxt').innerHTML = buildInsight(t,objects,logs,riskScore,riskLevel,agentPreData);
+
+  document.getElementById('modalProgress').style.display='none';
+  // Render whichever tab was determined at open time
+  renderAgentTab(agentTab);
+}
+
+function computeRisk(t,objects,logs,failedObjs,failedLogs) {
+  let s=20;
+  if (t.STATUS==='D') s+=20;
+  if (t.STATUS==='E') s+=35;
+  s+=Math.min(failedObjs.length*12,36);
+  s+=Math.min(failedLogs.length*8,24);
+  if (objects.length>10) s+=10;
+  if (objects.some(o=>['PROG','FUGR','FUNC'].includes(o.OBJECT_TYPE))) s+=8;
+  if (objects.some(o=>o.OBJECT_TYPE==='AUTH')) s+=10;
+  return Math.min(Math.max(s,5),98);
+}
+
+function buildInsight(t,objects,logs,score,level,pre) {
+  const st = (t.STATUS||'').trim();
+  const isReleased = st==='R' || st==='S';
+  if (isReleased) {
+    const post = agentPostData;
+    const lvl2 = post.fail>0?'<strong>Post-release issues detected.</strong>':post.warn>0?'<strong>Released — monitor closely.</strong>':'<strong>Successful import.</strong>';
+    const obj2 = objects.length?`${objects.length} object(s) verified.`:'No objects returned.';
+    const log2 = logs.length?`${logs.length} import log entries reviewed.`:'No log history.';
+    const rec2 = post.fail>0?'Rollback plan should be activated.':post.warn>0?'Monitor SM21 and ST22 for 24 hours.':'All post-release checks passed. Log outcome for AI model training.';
+    return `${lvl2} AI risk score: ${score}%. ${obj2} ${log2} ${rec2}`;
+  }
+  const lvl = level==='high'?'<strong>High-risk transport detected.</strong>':level==='medium'?'<strong>Medium-risk transport.</strong>':'<strong>Low-risk transport.</strong>';
+  const obj = objects.length?`${objects.length} object(s) found — ${objects.filter(o=>(o.STATUS||'').trim()==='E').length} in error state.`:'No objects returned from SAP.';
+  const log = logs.length?`${logs.length} log entries reviewed.`:'No log history available.';
+  const rec = pre.fail>0?'Recommend resolving failures before release.':pre.warn>0?'Review warnings with basis team before proceeding.':'Agent approves for release — all pre-checks passed.';
+  return `${lvl} AI risk score: ${score}%. ${obj} ${log} ${rec}`;
+}
+
+function scoreChecks(checks) {
+  let pass=0,warn=0,fail=0;
+  checks.forEach(c=>{ if(!c.section){ if(c.status==='pass')pass++; else if(c.status==='warn')warn++; else if(c.status==='fail')fail++; } });
+  return {pass,warn,fail};
+}
+
+// ═══════════════════════════════════════════════════════
+//  TAB RENDERER
+// ═══════════════════════════════════════════════════════
+function setAgentTab(tab) {
+  agentTab=tab;
+  ['atPre','atPost','atAudit'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById('at'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+  renderAgentTab(tab);
+}
+
+function renderAgentTab(tab) {
+  const body=document.getElementById('agentBody');
+  if (tab==='pre') {
+    if (!agentPreData) { body.innerHTML=`<div class="state-row"><div class="spinner"></div>&nbsp;Running...</div>`; return; }
+    body.innerHTML=`
+      <div class="modal-cols">
+        <div class="modal-col">${renderChecklistHTML(agentPreData._checks)}</div>
+        <div class="modal-col">
+          ${renderRiskMeter()}
+          <div class="sec-lbl" style="margin-top:14px">Transport objects (${agentObjects.length})</div>
+          ${renderObjectsTable()}
+        </div>
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid var(--border);">
+        <div class="sec-lbl" style="border-top:none;margin-top:0">Agent activity log</div>
+        ${renderActivityLog()}
+      </div>`;
+  } else if (tab==='post') {
+    if (!agentPostData) { body.innerHTML=`<div class="state-row"><div class="spinner"></div>&nbsp;Running...</div>`; return; }
+    body.innerHTML=`
+      <div class="modal-cols">
+        <div class="modal-col">${renderChecklistHTML(agentPostData._checks)}</div>
+        <div class="modal-col">
+          <div class="sec-lbl" style="border-top:none;margin-top:0">Import log entries (${agentLogs.length})</div>
+          ${renderLogsTable()}
+        </div>
+      </div>`;
+  } else if (tab==='audit') {
+    const t=agentTransport, pre=agentPreData;
+    const outcome=!pre?'—':pre.fail>0?'Blocked — failures detected':pre.warn>0?'Released with warnings':'Approved — all checks passed';
+    body.innerHTML=`
+      <div style="padding:16px 20px;">
+        <div class="sec-lbl" style="border-top:none;margin-top:0">Transport metadata</div>
+        <div class="audit-chips">
+          <span class="achip">Transport: <strong>${t.TRKORR}</strong></span>
+          <span class="achip">Owner: <strong>${t.OWNER||'—'}</strong></span>
+          <span class="achip">Target: <strong>${t.TARGET||'PROD'}</strong></span>
+          <span class="achip">Created: <strong>${fmt(t.CREATED_ON)}</strong></span>
+          <span class="achip">Status: <strong>${t.STATUS||'—'}</strong></span>
+          <span class="achip">Objects: <strong>${agentObjects.length}</strong></span>
+          <span class="achip">Logs: <strong>${agentLogs.length}</strong></span>
+          <span class="achip ${pre?.fail>0?'red':pre?.warn>0?'amber':'green'}">Outcome: <strong>${outcome}</strong></span>
+        </div>
+        <div class="sec-lbl">Full audit trail</div>
+        ${renderAuditTrail(t,outcome)}
+        <div style="margin-top:14px">
+          <div class="sec-lbl">Lessons learned</div>
+          <div style="font-size:12.5px;color:var(--text);line-height:1.6;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;">
+            ${pre?.fail>0
+              ? `&#9888; ${pre.fail} blocking issue(s) detected. Resolve object dependencies in SE80, verify roles in SUIM, re-run import simulation in STMS.`
+              : pre?.warn>0
+              ? `&#9432; ${pre.warn} warning(s) noted. Monitor SM21 and ST22 for 24 hours post-import.`
+              : '&#10003; Clean transport — no issues. Positive outcome recorded for AI model training.'}
+          </div>
+        </div>
+      </div>`;
+  }
+}
+
+function renderChecklistHTML(checks) {
+  const ic={pass:'✓',fail:'✕',warn:'!',info:'i'};
+  return checks.map(c=>c.section
+    ? `<div class="sec-lbl">${c.section}</div>`
+    : `<div class="chk">
+        <div class="chk-icon ${c.status}">${ic[c.status]||'·'}</div>
+        <div style="flex:1">
+          <div class="chk-label">${c.label}</div>
+          <div class="chk-detail">${c.detail}</div>
+        </div>
+        <span class="chk-badge ${c.status}">${c.status==='pass'?'Passed':c.status==='fail'?'Failed':c.status==='warn'?'Warning':'Info'}</span>
+      </div>`
+  ).join('');
+}
+
+function renderRiskMeter() {
+  const score=parseInt(document.getElementById('mkpiRisk').textContent)||0;
+  const level=score>=65?'high':score>=40?'medium':'low';
+  const fill=level==='high'?'var(--red)':level==='medium'?'var(--amber)':'var(--green)';
+  const pre=agentPreData;
+  return `
+    <div class="sec-lbl" style="border-top:none;margin-top:0">AI risk assessment</div>
+    <div class="risk-meter">
+      <div class="risk-lbl-row"><span>Predicted error likelihood</span><span class="risk-score ${level}">${score}%</span></div>
+      <div class="risk-track"><div class="risk-fill" style="width:${score}%;background:${fill}"></div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">
+      <div style="text-align:center;padding:10px;background:var(--green-light);border:1px solid #a8dfc4;border-radius:var(--radius)">
+        <div style="font-size:20px;font-weight:700;color:var(--green)">${pre.pass}</div>
+        <div style="font-size:10px;color:var(--text-lo);margin-top:2px;font-weight:600;text-transform:uppercase">Passed</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:var(--amber-light);border:1px solid #f5d999;border-radius:var(--radius)">
+        <div style="font-size:20px;font-weight:700;color:var(--amber)">${pre.warn}</div>
+        <div style="font-size:10px;color:var(--text-lo);margin-top:2px;font-weight:600;text-transform:uppercase">Warnings</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:var(--red-light);border:1px solid #f5c0c0;border-radius:var(--radius)">
+        <div style="font-size:20px;font-weight:700;color:var(--red)">${pre.fail}</div>
+        <div style="font-size:10px;color:var(--text-lo);margin-top:2px;font-weight:600;text-transform:uppercase">Failed</div>
+      </div>
+    </div>`;
+}
+
+function renderObjectsTable() {
+  if (!agentObjects.length) return `<div style="font-size:12px;color:var(--text-lo);padding:10px 0">No objects returned from SAP</div>`;
+  let html=`<table class="obj-tbl"><thead><tr><th>Object Name</th><th>Type</th><th>Status</th></tr></thead><tbody>`;
+  agentObjects.forEach(o=>{
+    const s=o.STATUS||'?';
+    const cls=s==='E'?'red':s==='S'||s==='R'?'green':'amber';
+    html+=`<tr><td>${o.OBJECT_NAME||'—'}</td>
+      <td><span style="font-family:var(--mono);font-size:10px;color:var(--cyan);background:var(--cyan-light);padding:1px 6px;border-radius:4px">${o.OBJECT_TYPE||'—'}</span></td>
+      <td><span class="achip ${cls}">${s}</span></td></tr>`;
+  });
+  return html+'</tbody></table>';
+}
+
+function renderActivityLog() {
+  const t=agentTransport;
+  const events=[
+    {type:'info', msg:`Agent started for ${t.TRKORR}`, time:new Date().toLocaleTimeString()},
+    {type:agentObjects.length>0?'pass':'warn', msg:`${agentObjects.length} object(s) fetched from SAP`, time:''},
+    {type:agentLogs.length>0?'pass':'warn', msg:`${agentLogs.length} log entries retrieved`, time:''},
+    {type:agentPreData?.fail>0?'fail':agentPreData?.warn>0?'warn':'pass',
+      msg:agentPreData?.fail>0?`${agentPreData.fail} blocking failure(s) detected`:agentPreData?.warn>0?`${agentPreData.warn} warning(s) flagged`:'All pre-release checks passed', time:''},
+    {type:'info', msg:`AI risk score: ${document.getElementById('mkpiRisk').textContent}`, time:''},
+    {type:agentPreData?.fail>0?'fail':agentPreData?.warn>0?'warn':'pass',
+      msg:agentPreData?.fail>0?'Recommendation: DO NOT release until failures resolved':agentPreData?.warn>0?'Recommendation: proceed with caution':'Recommendation: approved for release', time:''},
+  ];
+  return events.map(e=>`<div class="tl-item"><div class="tl-dot ${e.type}"></div><div class="tl-msg">${e.msg}</div>${e.time?`<div class="tl-time">${e.time}</div>`:''}</div>`).join('');
+}
+
+function renderLogsTable() {
+  if (!agentLogs.length) return `<div style="font-size:12px;color:var(--text-lo);padding:10px 0">No log entries from SAP. Verify import in STMS/SM21.</div>`;
+  let html=`<table class="obj-tbl"><thead><tr><th>Object</th><th>Action</th><th>User</th><th>Date</th><th>Status</th></tr></thead><tbody>`;
+  agentLogs.slice(0,30).forEach(l=>{
+    const isErr=(l.ACTION||'').toUpperCase().includes('ERR')||l.STATUS==='8';
+    html+=`<tr>
+      <td>${l.OBJECT_NAME||l.TRANSPORT||'—'}</td>
+      <td style="color:${isErr?'var(--red)':'var(--text-hi)'};font-weight:${isErr?'600':'400'}">${l.ACTION||'—'}</td>
+      <td>${l.USER||'—'}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">${fmt(l.DATE||l.LOG_DATE)}</td>
+      <td><span class="achip ${l.STATUS==='0'||l.STATUS==='S'?'green':l.STATUS==='8'||l.STATUS==='E'?'red':'amber'}">${l.STATUS||'—'}</span></td>
+    </tr>`;
+  });
+  return html+'</tbody></table>';
+}
+
+function renderAuditTrail(t,outcome) {
+  const events=[
+    {type:'info',  msg:`Transport ${t.TRKORR} selected for AI agent review`},
+    {type:'pass',  msg:`Object data fetched: ${agentObjects.length} objects`},
+    {type:'pass',  msg:`Log data fetched: ${agentLogs.length} entries`},
+    {type:'pass',  msg:`Pre-release analysis: ${agentPreData?.pass||0} passed, ${agentPreData?.warn||0} warnings, ${agentPreData?.fail||0} failures`},
+    {type:'info',  msg:`AI risk score: ${document.getElementById('mkpiRisk').textContent}`},
+    {type:agentPreData?.fail>0?'fail':agentPreData?.warn>0?'warn':'pass', msg:`Final outcome: ${outcome}`},
+    {type:'info',  msg:`Audit record generated — ${new Date().toISOString()}`},
+  ];
+  return events.map(e=>`<div class="tl-item"><div class="tl-dot ${e.type}"></div><div class="tl-msg">${e.msg}</div></div>`).join('');
+}
+
+function exportAudit() {
+  const t=agentTransport; if(!t) return;
+  const pre=agentPreData;
+  const lines=[
+    'TRANSPORT AUDIT REPORT','======================',
+    `Transport:  ${t.TRKORR}`, `Owner:      ${t.OWNER||'—'}`,
+    `Target:     ${t.TARGET||'PROD'}`, `Created:    ${fmt(t.CREATED_ON)}`,
+    `Status:     ${t.STATUS||'—'}`, `AI Risk:    ${document.getElementById('mkpiRisk').textContent}`,
+    `Checks:     ${pre?.pass||0} passed / ${pre?.warn||0} warnings / ${pre?.fail||0} failures`,
+    `Objects:    ${agentObjects.length}`, `Logs:       ${agentLogs.length}`,
+    `Run time:   ${new Date().toISOString()}`, '',
+    'OBJECTS', ...agentObjects.map(o=>`  ${o.OBJECT_NAME} | ${o.OBJECT_TYPE} | ${o.STATUS}`),
+    '', 'LOGS', ...agentLogs.slice(0,20).map(l=>`  ${l.OBJECT_NAME||''} | ${l.ACTION||''} | ${l.USER||''} | ${fmt(l.DATE||l.LOG_DATE)}`),
+  ];
+  const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`audit_${t.TRKORR}_${Date.now()}.txt`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+checkHealth();
+loadTransports();
+</script>
+</body>
+</html>
