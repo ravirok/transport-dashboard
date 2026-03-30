@@ -299,7 +299,7 @@ app.post("/api/transports/:trkorr/import", async (req, res) => {
     const postRes = await axios.post(
       `${baseURL}/Transports`,
       {
-        Trkorr: trkorr
+        TRKORR: trkorr
       },
       {
         headers: {
