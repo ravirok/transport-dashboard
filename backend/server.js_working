@@ -247,6 +247,68 @@ app.use(express.static(path.join(__dirname, "../frontend")));
 app.get(/^\/(?!api|debug).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
+// POST /api/transports/:trkorr/import
+app.post("/api/transports/:trkorr/import", async (req, res) => {
+  const { trkorr } = req.params;
+  const { target = 'P20' } = req.body;
+  console.log(`🚀 Import requested: ${trkorr} → ${target}`);
+
+  try {
+    // Call SAP STMS OData import action
+    const [destToken, connectivityToken] = await Promise.all([
+      getBTPToken(),
+      getConnectivityToken(),
+    ]);
+
+    const destination = await getBTPDestination(destToken);
+    const { URL: SAP_URL, User, Password } = destination.destinationConfiguration;
+
+    const proxyHost = connectivityCredentials.onpremise_proxy_host;
+    const proxyPort = parseInt(connectivityCredentials.onpremise_proxy_http_port || "20003");
+    const sapAuth   = Buffer.from(`${User}:${Password}`).toString("base64");
+
+    // ── OPTION A: STMS OData Function Import (recommended) ──
+    // Adjust service + function name to match your Z_TRANSPORTS_lOG_SRV_SRV
+    const sapEndpoint = `${SAP_URL}/sap/opu/odata/sap/Z_TRANSPORTS_lOG_SRV_SRV/ImportTransport` +
+                        `?Trkorr='${trkorr}'&Tarsystem='${target}'`;
+
+    const response = await axios.post(sapEndpoint, {}, {
+      headers: {
+        Authorization:         `Basic ${sapAuth}`,
+        "Proxy-Authorization": `Bearer ${connectivityToken}`,
+        Accept:                "application/json",
+        "Content-Type":        "application/json",
+        "X-Requested-With":    "XMLHttpRequest",
+      },
+      proxy: { protocol: "http:", host: proxyHost, port: proxyPort },
+      httpsAgent,
+    });
+
+    const result = response.data?.d || response.data || {};
+    const returnMsg = result.Message || result.MESSAGE || result.message || '';
+    const returnType = result.Type || result.TYPE || result.type || '';
+
+    // SAP returns type 'E' for error, 'S' for success
+    if (returnType === 'E') {
+      return res.status(400).json({ error: returnMsg || 'SAP returned an error during import.' });
+    }
+
+    console.log(`✅ Import successful: ${trkorr} → ${target}`);
+    res.json({
+      success: true,
+      message: returnMsg || `Transport ${trkorr} imported successfully into ${target}.`,
+      trkorr,
+      target,
+    });
+
+  } catch (err) {
+    console.error(`❌ Import error for ${trkorr}:`, err.message);
+
+    // Friendly error messages for common SAP errors
+    const msg = err.response?.data?.error?.message?.value || err.message;
+    res.status(500).json({ error: msg });
+  }
+});
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
