@@ -250,11 +250,11 @@ app.get(/^\/(?!api|debug).*/, (req, res) => {
 // POST /api/transports/:trkorr/import
 app.post("/api/transports/:trkorr/import", async (req, res) => {
   const { trkorr } = req.params;
-  const { target = 'P20' } = req.body;
+  const { target = "P20" } = req.body;
+
   console.log(`🚀 Import requested: ${trkorr} → ${target}`);
 
   try {
-    // Call SAP STMS OData import action
     const [destToken, connectivityToken] = await Promise.all([
       getBTPToken(),
       getConnectivityToken(),
@@ -265,48 +265,77 @@ app.post("/api/transports/:trkorr/import", async (req, res) => {
 
     const proxyHost = connectivityCredentials.onpremise_proxy_host;
     const proxyPort = parseInt(connectivityCredentials.onpremise_proxy_http_port || "20003");
-    const sapAuth   = Buffer.from(`${User}:${Password}`).toString("base64");
 
-    // ── OPTION A: STMS OData Function Import (recommended) ──
-    // Adjust service + function name to match your Z_TRANSPORTS_lOG_SRV_SRV
-    const sapEndpoint = `${SAP_URL}/sap/opu/odata/sap/Z_TRANSPORTS_lOG_SRV_SRV/ImportTransport` +
-                        `?Trkorr='${trkorr}'&Tarsystem='${target}'`;
+    const sapAuth = Buffer.from(`${User}:${Password}`).toString("base64");
 
-    const response = await axios.post(sapEndpoint, {}, {
+    const baseURL = `${SAP_URL}/sap/opu/odata/sap/Z_TRANSPORTS_lOG_SRV_SRV`;
+
+    // 🔹 1. Fetch CSRF Token
+    const tokenRes = await axios.get(`${baseURL}/Transports`, {
       headers: {
-        Authorization:         `Basic ${sapAuth}`,
+        Authorization: `Basic ${sapAuth}`,
         "Proxy-Authorization": `Bearer ${connectivityToken}`,
-        Accept:                "application/json",
-        "Content-Type":        "application/json",
-        "X-Requested-With":    "XMLHttpRequest",
+        "x-csrf-token": "fetch",
+        Accept: "application/json",
       },
-      proxy: { protocol: "http:", host: proxyHost, port: proxyPort },
+      proxy: {
+        protocol: "http:",
+        host: proxyHost,
+        port: proxyPort,
+      },
       httpsAgent,
     });
 
-    const result = response.data?.d || response.data || {};
-    const returnMsg = result.Message || result.MESSAGE || result.message || '';
-    const returnType = result.Type || result.TYPE || result.type || '';
+    const csrfToken = tokenRes.headers["x-csrf-token"];
+    const cookies = tokenRes.headers["set-cookie"];
 
-    // SAP returns type 'E' for error, 'S' for success
-    if (returnType === 'E') {
-      return res.status(400).json({ error: returnMsg || 'SAP returned an error during import.' });
+    if (!csrfToken || !cookies) {
+      throw new Error("Failed to fetch CSRF token or cookies");
     }
 
-    console.log(`✅ Import successful: ${trkorr} → ${target}`);
+    console.log("✅ CSRF token fetched");
+
+    // 🔹 2. Trigger Import (CREATE_ENTITY)
+    const postRes = await axios.post(
+      `${baseURL}/Transports`,
+      {
+        Trkorr: trkorr
+      },
+      {
+        headers: {
+          Authorization: `Basic ${sapAuth}`,
+          "Proxy-Authorization": `Bearer ${connectivityToken}`,
+          "x-csrf-token": csrfToken,
+          "Content-Type": "application/json",
+          "Cookie": cookies.join(";"),
+          Accept: "application/json",
+        },
+        proxy: {
+          protocol: "http:",
+          host: proxyHost,
+          port: proxyPort,
+        },
+        httpsAgent,
+      }
+    );
+
+    console.log(`✅ Import triggered successfully: ${trkorr}`);
+
     res.json({
       success: true,
-      message: returnMsg || `Transport ${trkorr} imported successfully into ${target}.`,
-      trkorr,
-      target,
+      message: `Transport ${trkorr} import triggered for ${target}`,
+      data: postRes.data?.d || postRes.data,
     });
 
   } catch (err) {
-    console.error(`❌ Import error for ${trkorr}:`, err.message);
+    console.error(`❌ Import error for ${trkorr}:`, err.response?.data || err.message);
 
-    // Friendly error messages for common SAP errors
-    const msg = err.response?.data?.error?.message?.value || err.message;
-    res.status(500).json({ error: msg });
+    res.status(500).json({
+      error:
+        err.response?.data?.error?.message?.value ||
+        err.message ||
+        "Import failed",
+    });
   }
 });
 
