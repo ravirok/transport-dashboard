@@ -19,7 +19,7 @@ const DESTINATION_NAME = process.env.DESTINATION_NAME || "S48-HTTP";
 let xsuaaCredentials        = null;
 let destinationCredentials  = null;
 let connectivityCredentials = null;
-let aiCoreCredentials       = null;
+let aiCoreCredentials       = null;   // ← AI Core service binding
 
 // ─── Load BTP Services ────────────────────────────────────────────────────────
 
@@ -38,10 +38,23 @@ try {
   console.error("❌ Failed to load BTP services:", err.message);
 }
 
-// ─── Load AI Core credentials ─────────────────────────────────────────────────
+// ─── Load AI Core credentials (3 sources, tried in order) ────────────────────
+//
+//  Source 1 — VCAP_SERVICES service binding (Cloud Foundry, when app is bound)
+//             xsenv returns the credentials block directly, so serviceurls,
+//             clientid, clientsecret, url are all top-level fields.
+//
+//  Source 2 — AICORE_SERVICE_KEY env var (SAP's official local-dev approach)
+//             Paste your entire service key JSON as a single env var.
+//             e.g. AICORE_SERVICE_KEY='{"clientid":"...","clientsecret":"...",
+//                                       "url":"...","serviceurls":{"AI_API_URL":"..."}}'
+//
+//  Source 3 — Individual env vars (AICORE_BASE_URL etc.) as a last resort.
 
 function loadAiCoreCredentials() {
+  // ── Source 1: VCAP_SERVICES binding ──────────────────────────────────────
   try {
+    // Try by tag first ("aicore" is the standard CF tag)
     const svc = xsenv.getServices({ aicore: { tag: "aicore" } });
     if (svc?.aicore?.serviceurls?.AI_API_URL) {
       console.log("✅ AI Core loaded from VCAP_SERVICES (tag: aicore)");
@@ -50,6 +63,7 @@ function loadAiCoreCredentials() {
   } catch { /* not found by tag */ }
 
   try {
+    // Fallback: try by service label "aicore"
     const svc = xsenv.getServices({ aicore: { label: "aicore" } });
     if (svc?.aicore?.serviceurls?.AI_API_URL) {
       console.log("✅ AI Core loaded from VCAP_SERVICES (label: aicore)");
@@ -57,8 +71,10 @@ function loadAiCoreCredentials() {
     }
   } catch { /* not found by label */ }
 
+  // Manual VCAP parse — sometimes xsenv misses it; scan all services ourselves
   try {
     const vcap = JSON.parse(process.env.VCAP_SERVICES || "{}");
+    // AI Core can appear under "aicore" or "sap-aicore" or similar
     const allEntries = Object.values(vcap).flat();
     const entry = allEntries.find(
       (s) =>
@@ -72,6 +88,7 @@ function loadAiCoreCredentials() {
     }
   } catch { /* VCAP parse failed */ }
 
+  // ── Source 2: AICORE_SERVICE_KEY env var ──────────────────────────────────
   if (process.env.AICORE_SERVICE_KEY) {
     try {
       const key = JSON.parse(process.env.AICORE_SERVICE_KEY);
@@ -85,6 +102,7 @@ function loadAiCoreCredentials() {
     }
   }
 
+  // ── Source 3: Individual env vars ─────────────────────────────────────────
   if (process.env.AICORE_BASE_URL) {
     console.log("✅ AI Core loaded from individual AICORE_* env vars");
     return {
@@ -101,16 +119,7 @@ function loadAiCoreCredentials() {
 
 aiCoreCredentials = loadAiCoreCredentials();
 
-// ─── FIX 1: Sanitize AI_API_URL — strip trailing slash immediately after load ─
-// This prevents double-slash URLs like ".../v2/lm/deployments" from breaking
-// the discovery and inference calls.
-if (aiCoreCredentials?.serviceurls?.AI_API_URL) {
-  aiCoreCredentials.serviceurls.AI_API_URL =
-    aiCoreCredentials.serviceurls.AI_API_URL.replace(/\/+$/, "");
-  console.log("📡 AI Core URL (sanitized):", aiCoreCredentials.serviceurls.AI_API_URL);
-}
-
-// ─── Fallbacks from .env ──────────────────────────────────────────────────────
+// ─── Fallbacks from .env (existing services) ──────────────────────────────────
 
 if (!xsuaaCredentials && process.env.XSUAA_URL) {
   xsuaaCredentials = {
@@ -144,6 +153,7 @@ console.log("📡 AI Core URL        :", aiCoreCredentials?.serviceurls?.AI_API_
 
 // ─── Token cache helpers ──────────────────────────────────────────────────────
 
+// Generic in-memory token cache (one slot per label)
 const _tokenCache = {};
 
 async function getCachedToken(label, fetchFn) {
@@ -183,12 +193,13 @@ async function getBTPToken() {
   });
 }
 
+// AI Core uses its own XSUAA client (different clientid/secret from destination service)
 async function getAiCoreToken() {
   if (!aiCoreCredentials) throw new Error("AI Core credentials not loaded.");
   return getCachedToken("aicore", async () => {
-    const tokenUrl     = aiCoreCredentials.url + "/oauth/token";
-    const clientid     = aiCoreCredentials.clientid;
-    const clientsecret = aiCoreCredentials.clientsecret;
+    const tokenUrl    = aiCoreCredentials.url + "/oauth/token";
+    const clientid    = aiCoreCredentials.clientid;
+    const clientsecret= aiCoreCredentials.clientsecret;
     const res = await axios.post(
       tokenUrl,
       new URLSearchParams({ grant_type: "client_credentials", client_id: clientid, client_secret: clientsecret }),
@@ -269,6 +280,7 @@ app.get("/api/health", (req, res) => {
 
 // ─── API Routes — SAP Transports ──────────────────────────────────────────────
 
+// 1. GET /api/transports
 app.get("/api/transports", async (req, res) => {
   try {
     const data = await fetchFromSAP(
@@ -288,6 +300,7 @@ app.get("/api/transports", async (req, res) => {
   }
 });
 
+// 2. GET /api/transports/:trkorr/objects
 app.get("/api/transports/:trkorr/objects", async (req, res) => {
   try {
     const { trkorr } = req.params;
@@ -315,6 +328,7 @@ app.get("/api/transports/:trkorr/objects", async (req, res) => {
   }
 });
 
+// 3. GET /api/transports/:trkorr/logs
 app.get("/api/transports/:trkorr/logs", async (req, res) => {
   try {
     const { trkorr } = req.params;
@@ -352,6 +366,7 @@ app.get("/api/transports/:trkorr/logs", async (req, res) => {
   }
 });
 
+// 4. POST /api/transports/:trkorr/import
 app.post("/api/transports/:trkorr/import", async (req, res) => {
   const { trkorr } = req.params;
   const { target = "P20" } = req.body;
@@ -372,6 +387,7 @@ app.post("/api/transports/:trkorr/import", async (req, res) => {
     const sapAuth   = Buffer.from(`${User}:${Password}`).toString("base64");
     const baseURL   = `${SAP_URL}/sap/opu/odata/sap/Z_TRANSPORTS_lOG_SRV_SRV`;
 
+    // Fetch CSRF token
     const tokenRes = await axios.get(`${baseURL}/Transports`, {
       headers: {
         Authorization:         `Basic ${sapAuth}`,
@@ -388,6 +404,7 @@ app.post("/api/transports/:trkorr/import", async (req, res) => {
     if (!csrfToken || !cookies) throw new Error("Failed to fetch CSRF token or cookies");
     console.log("✅ CSRF token fetched");
 
+    // Trigger import
     const postRes = await axios.post(
       `${baseURL}/Transports`,
       { TRKORR: trkorr },
@@ -422,8 +439,23 @@ app.post("/api/transports/:trkorr/import", async (req, res) => {
 
 // ─── SAP AI Core ──────────────────────────────────────────────────────────────
 
+/**
+ * Deployment discovery cache.
+ * AI Core deployments are looked up once per resource-group, then cached
+ * so we don't re-query the management API on every transport click.
+ *
+ * Cache entry: { deploymentId, modelName, expiresAt }
+ * TTL: 10 minutes (deployments rarely change)
+ */
 const _deploymentCache = {};
 
+/**
+ * Queries GET /v2/lm/deployments?status=RUNNING from the AI Core
+ * management API and picks the first running deployment.
+ *
+ * If AICORE_DEPLOYMENT_ID is set in .env we skip discovery and use it
+ * directly — useful when you have multiple deployments and want to pin one.
+ */
 async function resolveDeployment(baseUrl, token, resourceGroup) {
   const cacheKey = `${baseUrl}::${resourceGroup}`;
   const now      = Date.now();
@@ -434,6 +466,7 @@ async function resolveDeployment(baseUrl, token, resourceGroup) {
     return cached;
   }
 
+  // If pinned via env var, skip discovery but still resolve model name
   if (process.env.AICORE_DEPLOYMENT_ID) {
     const deploymentId = process.env.AICORE_DEPLOYMENT_ID;
     const modelName    = process.env.AICORE_MODEL_NAME || await fetchModelName(baseUrl, token, resourceGroup, deploymentId);
@@ -443,6 +476,7 @@ async function resolveDeployment(baseUrl, token, resourceGroup) {
     return entry;
   }
 
+  // Auto-discover: list all RUNNING deployments
   console.log(`🔍 AI Core: discovering deployments in resource group "${resourceGroup}"...`);
   const listRes = await axios.get(
     `${baseUrl}/v2/lm/deployments?status=RUNNING`,
@@ -455,30 +489,58 @@ async function resolveDeployment(baseUrl, token, resourceGroup) {
     }
   );
 
+  // Log raw response so we can see exact field structure
+  console.log("📋 AI Core deployments raw:", JSON.stringify(listRes.data).slice(0, 800));
+
   const deployments = listRes.data?.resources || listRes.data?.data || [];
   if (!deployments.length) {
     throw new Error(`No RUNNING deployments found in AI Core resource group "${resourceGroup}". Deploy a model first in AI Launchpad.`);
   }
 
+  // Pick first running deployment and extract model name from all known field paths
   const dep          = deployments[0];
   const deploymentId = dep.id;
-  const modelName    =
-    dep.details?.resources?.backendDetails?.modelName ||
-    dep.details?.scaling?.backendDetails?.modelName   ||
-    dep.modelName ||
-    process.env.AICORE_MODEL_NAME ||
-    "unknown";
+  const modelName    = extractModelName(dep);
 
   const entry = { deploymentId, modelName, expiresAt: now + 10 * 60 * 1000 };
   _deploymentCache[cacheKey] = entry;
 
-  console.log(`✅ AI Core auto-discovered deployment: ${deploymentId} (${modelName})`);
+  console.log(`✅ AI Core auto-discovered: ${deploymentId} (${modelName})`);
   if (deployments.length > 1) {
-    console.log(`   ℹ️  ${deployments.length} running deployments found — using first. Set AICORE_DEPLOYMENT_ID to pin a specific one.`);
+    console.log(`   ℹ️  ${deployments.length} running deployments — using first. Set AICORE_DEPLOYMENT_ID to pin one.`);
   }
   return entry;
 }
 
+/**
+ * Extracts model name from a deployment object.
+ * SAP AI Core has changed this field location across versions —
+ * we check every known path so it works regardless of API version.
+ */
+function extractModelName(dep) {
+  return (
+    // Generative AI Hub (most common)
+    dep?.details?.resources?.backendDetails?.modelName          ||
+    dep?.details?.scaling?.backendDetails?.modelName            ||
+    dep?.details?.resources?.backendDetails?.model_name         ||
+    // Older API shape
+    dep?.modelName                                               ||
+    dep?.model_name                                             ||
+    // configurationName sometimes holds the model alias
+    dep?.configurationName                                       ||
+    dep?.configuration?.name                                    ||
+    // scenario / executable hint
+    dep?.executableId                                            ||
+    // AICORE_MODEL_NAME env var as override
+    process.env.AICORE_MODEL_NAME                               ||
+    null   // null = omit model field from request body (let deployment decide)
+  );
+}
+
+/**
+ * Fetch deployment details by ID and extract the model name.
+ * Called when AICORE_DEPLOYMENT_ID is pinned but AICORE_MODEL_NAME is not set.
+ */
 async function fetchModelName(baseUrl, token, resourceGroup, deploymentId) {
   try {
     const res = await axios.get(
@@ -491,16 +553,17 @@ async function fetchModelName(baseUrl, token, resourceGroup, deploymentId) {
         httpsAgent,
       }
     );
-    return (
-      res.data?.details?.resources?.backendDetails?.modelName ||
-      res.data?.modelName ||
-      "unknown"
-    );
-  } catch {
-    return "unknown";
+    console.log("📋 AI Core deployment detail raw:", JSON.stringify(res.data).slice(0, 600));
+    return extractModelName(res.data) || null;
+  } catch (e) {
+    console.warn("⚠️  Could not fetch deployment detail:", e.message);
+    return null;
   }
 }
 
+/**
+ * Builds the LLM prompt. Asks the model to respond ONLY with JSON.
+ */
 function buildAiCorePrompt(p) {
   return `You are a SAP Basis expert and transport risk analyst.
 Analyse the SAP transport below and return ONLY a valid JSON object — no markdown, no text outside the JSON.
@@ -533,6 +596,18 @@ Respond with exactly:
 }`;
 }
 
+/**
+ * POST /api/ai-core/analyze
+ *
+ * Receives transport metadata from index.html, resolves the active AI Core
+ * deployment automatically (no hardcoded deployment ID or model name needed),
+ * calls the chat-completions endpoint, and returns { riskScore, reasoning }.
+ *
+ * Optional .env overrides:
+ *   AICORE_DEPLOYMENT_ID  — pin a specific deployment (skips auto-discovery)
+ *   AICORE_MODEL_NAME     — override model name label shown in the UI
+ *   AICORE_RESOURCE_GROUP — resource group (default: "default")
+ */
 app.post("/api/ai-core/analyze", async (req, res) => {
   const payload = req.body;
 
@@ -554,31 +629,39 @@ app.post("/api/ai-core/analyze", async (req, res) => {
   }
 
   try {
+    // 1. Get bearer token
     const token = await getAiCoreToken();
+
+    // 2. Resolve deployment ID + model name automatically from the management API
+    //    (or use AICORE_DEPLOYMENT_ID env var if pinned)
     const { deploymentId, modelName } = await resolveDeployment(baseUrl, token, resourceGroup);
 
     const inferenceUrl = `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`;
-    console.log(`🤖 AI Core → ${inferenceUrl}  model: ${modelName}  transport: ${payload.trkorr}`);
+    console.log(`🤖 AI Core → ${inferenceUrl}  model: ${modelName || "(omitted — deployment decides)"}  transport: ${payload.trkorr}`);
 
-    // ─── FIX 2: Do NOT send "model" in the request body ──────────────────────
-    // AI Core deployments already know their own model. Sending model: "unknown"
-    // (or any wrong name) causes a 404 "Resource not found" from the inference API.
+    // Build request body — omit "model" field if we couldn't resolve it.
+    // SAP Generative AI Hub deployments already know their model; sending an
+    // incorrect or unknown model name causes 404 "Resource not found".
+    const requestBody = {
+      messages: [
+        {
+          role:    "system",
+          content: "You are a SAP Basis expert. Always respond with pure JSON only — no markdown, no explanation.",
+        },
+        {
+          role:    "user",
+          content: buildAiCorePrompt(payload),
+        },
+      ],
+      max_tokens:  300,
+      temperature: 0.2,
+    };
+    if (modelName) requestBody.model = modelName;
+
+    // 3. Call inference
     const aiRes = await axios.post(
       inferenceUrl,
-      {
-        messages: [
-          {
-            role:    "system",
-            content: "You are a SAP Basis expert. Always respond with pure JSON only — no markdown, no explanation.",
-          },
-          {
-            role:    "user",
-            content: buildAiCorePrompt(payload),
-          },
-        ],
-        max_tokens:  300,
-        temperature: 0.2,
-      },
+      requestBody,
       {
         headers: {
           "Content-Type":      "application/json",
@@ -592,6 +675,7 @@ app.post("/api/ai-core/analyze", async (req, res) => {
     const content = aiRes.data?.choices?.[0]?.message?.content || "{}";
     console.log(`✅ AI Core raw response for ${payload.trkorr}:`, content);
 
+    // 4. Parse — strip markdown fences if model added them
     const cleaned = content.replace(/```json|```/gi, "").trim();
     let parsed;
     try {
@@ -601,6 +685,7 @@ app.post("/api/ai-core/analyze", async (req, res) => {
       return res.status(502).json({ error: "Model returned non-JSON", raw: content });
     }
 
+    // 5. Clamp + sanitise
     const riskScore = Math.min(Math.max(parseInt(parsed.riskScore ?? parsed.risk_score ?? parsed.score) || 20, 5), 98);
     const reasoning = String(parsed.reasoning || parsed.reason || "").slice(0, 150);
 
@@ -608,10 +693,18 @@ app.post("/api/ai-core/analyze", async (req, res) => {
     return res.json({ riskScore, reasoning, model: modelName, deploymentId });
 
   } catch (err) {
+    const status = err.response?.status;
     const detail = err.response?.data || err.message;
-    console.error(`❌ AI Core error for ${payload.trkorr}:`, detail);
+    console.error(`❌ AI Core error for ${payload.trkorr} [HTTP ${status}]:`, JSON.stringify(detail).slice(0, 500));
+    // Clear deployment cache on 404 so next request re-discovers
+    if (status === 404) {
+      const cacheKey = `${aiCoreCredentials?.serviceurls?.AI_API_URL}::${process.env.AICORE_RESOURCE_GROUP || "default"}`;
+      delete _deploymentCache[cacheKey];
+      console.warn("⚠️  404 from AI Core — deployment cache cleared. Will re-discover on next request.");
+    }
     return res.status(502).json({
       error:  "AI Core inference failed",
+      status,
       detail: typeof detail === "object" ? JSON.stringify(detail) : detail,
     });
   }
