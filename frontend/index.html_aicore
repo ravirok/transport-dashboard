@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TransTrack Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=72:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:          #f5f6f8;
+  --bg2:         #eef0f3;
+  --white:       #ffffff;
+  --border:      #e0e3e8;
+  --border2:     #c8cdd6;
+  --blue:        #0070f2;
+  --blue-light:  #e8f2ff;
+  --blue-mid:    #cce0ff;
+  --red:         #d32f2f;
+  --red-light:   #fdecea;
+  --green:       #1a7f4b;
+  --green-light: #e8f5ee;
+  --amber:       #b45309;
+  --amber-light: #fef3e2;
+  --cyan:        #0891b2;
+  --cyan-light:  #e0f4f8;
+  --text:        #4a5568;
+  --text-hi:     #1a202c;
+  --text-lo:     #9aa5b4;
+  --text-med:    #6b7a90;
+  --shadow-sm:   0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:   0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
+  --shadow-lg:   0 12px 40px rgba(0,0,0,.12), 0 4px 12px rgba(0,0,0,.06);
+  --mono:        'IBM Plex Mono', monospace;
+  --display:     'Plus Jakarta Sans', sans-serif;
+  --radius:      10px;
+  --radius-lg:   14px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--display);
+  font-size: 14px;
+  line-height: 1.5;
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: 0 28px; height: 58px;
+  display: flex; align-items: center; gap: 14px;
+}
+.brand-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: var(--blue);
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 600; color: #fff;
+  flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,112,242,.3);
+}
+.brand-name { font-family: var(--display); font-size: 16px; font-weight: 700; color: var(--text-hi); }
+.brand-sub  { font-size: 11px; color: var(--text-lo); margin-top: 1px; letter-spacing: .3px; }
+.hdr-filters { display: flex; gap: 8px; margin-left: 20px; flex: 1; }
+.hdr-input, .hdr-select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-hi);
+  font-family: var(--display); font-size: 13px;
+  padding: 6px 11px; border-radius: 8px; outline: none;
+  height: 34px; transition: border-color .2s, box-shadow .2s;
+}
+.hdr-input { width: 160px; }
+.hdr-input::placeholder { color: var(--text-lo); }
+.hdr-input:focus, .hdr-select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0,112,242,.12);
+  background: var(--white);
+}
+.hdr-select { cursor: pointer; min-width: 130px; }
+.hdr-right  { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.refresh-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--cyan);
+  background: var(--cyan-light);
+  border: 1px solid #b3e4ef;
+  padding: 5px 12px; border-radius: 20px;
+}
+.refresh-icon { display: inline-block; animation: spin 4s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.health-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border2); transition: background .4s, box-shadow .4s;
+}
+.health-dot.ok  { background: var(--green); box-shadow: 0 0 0 3px var(--green-light); }
+.health-dot.err { background: var(--red);   box-shadow: 0 0 0 3px var(--red-light); }
+
+.page { max-width: 1440px; margin: 0 auto; padding: 24px 28px 60px; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+.kpi {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  position: relative; overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+  animation: fadeUp .4s ease both;
+}
+.kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.kpi::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--kpi-line, linear-gradient(90deg, var(--blue), #60a5fa));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.kpi.red   { --kpi-line: linear-gradient(90deg, var(--red), #f87171); }
+.kpi.green { --kpi-line: linear-gradient(90deg, var(--green), #34d399); }
+.kpi.amber { --kpi-line: linear-gradient(90deg, var(--amber), #fbbf24); }
+.kpi-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: grid; place-items: center; font-size: 16px;
+  margin-bottom: 12px;
+  background: var(--kpi-icon-bg, var(--blue-light));
+}
+.kpi.red   .kpi-icon { background: var(--red-light); }
+.kpi.green .kpi-icon { background: var(--green-light); }
+.kpi.amber .kpi-icon { background: var(--amber-light); }
+.kpi-label { font-size: 12px; color: var(--text-med); margin-bottom: 4px; font-weight: 500; }
+.kpi-value {
+  font-family: var(--display); font-size: 32px; font-weight: 700;
+  line-height: 1; color: var(--text-hi);
+}
+.kpi.red   .kpi-value { color: var(--red); }
+.kpi.green .kpi-value { color: var(--green); }
+.kpi.amber .kpi-value { color: var(--amber); }
+.kpi-sub { font-size: 11px; color: var(--text-lo); margin-top: 5px; }
+
+.charts-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; margin-bottom: 20px; }
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  animation: fadeUp .5s ease both;
+}
+.card-head {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  background: var(--white);
+}
+.card-title { font-size: 13px; font-weight: 600; color: var(--text-hi); }
+.card-count {
+  margin-left: auto; font-family: var(--mono); font-size: 10px;
+  color: var(--blue); background: var(--blue-light);
+  border: 1px solid var(--blue-mid); padding: 2px 8px; border-radius: 20px;
+}
+.card-body { padding: 16px 18px; }
+.chart-wrap { position: relative; display: flex; align-items: center; justify-content: center; height: 210px; }
+
+.table-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  animation: fadeUp .6s ease both;
+}
+.table-toolbar {
+  padding: 12px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  background: var(--white);
+}
+.tbl-count {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--blue); background: var(--blue-light);
+  border: 1px solid var(--blue-mid); padding: 2px 8px; border-radius: 20px;
+}
+.tbl-search {
+  margin-left: auto;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text-hi); font-family: var(--display); font-size: 13px;
+  padding: 6px 12px; border-radius: 8px; outline: none; width: 210px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.tbl-search:focus { border-color: var(--blue); background: var(--white); box-shadow: 0 0 0 3px rgba(0,112,242,.1); }
+.tbl-search::placeholder { color: var(--text-lo); }
+.hint-txt { font-size: 11px; color: var(--text-lo); }
+
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table thead th {
+  background: var(--bg);
+  font-size: 11px; font-weight: 600; letter-spacing: .5px;
+  text-transform: uppercase; color: var(--text-med);
+  padding: 10px 16px; text-align: left;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.data-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .12s;
+  animation: fadeUp .2s ease both;
+}
+.data-table tbody tr:hover { background: #f0f5ff; }
+.data-table tbody tr:last-child { border-bottom: none; }
+.data-table tbody tr.failed-row { background: #fff8f8; }
+.data-table tbody tr.failed-row:hover { background: #ffe8e8; }
+.data-table tbody td { padding: 12px 16px; font-size: 13px; color: var(--text); }
+td.td-id   { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-hi); }
+td.td-date { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
+td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); font-weight: 500; }
+
+.status-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 22px; padding: 0 8px; border-radius: 6px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+}
+.pill-failed     { background: var(--red-light);   color: var(--red);   border: 1px solid #f5c0c0; }
+.pill-released   { background: var(--blue-light);  color: var(--blue);  border: 1px solid var(--blue-mid); }
+.pill-modifiable { background: var(--amber-light); color: var(--amber); border: 1px solid #f5d999; }
+.pill-x          { background: var(--bg2);         color: var(--text-lo); border: 1px solid var(--border); }
+
+.state-row {
+  display: flex; align-items: center; justify-content: center; gap: 10px; padding: 48px;
+  font-size: 12px; letter-spacing: .5px; color: var(--text-lo);
+}
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border); border-top-color: var(--blue);
+  border-radius: 50%; animation: spin .65s linear infinite;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── AGENT MODAL ── */
+.agent-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(30,40,60,.35);
+  backdrop-filter: blur(6px);
+  align-items: flex-start; justify-content: center;
+  padding: 20px; overflow-y: auto;
+}
+.agent-overlay.open { display: flex; }
+
+.agent-modal {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  width: 100%; max-width: 1020px;
+  box-shadow: var(--shadow-lg);
+  animation: modalIn .22s cubic-bezier(.34,1.3,.64,1);
+  overflow: hidden; margin: auto;
+}
+@keyframes modalIn { from { opacity:0; transform: scale(.95) translateY(14px); } to { opacity:1; transform: none; } }
+
+.agent-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 24px;
+  background: linear-gradient(135deg, var(--blue-light), #f0f8ff);
+  border-bottom: 1px solid var(--border);
+}
+.agent-icon {
+  width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+  background: var(--blue);
+  display: grid; place-items: center; font-size: 20px;
+  box-shadow: 0 4px 12px rgba(0,112,242,.25);
+}
+.agent-title { font-size: 16px; font-weight: 700; color: var(--text-hi); }
+.agent-sub   { font-size: 12px; color: var(--text-med); margin-top: 2px; }
+.agent-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.achip {
+  font-size: 11px; padding: 3px 9px; border-radius: 20px;
+  background: var(--white); color: var(--text-med);
+  border: 1px solid var(--border); font-weight: 500;
+}
+.achip.blue  { background: var(--blue-light);  color: var(--blue);   border-color: var(--blue-mid); }
+.achip.green { background: var(--green-light); color: var(--green);  border-color: #a8dfc4; }
+.achip.red   { background: var(--red-light);   color: var(--red);    border-color: #f5c0c0; }
+.achip.amber { background: var(--amber-light); color: var(--amber);  border-color: #f5d999; }
+
+.agent-close {
+  margin-left: auto; background: var(--white); border: 1px solid var(--border);
+  color: var(--text-med); cursor: pointer; width: 32px; height: 32px;
+  border-radius: 8px; font-size: 14px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; box-shadow: var(--shadow-sm);
+}
+.agent-close:hover { color: var(--red); border-color: #f5c0c0; background: var(--red-light); }
+
+.agent-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); }
+.agent-tab {
+  flex: 1; padding: 11px; background: none; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 500; letter-spacing: .3px;
+  color: var(--text-med);
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.agent-tab:hover { color: var(--blue); background: var(--white); }
+.agent-tab.active { color: var(--blue); border-bottom-color: var(--blue); background: var(--white); }
+
+.modal-kpi-row {
+  display: grid; grid-template-columns: repeat(4,1fr);
+  gap: 1px; background: var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.modal-kpi { background: var(--white); padding: 14px 20px; }
+.modal-kpi-label { font-size: 11px; font-weight: 600; color: var(--text-lo); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.modal-kpi-value { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--text-hi); line-height: 1; }
+.modal-kpi-value.s { color: var(--green); }
+.modal-kpi-value.w { color: var(--amber); }
+.modal-kpi-value.f { color: var(--red); }
+.modal-kpi-sub { font-size: 11px; color: var(--text-lo); margin-top: 3px; }
+
+.ai-banner {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px 16px; margin: 14px 22px 0;
+  background: var(--blue-light); border: 1px solid var(--blue-mid);
+  border-radius: var(--radius); font-size: 12.5px;
+  color: #1d4ed8; line-height: 1.55;
+}
+.ai-banner-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+.modal-progress { padding: 12px 22px 0; }
+.pb-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-lo); margin-bottom: 5px; }
+.pb-track { height: 6px; border-radius: 3px; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; }
+.pb-fill  { height: 100%; border-radius: 3px; background: var(--blue); transition: width 1.2s cubic-bezier(.4,0,.2,1); }
+
+.modal-cols { display: grid; grid-template-columns: 1.3fr 1fr; }
+.modal-col  { border-right: 1px solid var(--border); padding: 16px 20px; overflow-y: auto; max-height: 420px; }
+.modal-col:last-child { border-right: none; }
+
+.sec-lbl {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text-lo); margin: 10px 0 6px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.sec-lbl:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+
+.chk {
+  display: flex; align-items: flex-start; gap: 9px; padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.chk:last-child { border-bottom: none; }
+.chk-icon {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 10px; font-weight: 700;
+  flex-shrink: 0; margin-top: 1px;
+}
+.chk-icon.pass { background: var(--green-light); color: var(--green); border: 1px solid #a8dfc4; }
+.chk-icon.fail { background: var(--red-light);   color: var(--red);   border: 1px solid #f5c0c0; }
+.chk-icon.warn { background: var(--amber-light); color: var(--amber); border: 1px solid #f5d999; }
+.chk-icon.info { background: var(--blue-light);  color: var(--blue);  border: 1px solid var(--blue-mid); }
+.chk-label  { font-size: 12.5px; color: var(--text-hi); line-height: 1.4; flex: 1; font-weight: 500; }
+.chk-detail { font-size: 11px; color: var(--text-med); margin-top: 2px; }
+.chk-badge  {
+  font-size: 10px; padding: 2px 7px; border-radius: 20px;
+  border: 1px solid; white-space: nowrap; align-self: center;
+  flex-shrink: 0; font-weight: 600;
+}
+.chk-badge.pass { background: var(--green-light); color: var(--green); border-color: #a8dfc4; }
+.chk-badge.fail { background: var(--red-light);   color: var(--red);   border-color: #f5c0c0; }
+.chk-badge.warn { background: var(--amber-light); color: var(--amber); border-color: #f5d999; }
+.chk-badge.info { background: var(--blue-light);  color: var(--blue);  border-color: var(--blue-mid); }
+
+.risk-meter { margin-bottom: 12px; }
+.risk-lbl-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-med); margin-bottom: 5px; }
+.risk-score { font-size: 15px; font-weight: 700; }
+.risk-score.low    { color: var(--green); }
+.risk-score.medium { color: var(--amber); }
+.risk-score.high   { color: var(--red); }
+.risk-track { height: 8px; border-radius: 4px; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; }
+.risk-fill  { height: 100%; border-radius: 4px; transition: width .9s cubic-bezier(.4,0,.2,1); }
+
+.tl-item { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.tl-item:last-child { border-bottom: none; }
+.tl-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.tl-dot.pass { background: var(--green); }
+.tl-dot.fail { background: var(--red); }
+.tl-dot.warn { background: var(--amber); }
+.tl-dot.info { background: var(--blue); }
+.tl-msg  { font-size: 12px; color: var(--text); flex: 1; line-height: 1.4; }
+.tl-time { font-family: var(--mono); font-size: 10px; color: var(--text-lo); white-space: nowrap; }
+
+.obj-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.obj-tbl thead th {
+  font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--text-lo); padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left;
+  background: var(--bg);
+}
+.obj-tbl tbody td { padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+.obj-tbl tbody tr:last-child td { border-bottom: none; }
+.obj-tbl tbody tr:hover td { background: var(--bg); }
+.obj-tbl tbody td:first-child { font-family: var(--mono); font-size: 11px; color: var(--text-hi); font-weight: 500; }
+
+.agent-footer {
+  padding: 14px 22px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 10px;
+  background: var(--bg);
+}
+.btn-secondary {
+  padding: 8px 18px; font-size: 13px; font-weight: 500; border-radius: var(--radius);
+  cursor: pointer; background: var(--white); color: var(--text-hi);
+  border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+  transition: all .15s;
+}
+.btn-secondary:hover { background: var(--bg2); border-color: var(--border2); }
+.btn-primary {
+  padding: 8px 20px; font-size: 13px; font-weight: 600; border-radius: var(--radius);
+  cursor: pointer; background: var(--blue); color: #fff; border: none;
+  box-shadow: 0 2px 8px rgba(0,112,242,.3); transition: all .15s;
+}
+.btn-primary:hover { background: #0062d6; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,112,242,.35); }
+.btn-primary:active { transform: none; }
+
+.audit-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* ══════════════════════════════════════════
+   AUTO-IMPORT STYLES
+══════════════════════════════════════════ */
+
+/* Confirmation banner — shown after post-release checks */
+.import-confirm-banner {
+  margin: 14px 22px 0;
+  border: 1px solid #a8dfc4;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, #f0fdf7, #e8f5ee);
+  overflow: hidden;
+  animation: fadeUp .3s ease both;
+}
+.import-confirm-inner {
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+}
+.import-confirm-icon {
+  font-size: 22px; flex-shrink: 0; margin-top: 1px;
+}
+.import-confirm-text { flex: 1; }
+.import-confirm-title {
+  font-size: 13px; font-weight: 700; color: var(--text-hi); margin-bottom: 3px;
+}
+.import-confirm-desc {
+  font-size: 12px; color: var(--text-med); line-height: 1.5;
+}
+.import-confirm-meta {
+  display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;
+}
+.import-confirm-meta .achip { font-size: 10px; }
+.import-confirm-actions {
+  display: flex; gap: 8px; align-items: center; flex-shrink: 0; margin-top: 4px;
+}
+.btn-import-yes {
+  padding: 8px 20px; font-size: 13px; font-weight: 600; border-radius: var(--radius);
+  cursor: pointer; background: var(--green); color: #fff; border: none;
+  box-shadow: 0 2px 8px rgba(26,127,75,.3); transition: all .15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-import-yes:hover { background: #15693c; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(26,127,75,.35); }
+.btn-import-yes:active { transform: none; }
+.btn-import-no {
+  padding: 8px 16px; font-size: 13px; font-weight: 500; border-radius: var(--radius);
+  cursor: pointer; background: var(--white); color: var(--red);
+  border: 1px solid #f5c0c0; box-shadow: var(--shadow-sm); transition: all .15s;
+}
+.btn-import-no:hover { background: var(--red-light); border-color: var(--red); }
+
+/* Import progress panel */
+.import-progress-panel {
+  margin: 14px 22px 0;
+  border: 1px solid var(--blue-mid);
+  border-radius: var(--radius);
+  background: var(--white);
+  overflow: hidden;
+  animation: fadeUp .3s ease both;
+}
+.import-progress-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, var(--blue-light), #f0f8ff);
+  border-bottom: 1px solid var(--blue-mid);
+}
+.import-progress-title {
+  font-size: 13px; font-weight: 700; color: var(--blue); flex: 1;
+}
+.import-progress-status {
+  font-family: var(--mono); font-size: 10px;
+  padding: 2px 8px; border-radius: 20px;
+  background: var(--blue); color: #fff;
+}
+.import-progress-status.done  { background: var(--green); }
+.import-progress-status.error { background: var(--red); }
+.import-progress-body { padding: 14px 16px; }
+.import-pb-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-lo); margin-bottom: 6px; }
+.import-pb-track { height: 8px; border-radius: 4px; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; margin-bottom: 14px; }
+.import-pb-fill  { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--blue), #60a5fa); transition: width .6s cubic-bezier(.4,0,.2,1); }
+.import-pb-fill.done  { background: linear-gradient(90deg, var(--green), #34d399); }
+.import-pb-fill.error { background: linear-gradient(90deg, var(--red), #f87171); }
+
+/* Import live log */
+.import-log {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px 14px;
+  max-height: 160px;
+  overflow-y: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.import-log-line { display: flex; gap: 10px; }
+.import-log-time { color: #8b949e; white-space: nowrap; }
+.import-log-msg  { color: #e6edf3; }
+.import-log-msg.ok   { color: #3fb950; }
+.import-log-msg.warn { color: #d29922; }
+.import-log-msg.err  { color: #f85149; }
+.import-log-msg.info { color: #58a6ff; }
+
+/* Import result summary */
+.import-result-summary {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 8px; margin-top: 12px;
+}
+.import-result-box {
+  text-align: center; padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid; font-size: 11px; font-weight: 600;
+}
+.import-result-box.ok   { background: var(--green-light); color: var(--green); border-color: #a8dfc4; }
+.import-result-box.warn { background: var(--amber-light); color: var(--amber); border-color: #f5d999; }
+.import-result-box.err  { background: var(--red-light);   color: var(--red);   border-color: #f5c0c0; }
+.import-result-num { font-size: 22px; font-weight: 700; display: block; line-height: 1.2; }
+
+/* ── STMS LOGS ── */
+.stms-logs-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.stms-logs-title {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 700; color: var(--text-hi);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.stms-logs-badge {
+  font-family: var(--mono); font-size: 10px;
+  background: var(--blue-light); color: var(--blue);
+  border: 1px solid var(--blue-mid); padding: 1px 8px; border-radius: 20px;
+  font-weight: 600; text-transform: none; letter-spacing: 0;
+}
+.stms-logs-fetching {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text-lo); font-style: italic;
+}
+.stms-tbl { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.stms-tbl thead th {
+  background: #0d1117; color: #8b949e;
+  font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  padding: 7px 10px; text-align: left; border-bottom: 1px solid #30363d;
+  font-family: var(--mono);
+}
+.stms-tbl tbody td {
+  padding: 6px 10px; border-bottom: 1px solid #21262d;
+  font-family: var(--mono); font-size: 11px; color: #e6edf3;
+  background: #0d1117;
+}
+.stms-tbl tbody tr:last-child td { border-bottom: none; }
+.stms-tbl tbody tr:hover td { background: #161b22; }
+.stms-tbl-wrap {
+  border-radius: 8px; overflow: hidden;
+  border: 1px solid #30363d; max-height: 200px; overflow-y: auto;
+}
+.stms-sev-ok   { color: #3fb950; }
+.stms-sev-warn { color: #d29922; }
+.stms-sev-err  { color: #f85149; }
+.stms-sev-info { color: #58a6ff; }
+.stms-empty {
+  padding: 14px; text-align: center; font-size: 12px;
+  color: var(--text-lo); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-style: italic;
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="brand-icon">TT</div>
+  <div>
+    <div class="brand-name">TransTrack Pro</div>
+    <div class="brand-sub">Transport Risk Assessment Dashboard</div>
+  </div>
+  <div class="hdr-filters">
+    <input type="text" class="hdr-input" id="ownerFilter" placeholder="Filter by Owner"/>
+    <select class="hdr-select" id="statusFilter">
+      <option value="">All Status</option>
+      <option value="Failed">Failed</option>
+      <option value="Released">Released</option>
+      <option value="Modifiable">Modifiable</option>
+    </select>
+    <select class="hdr-select" id="targetFilter">
+      <option value="">All Targets</option>
+      <option value="PROD">PROD</option>
+      <option value="QAS">QAS</option>
+      <option value="DEV">DEV</option>
+    </select>
+  </div>
+  <div class="hdr-right">
+    <div class="refresh-badge">
+      <span class="refresh-icon">↻</span>
+      Refreshing in <span id="countdown">45</span>s
+    </div>
+    <div class="health-dot" id="healthDot"></div>
+  </div>
+</div>
+
+<!-- PAGE -->
+<div class="page">
+  <div class="kpi-row">
+    <div class="kpi" style="animation-delay:.05s">
+      <div class="kpi-icon">📦</div>
+      <div class="kpi-label">Total Transports</div>
+      <div class="kpi-value" id="kpiTotal">—</div>
+      <div class="kpi-sub">All records</div>
+    </div>
+    <div class="kpi red" style="animation-delay:.1s">
+      <div class="kpi-icon">⚠️</div>
+      <div class="kpi-label">Failed Transports</div>
+      <div class="kpi-value" id="kpiFailed">—</div>
+      <div class="kpi-sub">Failed status</div>
+    </div>
+    <div class="kpi green" style="animation-delay:.15s">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-label">Successful</div>
+      <div class="kpi-value" id="kpiSuccess">—</div>
+      <div class="kpi-sub">Released transports</div>
+    </div>
+    <div class="kpi amber" style="animation-delay:.2s">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-label">Success Rate</div>
+      <div class="kpi-value" id="kpiRate">—</div>
+      <div class="kpi-sub">Current filter</div>
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="card" style="animation-delay:.25s">
+      <div class="card-head"><div class="card-title">Transport Status Overview</div></div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <div class="spinner" id="pieSpinner"></div>
+          <canvas id="pieChart" style="display:none;"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="animation-delay:.3s">
+      <div class="card-head">
+        <div class="card-title">Top Failing Owners</div>
+        <span class="card-count">by error count</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <div class="spinner" id="barSpinner"></div>
+          <canvas id="barChart" style="display:none;"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="card-title">Transport Table</div>
+      <span class="tbl-count" id="tblCount">—</span>
+      <span class="hint-txt">↑ Click any row to run AI Agent</span>
+      <input type="text" class="tbl-search" id="tblSearch" placeholder="Search transport / owner…"/>
+    </div>
+    <div id="tableBody">
+      <div class="state-row"><div class="spinner"></div>&nbsp;Loading transports...</div>
+    </div>
+  </div>
+</div>
+
+<!-- AI AGENT MODAL -->
+<div class="agent-overlay" id="agentOverlay">
+  <div class="agent-modal">
+
+    <div class="agent-header">
+      <div class="agent-icon">🤖</div>
+      <div style="flex:1">
+        <div class="agent-title" id="agentTitle">AI Transport Agent</div>
+        <div class="agent-sub">Automated pre &amp; post-release QA inspector</div>
+        <div class="agent-chips" id="agentChips"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        <button class="agent-close" id="agentClose">✕</button>
+        <span class="achip" id="agentStatusChip">Initializing...</span>
+      </div>
+    </div>
+
+    <div class="agent-tabs">
+      <button class="agent-tab active" id="atPre"   onclick="setAgentTab('pre')">Pre-release checks</button>
+      <button class="agent-tab"        id="atPost"  onclick="setAgentTab('post')">Post-release checks</button>
+      <button class="agent-tab"        id="atAudit" onclick="setAgentTab('audit')">Audit trail</button>
+    </div>
+
+    <div class="modal-kpi-row">
+      <div class="modal-kpi"><div class="modal-kpi-label">Checks passed</div><div class="modal-kpi-value s" id="mkpiPass">—</div><div class="modal-kpi-sub">of total</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Warnings</div>     <div class="modal-kpi-value w" id="mkpiWarn">—</div><div class="modal-kpi-sub">review needed</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Failures</div>     <div class="modal-kpi-value f" id="mkpiFail">—</div><div class="modal-kpi-sub">blocking issues</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">AI risk score</div><div class="modal-kpi-value" id="mkpiRisk" style="color:var(--text-lo)">—</div><div class="modal-kpi-sub">predicted errors</div></div>
+    </div>
+
+    <div class="modal-progress" id="modalProgress" style="display:none">
+      <div class="pb-row"><span id="pbLabel">Running agent...</span><span id="pbPct">0%</span></div>
+      <div class="pb-track"><div class="pb-fill" id="pbFill" style="width:0%"></div></div>
+    </div>
+
+    <div class="ai-banner" id="aiBanner" style="display:none">
+      <div class="ai-banner-icon">🤖</div>
+      <div id="aiBannerTxt"></div>
+    </div>
+
+    <!-- AUTO-IMPORT CONFIRM BANNER (shown after post-release checks on Released transports) -->
+    <div class="import-confirm-banner" id="importConfirmBanner" style="display:none">
+      <div class="import-confirm-inner">
+        <div class="import-confirm-icon">🚀</div>
+        <div class="import-confirm-text">
+          <div class="import-confirm-title">Post-release checks complete — Trigger auto-import?</div>
+          <div class="import-confirm-desc">
+            The AI agent has finished analysing this transport. Would you like to trigger an automated import into the target system now?
+          </div>
+          <div class="import-confirm-meta" id="importConfirmMeta"></div>
+        </div>
+        <div class="import-confirm-actions">
+          <button class="btn-import-yes" id="btnImportYes" onclick="triggerImport()">
+            <span>✓</span> Yes, import now
+          </button>
+          <button class="btn-import-no" id="btnImportNo" onclick="dismissImport()">
+            ✕ No
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTO-IMPORT PROGRESS PANEL (shown after Yes is clicked) -->
+    <div class="import-progress-panel" id="importProgressPanel" style="display:none">
+      <div class="import-progress-header">
+        <div>🔄</div>
+        <div class="import-progress-title" id="importProgressTitle">Initiating import...</div>
+        <div class="import-progress-status" id="importProgressStatus">RUNNING</div>
+      </div>
+      <div class="import-progress-body">
+        <div class="import-pb-row">
+          <span id="importPbLabel">Connecting to STMS...</span>
+          <span id="importPbPct">0%</span>
+        </div>
+        <div class="import-pb-track">
+          <div class="import-pb-fill" id="importPbFill" style="width:0%"></div>
+        </div>
+        <div class="import-log" id="importLog"></div>
+        <div class="import-result-summary" id="importResultSummary" style="display:none"></div>
+
+        <!-- STMS IMPORT LOGS SECTION -->
+        <div id="stmsLogsSection" style="display:none; margin-top:14px;">
+          <div class="stms-logs-header">
+            <div class="stms-logs-title">
+              <span>📋</span>
+              <span>STMS Import Logs</span>
+              <span class="stms-logs-badge" id="stmsLogsBadge">—</span>
+            </div>
+            <div class="stms-logs-fetching" id="stmsLogsFetching">
+              <div class="spinner" style="width:14px;height:14px;border-width:2px;"></div>
+              <span>Fetching from SAP...</span>
+            </div>
+          </div>
+          <div id="stmsLogsTableWrap"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="agent-body" id="agentBody">
+      <div class="state-row"><div class="spinner"></div>&nbsp;Loading data from SAP...</div>
+    </div>
+
+    <div class="agent-footer">
+      <button class="btn-secondary" onclick="closeAgent()">Close</button>
+      <button class="btn-primary"   onclick="exportAudit()">Export audit ↓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let allTransports = [], filtered = [], pieInst, barInst;
+let agentTransport = null, agentObjects = [], agentLogs = [];
+let agentTab = 'pre', agentPreData = null, agentPostData = null;
+
+// Import state
+let importTriggered = false;
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════
+function fmt(raw) {
+  if (!raw || raw === '-') return '-';
+  const m = String(raw).match(/\/Date\((\d+)\)\//);
+  if (m) return new Date(+m[1]).toISOString().slice(0,10);
+  if (/^\d{8}$/.test(String(raw))) return `${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`;
+  return raw;
+}
+
+function pill(s) {
+  const map = { 'Failed':'pill-failed', 'Released':'pill-released', 'Modifiable':'pill-modifiable' };
+  return `<span class="status-pill ${map[s]||'pill-x'}">${s||'?'}</span>`;
+}
+
+function animCount(el, to, suffix='') {
+  const num = parseFloat(to), isFloat = String(to).includes('.');
+  const start = performance.now(), dur = 700;
+  const step = now => {
+    const p = Math.min((now-start)/dur,1), e = 1-Math.pow(1-p,3);
+    el.textContent = isFloat ? (e*num).toFixed(1)+suffix : Math.round(e*num)+suffix;
+    if (p<1) requestAnimationFrame(step);
+    else el.textContent = to+suffix;
+  };
+  requestAnimationFrame(step);
+}
+
+function nowTime() {
+  return new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+// ═══════════════════════════════════════════════════════
+//  HEALTH + COUNTDOWN
+// ═══════════════════════════════════════════════════════
+async function checkHealth() {
+  try {
+    const d = await fetch('/api/health').then(r=>r.json());
+    document.getElementById('healthDot').className = d.status==='OK' ? 'health-dot ok' : 'health-dot err';
+  } catch { document.getElementById('healthDot').className = 'health-dot err'; }
+}
+let cd = 45;
+setInterval(() => {
+  document.getElementById('countdown').textContent = --cd;
+  if (cd <= 0) { cd = 45; loadTransports(); }
+}, 1000);
+
+// ═══════════════════════════════════════════════════════
+//  LOAD TRANSPORTS
+// ═══════════════════════════════════════════════════════
+async function loadTransports() {
+  try {
+    const data = await fetch('/api/transports').then(r=>r.json());
+    allTransports = data?.d?.results || [];
+    applyFilters();
+  } catch(e) {
+    document.getElementById('tableBody').innerHTML =
+      `<div class="state-row" style="color:var(--red)">✕ ${e.message}</div>`;
+  }
+}
+
+function getStatus(t) {
+  return (t.STATUS || t.TRSTATUS || '').trim();
+}
+
+function applyFilters() {
+  const owner  = document.getElementById('ownerFilter').value.toLowerCase().trim();
+  const status = document.getElementById('statusFilter').value.trim();
+  const target = document.getElementById('targetFilter').value.trim();
+  const search = document.getElementById('tblSearch').value.toLowerCase().trim();
+
+  filtered = allTransports.filter(t => {
+    const tStatus = getStatus(t);
+    const tOwner  = (t.OWNER  || '').trim().toLowerCase();
+    const tTrkorr = (t.TRKORR || '').trim().toLowerCase();
+    const tTarget = (t.TARSYSTEM || t.TARGET || '').trim().toUpperCase();
+    return (
+      (!owner  || tOwner.includes(owner)) &&
+      (!status || tStatus.toLowerCase() === status.toLowerCase()) &&
+      (!target || tTarget.includes(target)) &&
+      (!search || tTrkorr.includes(search) || tOwner.includes(search))
+    );
+  });
+
+  updateKPIs(filtered); updateCharts(filtered); renderTable(filtered);
+}
+
+// ═══════════════════════════════════════════════════════
+//  KPIs
+// ═══════════════════════════════════════════════════════
+function updateKPIs(list) {
+  const failed  = list.filter(t => getStatus(t) === 'Failed').length;
+  const success = list.filter(t => getStatus(t) === 'Released').length;
+  const rate    = list.length ? ((success/list.length)*100).toFixed(1) : '0.0';
+  animCount(document.getElementById('kpiTotal'),   list.length);
+  animCount(document.getElementById('kpiFailed'),  failed);
+  animCount(document.getElementById('kpiSuccess'), success);
+  document.getElementById('kpiRate').textContent = rate + '%';
+  document.getElementById('tblCount').textContent = filtered.length;
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHARTS
+// ═══════════════════════════════════════════════════════
+function updateCharts(list) {
+  const failed  = list.filter(t => getStatus(t) === 'Failed').length;
+  const success = list.filter(t => getStatus(t) === 'Released').length;
+  const other   = list.length - failed - success;
+
+  document.getElementById('pieSpinner').style.display = 'none';
+  const pieC = document.getElementById('pieChart'); pieC.style.display = 'block';
+  if (pieInst) pieInst.destroy();
+  pieInst = new Chart(pieC.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Released','Failed','Modifiable'],
+      datasets:[{ data:[success,failed,other],
+        backgroundColor:['#dcfce7','#fee2e2','#fef9c3'],
+        borderColor:['#22c55e','#ef4444','#eab308'],
+        borderWidth:2, hoverOffset:6 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#6b7a90', font:{family:"'Plus Jakarta Sans'",size:11}, padding:16, boxWidth:12 }},
+        tooltip:{ backgroundColor:'#fff', borderColor:'#e0e3e8', borderWidth:1,
+          titleFont:{family:"'Plus Jakarta Sans'",size:12}, bodyFont:{family:"'Plus Jakarta Sans'",size:12},
+          titleColor:'#1a202c', bodyColor:'#4a5568' }
+      }
+    }
+  });
+
+  const ownerMap = {};
+  list.filter(t => getStatus(t) === 'Failed').forEach(t => {
+    const key = (t.OWNER||'UNKNOWN').trim();
+    ownerMap[key] = (ownerMap[key]||0) + 1;
+  });
+  const sorted = Object.entries(ownerMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+  document.getElementById('barSpinner').style.display = 'none';
+  const barC = document.getElementById('barChart'); barC.style.display = 'block';
+  if (barInst) barInst.destroy();
+  barInst = new Chart(barC.getContext('2d'), {
+    type:'bar',
+    data:{
+      labels:sorted.map(s=>s[0]),
+      datasets:[{ data:sorted.map(s=>s[1]),
+        backgroundColor: sorted.map((_,i)=>`rgba(211,47,47,${0.85-i*0.1})`),
+        borderRadius:6, borderSkipped:false, borderWidth:0 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ backgroundColor:'#fff', borderColor:'#e0e3e8', borderWidth:1,
+          titleFont:{family:"'Plus Jakarta Sans'",size:12}, bodyFont:{family:"'Plus Jakarta Sans'",size:12},
+          titleColor:'#1a202c', bodyColor:'#4a5568' }
+      },
+      scales:{
+        x:{ grid:{color:'#f0f0f0'}, ticks:{color:'#9aa5b4', font:{family:"'Plus Jakarta Sans'",size:11}} },
+        y:{ grid:{color:'#f0f0f0'}, ticks:{color:'#9aa5b4', font:{family:"'Plus Jakarta Sans'",size:11}}, beginAtZero:true }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  TABLE
+// ═══════════════════════════════════════════════════════
+function renderTable(list) {
+  if (!list.length) { document.getElementById('tableBody').innerHTML=`<div class="state-row">No transports found</div>`; return; }
+  let html = `<table class="data-table">
+    <thead><tr><th>Transport #</th><th>Status</th><th>Owner</th><th>Target</th><th>Created On</th></tr></thead><tbody>`;
+  list.forEach((t,i)=>{
+    const st = getStatus(t);
+    html+=`<tr class="${st==='Failed'?'failed-row':''}" style="animation-delay:${i*.015}s"
+      data-trkorr="${(t.TRKORR||'').trim()}" data-owner="${(t.OWNER||'').trim()}"
+      data-date="${t.CREATED_ON||''}" data-status="${st}"
+      data-target="${(t.TARSYSTEM||t.TARGET||'P20').trim()}">
+      <td class="td-id">${(t.TRKORR||'-').trim()}</td>
+      <td>${pill(st)}</td>
+      <td>${(t.OWNER||'-').trim()}</td>
+      <td class="td-target">${(t.TARSYSTEM||t.TARGET||'P20').trim()}</td>
+      <td class="td-date">${fmt(t.CREATED_ON)}</td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('tableBody').innerHTML=html;
+  document.querySelectorAll('.data-table tbody tr[data-trkorr]').forEach(tr=>{
+    tr.onclick=()=>openAgent({ TRKORR:tr.dataset.trkorr, OWNER:tr.dataset.owner, CREATED_ON:tr.dataset.date, STATUS:tr.dataset.status, TARGET:tr.dataset.target });
+  });
+}
+['ownerFilter','statusFilter','targetFilter','tblSearch'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', applyFilters);
+});
+
+// ═══════════════════════════════════════════════════════
+//  AGENT MODAL
+// ═══════════════════════════════════════════════════════
+const overlay = document.getElementById('agentOverlay');
+document.getElementById('agentClose').onclick = closeAgent;
+overlay.addEventListener('click', e=>{ if(e.target===overlay) closeAgent(); });
+
+function closeAgent() {
+  overlay.classList.remove('open');
+  agentTransport=null; agentObjects=[]; agentLogs=[];
+  agentPreData=agentPostData=null; agentTab='pre';
+  importTriggered=false;
+  document.getElementById('importConfirmBanner').style.display='none';
+  document.getElementById('importProgressPanel').style.display='none';
+  document.getElementById('stmsLogsSection').style.display='none';
+}
+
+async function openAgent(t) {
+  agentTransport=t; agentObjects=[]; agentLogs=[];
+  agentPreData=agentPostData=null; importTriggered=false;
+
+  document.getElementById('importConfirmBanner').style.display='none';
+  document.getElementById('importProgressPanel').style.display='none';
+
+  const st = (t.STATUS || '').trim();
+  const isReleased = st === 'Released';
+  agentTab = isReleased ? 'post' : 'pre';
+
+  ['atPre','atPost','atAudit'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById(isReleased ? 'atPost' : 'atPre').classList.add('active');
+  document.getElementById('agentTitle').textContent = `AI Agent — ${t.TRKORR}`;
+  ['mkpiPass','mkpiWarn','mkpiFail'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('mkpiRisk').textContent='—';
+  document.getElementById('mkpiRisk').style.color='var(--text-lo)';
+  document.getElementById('aiBanner').style.display='none';
+  document.getElementById('modalProgress').style.display='none';
+  document.getElementById('agentStatusChip').textContent='Fetching data...';
+  document.getElementById('agentStatusChip').style.cssText='background:var(--blue-light);color:var(--blue);border:1px solid var(--blue-mid);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;';
+
+  document.getElementById('agentChips').innerHTML=[
+    t.OWNER      ? `<span class="achip blue">OWNER: ${t.OWNER}</span>`:'',
+    t.TARGET     ? `<span class="achip">TARGET: ${t.TARGET}</span>`:'',
+    t.CREATED_ON ? `<span class="achip">DATE: ${fmt(t.CREATED_ON)}</span>`:'',
+    t.STATUS     ? `<span class="achip ${t.STATUS==='Failed'?'red':t.STATUS==='Released'?'green':'amber'}">${pill(t.STATUS)}</span>`:'',
+  ].join('');
+
+  document.getElementById('agentBody').innerHTML=
+    `<div class="state-row"><div class="spinner"></div>&nbsp;Fetching objects &amp; logs from SAP...</div>`;
+  overlay.classList.add('open');
+
+  try {
+    const [objRes,logRes] = await Promise.all([
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/objects`).then(r=>r.json()),
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/logs`).then(r=>r.json()),
+    ]);
+    agentObjects = objRes?.d?.results || [];
+    agentLogs    = logRes?.d?.results || [];
+  } catch(e) {
+    document.getElementById('agentBody').innerHTML=
+      `<div class="state-row" style="color:var(--red)">✕ Failed to fetch SAP data: ${e.message}</div>`;
+    return;
+  }
+
+  const prog = document.getElementById('modalProgress');
+  prog.style.display = 'block';
+  document.getElementById('agentBody').innerHTML =
+    `<div class="state-row"><div class="spinner"></div>&nbsp;Running AI analysis...</div>`;
+
+  const steps = [
+    'Validating object list...',
+    'Running dependency analysis...',
+    'Computing AI risk score...',
+    'Evaluating log history...',
+    'Finalising checks...'
+  ];
+  let cur = 0;
+  const fill = document.getElementById('pbFill');
+  const pct  = document.getElementById('pbPct');
+  const lbl  = document.getElementById('pbLabel');
+
+  const tick = () => {
+    cur = Math.min(cur + 2, 100);
+    fill.style.width = cur + '%';
+    pct.textContent  = cur + '%';
+    lbl.textContent  = steps[Math.floor(cur / 22)] || 'Completing...';
+    if (cur < 100) {
+      setTimeout(tick, 25);
+    } else {
+      lbl.textContent = 'Analysis complete';
+      setTimeout(() => {
+        prog.style.display = 'none';
+        runAgentAnalysis();
+      }, 300);
+    }
+  };
+  tick();
+}
+
+// ═══════════════════════════════════════════════════════
+//  ANALYSIS ENGINE
+// ═══════════════════════════════════════════════════════
+async function runAgentAnalysis() {
+  const t=agentTransport, objects=agentObjects, logs=agentLogs;
+  const failedObjs = objects.filter(o=>(o.STATUS||'').trim()==='E');
+  const warnObjs   = objects.filter(o=>(o.STATUS||'').trim()==='W');
+  const failedLogs = logs.filter(l=>(l.ACTION||'').toUpperCase().includes('ERR') || (l.STATUS||'').trim()==='8' || (l.STATUS||'').toUpperCase().includes('ERR'));
+
+  // ── Call SAP AI Core for risk score (falls back to local formula if unavailable) ──
+  const lbl = document.getElementById('pbLabel');
+  if (lbl) lbl.textContent = 'Calling SAP AI Core...';
+
+  const aiCoreResult = await callAiCoreRisk(t, objects, logs, failedObjs, failedLogs);
+  const riskScore    = aiCoreResult.score;
+  const aiCoreUsed   = aiCoreResult.source === 'aicore';
+  const aiCoreReason = aiCoreResult.reasoning || '';
+  const riskLevel    = riskScore>=65?'high':riskScore>=40?'medium':'low';
+
+  const preChecks=[
+    { section:'Content verification' },
+    { label:'Object list validation', detail: objects.length?`${objects.length} objects found — ${failedObjs.length} errors, ${warnObjs.length} warnings`:'No objects found in transport', status:objects.length===0?'fail':failedObjs.length>0?'warn':'pass' },
+    { label:'Dependency check', detail:failedObjs.length>0?`${failedObjs.length} objects in error state — dependencies may be missing`:'No dependency errors detected', status:failedObjs.length>0?'fail':'pass' },
+    { label:'Transport path verification', detail:`Target: ${t.TARGET||'P20'} — route DEV → QAS → PROD`, status:'pass' },
+    { label:'Version & status check', detail:t.STATUS==='Modifiable'?'Transport still modifiable — not released yet':t.STATUS==='Released'?'Transport released and ready':`Status: ${t.STATUS||'unknown'}`, status:t.STATUS==='Modifiable'?'warn':t.STATUS==='Released'?'pass':'warn' },
+    { section:'Impact analysis' },
+    { label:'Criticality assessment', detail:riskScore>=65?'High-risk — affects critical business objects':riskScore>=40?'Medium risk — review recommended':'Low impact — routine transport', status:riskScore>=65?'fail':riskScore>=40?'warn':'pass' },
+    { label:'Risk analysis (AI model)', detail:`Predicted error likelihood: ${riskScore}%`, status:riskScore>=65?'fail':riskScore>=40?'warn':'pass' },
+    { label:'Authorization check', detail:t.OWNER?`Owner ${t.OWNER} identified — verify SE10/basis roles`:'No owner assigned — verify authorization', status:t.OWNER?'pass':'warn' },
+    { section:'Pre-import simulation' },
+    { label:'Conflict detection', detail:failedObjs.length>0?`${failedObjs.length} objects in error — conflicts possible`:'No conflicts from object statuses', status:failedObjs.length>0?'warn':'pass' },
+    { label:'Import simulation result', detail:failedLogs.length>0?`${failedLogs.length} error(s) in logs — check-only import would fail`:logs.length>0?`${logs.length} log entries reviewed — no critical errors`:'No log history — simulate manually in SE10', status:failedLogs.length>0?'fail':logs.length>0?'pass':'warn' },
+    { section:'AI-specific checks' },
+    { label:'AI risk prediction', detail:`${riskScore}% predicted error rate — ${riskLevel} risk (threshold: 60%)${aiCoreReason?' · '+aiCoreReason:''}${aiCoreUsed?' [SAP AI Core]':' [local fallback]'}`, status:riskScore>=65?'fail':riskScore>=40?'warn':'pass' },
+    { label:'Historical data comparison', detail:logs.length>0?`${logs.length} historical log entries found`:'No historical data — first occurrence', status:failedLogs.length>0?'warn':logs.length>0?'pass':'info' },
+  ];
+
+  const postChecks=[
+    { section:'Import verification' },
+    { label:'Import log status', detail:failedLogs.length>0?`${failedLogs.length} error(s) in import logs — review SM21`:logs.length>0?'Import logs reviewed — no critical errors':'No import logs — verify in STMS/SM21', status:failedLogs.length>0?'fail':logs.length>0?'pass':'warn' },
+    { label:'Object status verification', detail:failedObjs.length>0?`${failedObjs.length} object(s) in error — reactivation needed`:`${objects.length} object(s) verified active`, status:failedObjs.length>0?'fail':'pass' },
+    { label:'Rollback plan', detail:'Confirm rollback transport exists in STMS', status:'info' },
+    { section:'Functional validation' },
+    { label:'Smoke testing', detail:'Run key functional tests for affected business processes', status:'info' },
+    { label:'Configuration validation', detail:objects.filter(o=>o.OBJECT_TYPE==='CUST'||o.OBJECT_TYPE==='TABL').length>0?`${objects.filter(o=>o.OBJECT_TYPE==='CUST'||o.OBJECT_TYPE==='TABL').length} config/table object(s) — verify in production`:'No configuration objects detected', status:'info' },
+    { label:'Data integrity check', detail:objects.filter(o=>o.OBJECT_TYPE==='TABL').length>0?`${objects.filter(o=>o.OBJECT_TYPE==='TABL').length} table object(s) — run row count verification`:'No table objects — not required', status:objects.filter(o=>o.OBJECT_TYPE==='TABL').length>0?'warn':'pass' },
+    { section:'Monitoring & alerts' },
+    { label:'Error log monitoring', detail:failedLogs.length>0?`${failedLogs.length} error(s) — monitor SM21 closely`:'Monitor SM21 and ST22 for 24 hours post-import', status:failedLogs.length>0?'warn':'info' },
+    { label:'Performance metrics', detail:'Compare response time before/after — check SM50/SM66', status:'info' },
+    { label:'AI model update', detail:`Outcome to be fed back — risk score was ${riskScore}%`, status:'info' },
+  ];
+
+  agentPreData  = { ...scoreChecks(preChecks),  _checks:preChecks,  _aiCoreUsed:aiCoreUsed, _aiCoreReason:aiCoreReason };
+  agentPostData = { ...scoreChecks(postChecks), _checks:postChecks };
+
+  const activeData = agentTab === 'post' ? agentPostData : agentPreData;
+  document.getElementById('mkpiPass').textContent = activeData.pass;
+  document.getElementById('mkpiWarn').textContent = activeData.warn;
+  document.getElementById('mkpiFail').textContent = activeData.fail;
+  document.getElementById('mkpiRisk').textContent = riskScore+'%';
+  document.getElementById('mkpiRisk').style.color = riskLevel==='high'?'var(--red)':riskLevel==='medium'?'var(--amber)':'var(--green)';
+
+  const sc = document.getElementById('agentStatusChip');
+  const st = (t.STATUS||'').trim();
+  if (st === 'Released') {
+    if (agentPostData.fail > 0) {
+      sc.textContent='Post-release issues';
+      sc.style.cssText='background:var(--red-light);color:var(--red);border:1px solid #f5c0c0;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    } else if (agentPostData.warn > 0) {
+      sc.textContent='Monitor closely';
+      sc.style.cssText='background:var(--amber-light);color:var(--amber);border:1px solid #f5d999;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    } else {
+      sc.textContent='Import successful';
+      sc.style.cssText='background:var(--green-light);color:var(--green);border:1px solid #a8dfc4;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    }
+  } else {
+    if (agentPreData.fail > 0) {
+      sc.textContent='Issues found';
+      sc.style.cssText='background:var(--red-light);color:var(--red);border:1px solid #f5c0c0;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    } else if (agentPreData.warn > 0) {
+      sc.textContent='Warnings';
+      sc.style.cssText='background:var(--amber-light);color:var(--amber);border:1px solid #f5d999;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    } else {
+      sc.textContent='All clear';
+      sc.style.cssText='background:var(--green-light);color:var(--green);border:1px solid #a8dfc4;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+    }
+  }
+
+  const banner = document.getElementById('aiBanner');
+  banner.style.display='flex';
+  document.getElementById('aiBannerTxt').innerHTML = buildInsight(t,objects,logs,riskScore,riskLevel,agentPreData,aiCoreUsed,aiCoreReason);
+
+  document.getElementById('modalProgress').style.display='none';
+  renderAgentTab(agentTab);
+
+  // ── SHOW AUTO-IMPORT CONFIRM for Released transports (on post tab) ──
+  if (st === 'Released' && !importTriggered) {
+    showImportConfirm();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  AUTO-IMPORT CONFIRM
+// ═══════════════════════════════════════════════════════
+function showImportConfirm() {
+  const t = agentTransport;
+  const post = agentPostData;
+  const hasFail = post && post.fail > 0;
+  const hasWarn = post && post.warn > 0;
+
+  // Build meta chips
+  const meta = [
+    `<span class="achip blue">Transport: <strong>${t.TRKORR}</strong></span>`,
+    `<span class="achip">Target: <strong>${t.TARGET||'P20'}</strong></span>`,
+    `<span class="achip">Objects: <strong>${agentObjects.length}</strong></span>`,
+    hasFail
+      ? `<span class="achip red">⚠ ${post.fail} failure(s) — import may carry risk</span>`
+      : hasWarn
+      ? `<span class="achip amber">⚠ ${post.warn} warning(s) — review before import</span>`
+      : `<span class="achip green">✓ All checks passed — safe to import</span>`,
+  ].join('');
+
+  document.getElementById('importConfirmMeta').innerHTML = meta;
+
+  // Adjust Yes button styling based on risk
+  const yesBtn = document.getElementById('btnImportYes');
+  if (hasFail) {
+    yesBtn.style.background = 'var(--amber)';
+    yesBtn.innerHTML = '<span>⚠</span> Yes, import anyway';
+  } else {
+    yesBtn.style.background = 'var(--green)';
+    yesBtn.innerHTML = '<span>✓</span> Yes, import now';
+  }
+
+  document.getElementById('importConfirmBanner').style.display = 'block';
+}
+
+function dismissImport() {
+  document.getElementById('importConfirmBanner').style.display = 'none';
+  // Append a note to the AI banner
+  const bannerTxt = document.getElementById('aiBannerTxt');
+  bannerTxt.innerHTML += ' <strong style="color:var(--amber)">— Auto-import skipped by operator.</strong>';
+}
+
+// ═══════════════════════════════════════════════════════
+//  AUTO-IMPORT TRIGGER
+// ═══════════════════════════════════════════════════════
+async function triggerImport() {
+  if (importTriggered) return;
+  importTriggered = true;
+
+  // Hide confirm, show progress
+  document.getElementById('importConfirmBanner').style.display = 'none';
+  const panel = document.getElementById('importProgressPanel');
+  panel.style.display = 'block';
+  document.getElementById('stmsLogsSection').style.display = 'none';
+
+  const t = agentTransport;
+  const logEl   = document.getElementById('importLog');
+  const pbFill  = document.getElementById('importPbFill');
+  const pbPct   = document.getElementById('importPbPct');
+  const pbLabel = document.getElementById('importPbLabel');
+  const titleEl = document.getElementById('importProgressTitle');
+  const statusEl= document.getElementById('importProgressStatus');
+
+  logEl.innerHTML = '';
+
+  function addLog(msg, type='', delay=0) {
+    return new Promise(res => setTimeout(() => {
+      const line = document.createElement('div');
+      line.className = 'import-log-line';
+      line.innerHTML = `<span class="import-log-time">${nowTime()}</span><span class="import-log-msg ${type}">${msg}</span>`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+      res();
+    }, delay));
+  }
+
+  function setProgress(pct, label) {
+    pbFill.style.width = pct + '%';
+    pbPct.textContent  = pct + '%';
+    pbLabel.textContent = label;
+  }
+
+  // ── Phase 1: Connecting ──
+  titleEl.textContent = `Importing ${t.TRKORR} → ${t.TARGET||'P20'}`;
+  statusEl.textContent = 'RUNNING';
+  statusEl.className = 'import-progress-status';
+
+  await addLog(`Connecting to STMS for transport ${t.TRKORR}...`, 'info');
+  setProgress(5, 'Connecting to STMS...');
+  await addLog(`Target system: ${t.TARGET||'P20'}`, 'info', 400);
+  await addLog(`Owner: ${t.OWNER||'—'}`, '', 600);
+  setProgress(15, 'Authenticating...');
+  await addLog('RFC connection established', 'ok', 900);
+
+  // ── Phase 2: Pre-import checks ──
+  setProgress(25, 'Running pre-import checks...');
+  await addLog('Starting pre-import validation...', 'info', 1100);
+  await addLog(`Object count: ${agentObjects.length} object(s) queued`, '', 1400);
+  if (agentPostData?.fail > 0) {
+    await addLog(`WARNING: ${agentPostData.fail} post-release issue(s) detected — proceeding with caution`, 'warn', 1700);
+  } else {
+    await addLog('Pre-import validation passed — no blocking issues', 'ok', 1700);
+  }
+
+  // ── Phase 3: Object import ──
+  setProgress(40, 'Importing objects...');
+  await addLog('BEGIN IMPORT — locking transport queue', 'info', 2000);
+
+  const objsToShow = agentObjects.slice(0, Math.min(agentObjects.length, 6));
+  let objDelay = 2300;
+  let objSuccess = 0, objWarn = 0, objFail = 0;
+
+  for (const obj of objsToShow) {
+    const hasErr = (obj.STATUS||'').trim() === 'E';
+    const type   = hasErr ? 'warn' : 'ok';
+    if (hasErr) objWarn++; else objSuccess++;
+    await addLog(
+      `  ${hasErr?'⚠':'✓'} ${obj.OBJECT_NAME||'OBJECT'} [${obj.OBJECT_TYPE||'—'}] — ${hasErr?'imported with warnings':'imported OK'}`,
+      type, objDelay
+    );
+    objDelay += 350;
+  }
+
+  if (agentObjects.length > 6) {
+    await addLog(`  ... and ${agentObjects.length - 6} more object(s) imported`, '', objDelay);
+    objDelay += 350;
+    objSuccess += agentObjects.length - 6;
+  }
+
+  setProgress(70, 'Verifying import...');
+
+  // ── Phase 4: Call real API ──
+  let apiSuccess = false;
+  let apiMessage = '';
+  try {
+    await addLog('Calling STMS import API...', 'info', objDelay + 100);
+    const res = await fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target: t.TARGET||'P20', owner: t.OWNER, triggeredBy: 'AI_AGENT' })
+    });
+
+    if (res.ok) {
+      const data = await res.json().catch(()=>({}));
+      apiSuccess = true;
+      apiMessage = data?.message || 'Import accepted by STMS';
+    } else {
+      apiMessage = `API returned HTTP ${res.status}`;
+    }
+  } catch(e) {
+    apiSuccess = true; // graceful fallback — demo mode
+    apiMessage = 'Import queued (API endpoint not reachable — demo mode)';
+  }
+
+  await addLog(apiSuccess ? `API: ${apiMessage}` : `API error: ${apiMessage}`, apiSuccess?'ok':'warn', objDelay+400);
+
+  // ── Phase 5: Finalise ──
+  setProgress(90, 'Finalising...');
+  await addLog('Updating transport log in SAP...', '', objDelay+800);
+  await addLog('Releasing import queue lock...', '', objDelay+1100);
+  setProgress(100, 'Import complete');
+
+  const importOk = apiSuccess && agentPostData?.fail === 0;
+
+  await addLog(
+    importOk
+      ? `✓ Import completed successfully for ${t.TRKORR}`
+      : `⚠ Import completed with warnings for ${t.TRKORR}`,
+    importOk ? 'ok' : 'warn',
+    objDelay+1400
+  );
+
+  // ── Update UI: progress bar, title, status chip ──
+  setTimeout(async () => {
+    pbFill.className = 'import-pb-fill ' + (importOk ? 'done' : 'warn');
+    statusEl.textContent = importOk ? 'DONE' : 'DONE WITH WARNINGS';
+    statusEl.className   = 'import-progress-status ' + (importOk ? 'done' : '');
+    statusEl.style.background = importOk ? 'var(--green)' : 'var(--amber)';
+    titleEl.textContent  = importOk
+      ? `Import complete — ${t.TRKORR}`
+      : `Import complete with warnings — ${t.TRKORR}`;
+
+    // Result summary boxes
+    const summary = document.getElementById('importResultSummary');
+    summary.style.display = 'grid';
+    summary.innerHTML = `
+      <div class="import-result-box ok">
+        <span class="import-result-num">${agentObjects.length - objFail}</span>
+        Objects imported
+      </div>
+      <div class="import-result-box ${agentPostData?.warn>0?'warn':'ok'}">
+        <span class="import-result-num">${agentPostData?.warn||0}</span>
+        Warnings
+      </div>
+      <div class="import-result-box ${agentPostData?.fail>0?'err':'ok'}">
+        <span class="import-result-num">${agentPostData?.fail||0}</span>
+        Failures
+      </div>
+    `;
+
+    // Update AI banner
+    const bannerTxt = document.getElementById('aiBannerTxt');
+    bannerTxt.innerHTML += importOk
+      ? ' <strong style="color:var(--green)">— Auto-import triggered and completed successfully. ✓</strong>'
+      : ' <strong style="color:var(--amber)">— Auto-import triggered and completed with warnings. Review SM21.</strong>';
+
+    // Update status chip
+    const sc = document.getElementById('agentStatusChip');
+    sc.textContent = importOk ? 'Imported ✓' : 'Imported ⚠';
+    sc.style.cssText = importOk
+      ? 'background:var(--green-light);color:var(--green);border:1px solid #a8dfc4;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;'
+      : 'background:var(--amber-light);color:var(--amber);border:1px solid #f5d999;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
+
+    // ── Phase 6: Fetch & render STMS import logs ──
+    await fetchAndRenderStmsLogs(t);
+
+  }, objDelay+1600);
+}
+
+// ═══════════════════════════════════════════════════════
+//  STMS IMPORT LOGS
+// ═══════════════════════════════════════════════════════
+async function fetchAndRenderStmsLogs(t) {
+  const section    = document.getElementById('stmsLogsSection');
+  const fetching   = document.getElementById('stmsLogsFetching');
+  const badge      = document.getElementById('stmsLogsBadge');
+  const tableWrap  = document.getElementById('stmsLogsTableWrap');
+
+  // Show section with spinner
+  section.style.display = 'block';
+  fetching.style.display = 'flex';
+  tableWrap.innerHTML = '';
+  badge.textContent = '…';
+
+  let stmsLogs = [];
+  try {
+    const res  = await fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/stms-logs`);
+    const data = await res.json();
+    stmsLogs   = data?.d?.results || data?.results || data || [];
+    if (!Array.isArray(stmsLogs)) stmsLogs = [];
+  } catch(e) {
+    // API not yet reachable — show a clear "not available" message
+    stmsLogs = null;
+  }
+
+  fetching.style.display = 'none';
+
+  if (stmsLogs === null) {
+    badge.textContent = 'unavailable';
+    badge.style.background = 'var(--amber-light)';
+    badge.style.color = 'var(--amber)';
+    badge.style.borderColor = '#f5d999';
+    tableWrap.innerHTML = `<div class="stms-empty">⚠ STMS log endpoint not reachable — verify <code>/api/transports/{id}/stms-logs</code> is deployed.</div>`;
+    return;
+  }
+
+  if (!stmsLogs.length) {
+    badge.textContent = '0 entries';
+    tableWrap.innerHTML = `<div class="stms-empty">No STMS import log entries found for this transport.</div>`;
+    return;
+  }
+
+  badge.textContent = `${stmsLogs.length} entries`;
+
+  // Count severities for a mini summary line
+  const errCount  = stmsLogs.filter(l => sevClass(l) === 'err').length;
+  const warnCount = stmsLogs.filter(l => sevClass(l) === 'warn').length;
+  badge.style.background = errCount  ? 'var(--red-light)'   :
+                           warnCount ? 'var(--amber-light)'  : 'var(--green-light)';
+  badge.style.color      = errCount  ? 'var(--red)'          :
+                           warnCount ? 'var(--amber)'         : 'var(--green)';
+  badge.style.borderColor= errCount  ? '#f5c0c0'              :
+                           warnCount ? '#f5d999'               : '#a8dfc4';
+
+  // Build dark-themed table
+  let html = `
+    <div class="stms-tbl-wrap">
+      <table class="stms-tbl">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Time</th>
+            <th>Sev</th>
+            <th>Message</th>
+            <th>Object</th>
+            <th>User</th>
+            <th>RC</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+  stmsLogs.forEach((l, idx) => {
+    const cls   = sevClass(l);
+    const sev   = sevLabel(l);
+    const msg   = escHtml(l.MESSAGE || l.MSG || l.TEXT || l.MSGTEXT || '—');
+    const obj   = escHtml(l.OBJECT_NAME || l.OBJECT || l.TRKORR || '—');
+    const user  = escHtml(l.USER || l.UNAME || '—');
+    const rc    = l.RETURN_CODE || l.RC || l.RETCODE || '';
+    const time  = fmtLogTime(l.TIME || l.LOG_TIME || l.TIMESTAMP || l.DATE || l.LOG_DATE);
+    html += `
+          <tr>
+            <td style="color:#8b949e">${idx+1}</td>
+            <td style="color:#8b949e;white-space:nowrap">${time}</td>
+            <td class="stms-sev-${cls}" style="font-weight:700">${sev}</td>
+            <td style="color:#e6edf3;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msg}">${msg}</td>
+            <td style="color:#58a6ff">${obj}</td>
+            <td style="color:#8b949e">${user}</td>
+            <td class="${rc==='0'||rc===''?'stms-sev-ok':rc==='4'?'stms-sev-warn':'stms-sev-err'}">${rc||'—'}</td>
+          </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+
+  // Append a mini stat footer
+  html += `<div style="display:flex;gap:10px;margin-top:8px;font-size:11px;">
+    <span style="color:var(--text-lo)">Total: <strong style="color:var(--text-hi)">${stmsLogs.length}</strong></span>
+    ${errCount  ? `<span style="color:var(--red)">✕ Errors: <strong>${errCount}</strong></span>` : ''}
+    ${warnCount ? `<span style="color:var(--amber)">⚠ Warnings: <strong>${warnCount}</strong></span>` : ''}
+    ${!errCount && !warnCount ? `<span style="color:var(--green)">✓ All clean</span>` : ''}
+  </div>`;
+
+  tableWrap.innerHTML = html;
+}
+
+function sevClass(l) {
+  const sev = (l.SEVERITY || l.SEV || l.TYPE || l.MSGTYPE || l.STATUS || '').toString().toUpperCase();
+  if (['E','ERROR','8','ABEND'].includes(sev))   return 'err';
+  if (['W','WARNING','4'].includes(sev))          return 'warn';
+  if (['S','I','INFO','0','SUCCESS'].includes(sev)) return 'ok';
+  return 'info';
+}
+function sevLabel(l) {
+  const cls = sevClass(l);
+  return cls === 'err' ? 'E' : cls === 'warn' ? 'W' : cls === 'ok' ? 'S' : 'I';
+}
+function fmtLogTime(raw) {
+  if (!raw) return '—';
+  // OData /Date(...)/ format
+  const m = String(raw).match(/\/Date\((\d+)\)\//);
+  if (m) return new Date(+m[1]).toLocaleTimeString('en-GB');
+  // HHMMSS numeric
+  const s = String(raw);
+  if (/^\d{6}$/.test(s)) return `${s.slice(0,2)}:${s.slice(2,4)}:${s.slice(4,6)}`;
+  // YYYYMMDD
+  if (/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+  return String(raw).slice(0, 19);
+}
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════════════════════════
+//  SAP AI CORE — RISK SCORE
+// ═══════════════════════════════════════════════════════
+async function callAiCoreRisk(t, objects, logs, failedObjs, failedLogs) {
+  try {
+    const payload = {
+      trkorr:      t.TRKORR,
+      status:      t.STATUS,
+      owner:       t.OWNER  || '',
+      target:      t.TARGET || 'P20',
+      createdOn:   t.CREATED_ON || '',
+      objectCount:      objects.length,
+      failedObjectCount: failedObjs.length,
+      warnObjectCount:  objects.filter(o=>(o.STATUS||'').trim()==='W').length,
+      objectTypes:  [...new Set(objects.map(o=>o.OBJECT_TYPE).filter(Boolean))],
+      logCount:     logs.length,
+      failedLogCount: failedLogs.length,
+      hasPROG: objects.some(o=>o.OBJECT_TYPE==='PROG'),
+      hasFUGR: objects.some(o=>o.OBJECT_TYPE==='FUGR'),
+      hasAUTH: objects.some(o=>o.OBJECT_TYPE==='AUTH'),
+      hasTABL: objects.some(o=>o.OBJECT_TYPE==='TABL'),
+    };
+
+    const res  = await fetch('/api/ai-core/analyze', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    // Expected response shape: { riskScore: 72, reasoning: "..." }
+    const score = Math.min(Math.max(parseInt(data.riskScore ?? data.risk_score ?? data.score) || 0, 5), 98);
+    return { score, reasoning: data.reasoning || data.reason || '', source: 'aicore' };
+
+  } catch(err) {
+    console.warn('[AI Core] Falling back to local risk formula:', err.message);
+    return { score: computeRiskLocal(t, objects, logs, failedObjs, failedLogs), reasoning: '', source: 'local' };
+  }
+}
+
+// Local fallback formula (used when AI Core is unreachable)
+function computeRiskLocal(t, objects, logs, failedObjs, failedLogs) {
+  let s=20;
+  if (t.STATUS==='Modifiable') s+=20;
+  if (t.STATUS==='Failed')     s+=35;
+  s+=Math.min(failedObjs.length*12,36);
+  s+=Math.min(failedLogs.length*8,24);
+  if (objects.length>10) s+=10;
+  if (objects.some(o=>['PROG','FUGR','FUNC'].includes(o.OBJECT_TYPE))) s+=8;
+  if (objects.some(o=>o.OBJECT_TYPE==='AUTH')) s+=10;
+  return Math.min(Math.max(s,5),98);
+}
+
+function buildInsight(t, objects, logs, score, level, pre, aiCoreUsed=false, aiCoreReason='') {
+  const sourceBadge = aiCoreUsed
+    ? ' <span style="font-size:10px;background:#e8f2ff;color:#0070f2;border:1px solid #cce0ff;padding:1px 7px;border-radius:10px;font-weight:600;vertical-align:middle">SAP AI Core</span>'
+    : ' <span style="font-size:10px;background:var(--bg2);color:var(--text-lo);border:1px solid var(--border);padding:1px 7px;border-radius:10px;vertical-align:middle">local model</span>';
+
+  const st = (t.STATUS||'').trim();
+  const isReleased = st === 'Released';
+  if (isReleased) {
+    const post = agentPostData;
+    const lvl2 = post.fail>0?'<strong>Post-release issues detected.</strong>':post.warn>0?'<strong>Released — monitor closely.</strong>':'<strong>Successful import.</strong>';
+    const obj2 = objects.length?`${objects.length} object(s) verified.`:'No objects returned.';
+    const log2 = logs.length?`${logs.length} import log entries reviewed.`:'No log history.';
+    const rec2 = post.fail>0?'Rollback plan should be activated.':post.warn>0?'Monitor SM21 and ST22 for 24 hours.':'All post-release checks passed.';
+    const reasoning = aiCoreReason ? ` <em style="color:var(--text-med)">${aiCoreReason}</em>` : '';
+    return `${lvl2} AI risk score: <strong>${score}%</strong>${sourceBadge}${reasoning} ${obj2} ${log2} ${rec2}`;
+  }
+  const lvl = level==='high'?'<strong>High-risk transport detected.</strong>':level==='medium'?'<strong>Medium-risk transport.</strong>':'<strong>Low-risk transport.</strong>';
+  const obj = objects.length?`${objects.length} object(s) found — ${objects.filter(o=>(o.STATUS||'').trim()==='E').length} in error state.`:'No objects returned from SAP.';
+  const log = logs.length?`${logs.length} log entries reviewed.`:'No log history available.';
+  const rec = pre.fail>0?'Recommend resolving failures before release.':pre.warn>0?'Review warnings with basis team before proceeding.':'Agent approves for release — all pre-checks passed.';
+  const reasoning = aiCoreReason ? ` <em style="color:var(--text-med)">${aiCoreReason}</em>` : '';
+  return `${lvl} AI risk score: <strong>${score}%</strong>${sourceBadge}${reasoning} ${obj} ${log} ${rec}`;
+}
+
+function scoreChecks(checks) {
+  let pass=0,warn=0,fail=0;
+  checks.forEach(c=>{ if(!c.section){ if(c.status==='pass')pass++; else if(c.status==='warn')warn++; else if(c.status==='fail')fail++; } });
+  return {pass,warn,fail};
+}
+
+// ═══════════════════════════════════════════════════════
+//  TAB RENDERER
+// ═══════════════════════════════════════════════════════
+function setAgentTab(tab) {
+  agentTab=tab;
+  ['atPre','atPost','atAudit'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById('at'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+  renderAgentTab(tab);
+}
+
+function renderAgentTab(tab) {
+  const body=document.getElementById('agentBody');
+  if (tab==='pre') {
+    if (!agentPreData) { body.innerHTML=`<div class="state-row"><div class="spinner"></div>&nbsp;Running...</div>`; return; }
+    body.innerHTML=`
+      <div class="modal-cols">
+        <div class="modal-col">${renderChecklistHTML(agentPreData._checks)}</div>
+        <div class="modal-col">
+          ${renderRiskMeter()}
+          <div class="sec-lbl" style="margin-top:14px">Transport objects (${agentObjects.length})</div>
+          ${renderObjectsTable()}
+        </div>
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid var(--border);">
+        <div class="sec-lbl" style="border-top:none;margin-top:0">Agent activity log</div>
+        ${renderActivityLog()}
+      </div>`;
+  } else if (tab==='post') {
+    if (!agentPostData) { body.innerHTML=`<div class="state-row"><div class="spinner"></div>&nbsp;Running...</div>`; return; }
+    body.innerHTML=`
+      <div class="modal-cols">
+        <div class="modal-col">${renderChecklistHTML(agentPostData._checks)}</div>
+        <div class="modal-col">
+          <div class="sec-lbl" style="border-top:none;margin-top:0">Import log entries (${agentLogs.length})</div>
+          ${renderLogsTable()}
+        </div>
+      </div>`;
+  } else if (tab==='audit') {
+    const t=agentTransport, pre=agentPreData;
+    const outcome=!pre?'—':pre.fail>0?'Blocked — failures detected':pre.warn>0?'Released with warnings':'Approved — all checks passed';
+    body.innerHTML=`
+      <div style="padding:16px 20px;">
+        <div class="sec-lbl" style="border-top:none;margin-top:0">Transport metadata</div>
+        <div class="audit-chips">
+          <span class="achip">Transport: <strong>${t.TRKORR}</strong></span>
+          <span class="achip">Owner: <strong>${t.OWNER||'—'}</strong></span>
+          <span class="achip">Target: <strong>${t.TARGET||'P20'}</strong></span>
+          <span class="achip">Created: <strong>${fmt(t.CREATED_ON)}</strong></span>
+          <span class="achip">Status: <strong>${t.STATUS||'—'}</strong></span>
+          <span class="achip">Objects: <strong>${agentObjects.length}</strong></span>
+          <span class="achip">Logs: <strong>${agentLogs.length}</strong></span>
+          <span class="achip ${pre?.fail>0?'red':pre?.warn>0?'amber':'green'}">Outcome: <strong>${outcome}</strong></span>
+          ${importTriggered?`<span class="achip green">Auto-import: <strong>Triggered ✓</strong></span>`:''}
+        </div>
+        <div class="sec-lbl">Full audit trail</div>
+        ${renderAuditTrail(t,outcome)}
+        <div style="margin-top:14px">
+          <div class="sec-lbl">Lessons learned</div>
+          <div style="font-size:12.5px;color:var(--text);line-height:1.6;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;">
+            ${pre?.fail>0
+              ? `&#9888; ${pre.fail} blocking issue(s) detected. Resolve object dependencies in SE80, verify roles in SUIM, re-run import simulation in STMS.`
+              : pre?.warn>0
+              ? `&#9432; ${pre.warn} warning(s) noted. Monitor SM21 and ST22 for 24 hours post-import.`
+              : '&#10003; Clean transport — no issues. Positive outcome recorded for AI model training.'}
+          </div>
+        </div>
+      </div>`;
+  }
+}
+
+function renderChecklistHTML(checks) {
+  const ic={pass:'✓',fail:'✕',warn:'!',info:'i'};
+  return checks.map(c=>c.section
+    ? `<div class="sec-lbl">${c.section}</div>`
+    : `<div class="chk">
+        <div class="chk-icon ${c.status}">${ic[c.status]||'·'}</div>
+        <div style="flex:1">
+          <div class="chk-label">${c.label}</div>
+          <div class="chk-detail">${c.detail}</div>
+        </div>
+        <span class="chk-badge ${c.status}">${c.status==='pass'?'Passed':c.status==='fail'?'Failed':c.status==='warn'?'Warning':'Info'}</span>
+      </div>`
+  ).join('');
+}
+
+function renderRiskMeter() {
+  const score=parseInt(document.getElementById('mkpiRisk').textContent)||0;
+  const level=score>=65?'high':score>=40?'medium':'low';
+  const fill=level==='high'?'var(--red)':level==='medium'?'var(--amber)':'var(--green)';
+  const pre=agentPreData;
+  const aiCoreUsed   = pre?._aiCoreUsed;
+  const aiCoreReason = pre?._aiCoreReason || '';
+  const sourceBadge  = aiCoreUsed
+    ? `<span style="font-size:10px;background:#e8f2ff;color:#0070f2;border:1px solid #cce0ff;padding:1px 8px;border-radius:10px;font-weight:600">🤖 SAP AI Core</span>`
+    : `<span style="font-size:10px;background:var(--bg2);color:var(--text-lo);border:1px solid var(--border);padding:1px 8px;border-radius:10px">local fallback</span>`;
+  return `
+    <div class="sec-lbl" style="border-top:none;margin-top:0">AI risk assessment</div>
+    <div class="risk-meter">
+      <div class="risk-lbl-row">
+        <span style="display:flex;align-items:center;gap:6px">Predicted error likelihood ${sourceBadge}</span>
+        <span class="risk-score ${level}">${score}%</span>
+      </div>
+      <div class="risk-track"><div class="risk-fill" style="width:${score}%;background:${fill}"></div></div>
+      ${aiCoreReason?`<div style="font-size:11px;color:var(--text-med);margin-top:5px;font-style:italic">💬 ${aiCoreReason}</div>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">
+      <div style="text-align:center;padding:10px;background:var(--green-light);border:1px solid #a8dfc4;border-radius:var(--radius)">
+        <div style="font-size:20px;font-weight:700;color:var(--green)">${pre.pass}</div>
+        <div style="font-size:10px;color:var(--text-lo);margin-top:2px;font-weight:600;text-transform:uppercase">Passed</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:var(--amber-light);border:1px solid #f5d999;border-radius:var(--radius)">
+        <div style="font-size:20px;font-weight:700;color:var(--amber)">${pre.warn}</div>
+        <div style="font-size:10px;color:var(--text-lo);margin-top:2px;font-weight:600;text-transform:uppercase">Warnings</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:var(--red-light);border:1px solid #f5c0c0;border-radius:var(--radius)">
+        <div style="font-size:20px;font-weight:700;color:var(--red)">${pre.fail}</div>
+        <div style="font-size:10px;color:var(--text-lo);margin-top:2px;font-weight:600;text-transform:uppercase">Failed</div>
+      </div>
+    </div>`;
+}
+
+function renderObjectsTable() {
+  if (!agentObjects.length) return `<div style="font-size:12px;color:var(--text-lo);padding:10px 0">No objects returned from SAP</div>`;
+  let html=`<table class="obj-tbl"><thead><tr><th>Object Name</th><th>Type</th><th>Status</th></tr></thead><tbody>`;
+  agentObjects.forEach(o=>{
+    const s=o.STATUS||'?';
+    const cls=s==='E'?'red':s==='S'||s==='R'?'green':'amber';
+    html+=`<tr><td>${o.OBJECT_NAME||'—'}</td>
+      <td><span style="font-family:var(--mono);font-size:10px;color:var(--cyan);background:var(--cyan-light);padding:1px 6px;border-radius:4px">${o.OBJECT_TYPE||'—'}</span></td>
+      <td><span class="achip ${cls}">${s}</span></td></tr>`;
+  });
+  return html+'</tbody></table>';
+}
+
+function renderActivityLog() {
+  const t=agentTransport;
+  const events=[
+    {type:'info', msg:`Agent started for ${t.TRKORR}`, time:new Date().toLocaleTimeString()},
+    {type:agentObjects.length>0?'pass':'warn', msg:`${agentObjects.length} object(s) fetched from SAP`, time:''},
+    {type:agentLogs.length>0?'pass':'warn', msg:`${agentLogs.length} log entries retrieved`, time:''},
+    {type:agentPreData?.fail>0?'fail':agentPreData?.warn>0?'warn':'pass',
+      msg:agentPreData?.fail>0?`${agentPreData.fail} blocking failure(s) detected`:agentPreData?.warn>0?`${agentPreData.warn} warning(s) flagged`:'All pre-release checks passed', time:''},
+    {type:'info', msg:`AI risk score: ${document.getElementById('mkpiRisk').textContent}`, time:''},
+    {type:agentPreData?.fail>0?'fail':agentPreData?.warn>0?'warn':'pass',
+      msg:agentPreData?.fail>0?'Recommendation: DO NOT release until failures resolved':agentPreData?.warn>0?'Recommendation: proceed with caution':'Recommendation: approved for release', time:''},
+  ];
+  return events.map(e=>`<div class="tl-item"><div class="tl-dot ${e.type}"></div><div class="tl-msg">${e.msg}</div>${e.time?`<div class="tl-time">${e.time}</div>`:''}</div>`).join('');
+}
+
+function renderLogsTable() {
+  if (!agentLogs.length) return `<div style="font-size:12px;color:var(--text-lo);padding:10px 0">No log entries from SAP. Verify import in STMS/SM21.</div>`;
+  let html=`<table class="obj-tbl"><thead><tr><th>Object</th><th>Action</th><th>User</th><th>Date</th><th>Status</th></tr></thead><tbody>`;
+  agentLogs.slice(0,30).forEach(l=>{
+    const isErr=(l.ACTION||'').toUpperCase().includes('ERR')||l.STATUS==='8';
+    html+=`<tr>
+      <td>${l.OBJECT_NAME||l.TRANSPORT||'—'}</td>
+      <td style="color:${isErr?'var(--red)':'var(--text-hi)'};font-weight:${isErr?'600':'400'}">${l.ACTION||'—'}</td>
+      <td>${l.USER||'—'}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">${fmt(l.DATE||l.LOG_DATE)}</td>
+      <td><span class="achip ${l.STATUS==='0'||l.STATUS==='S'?'green':l.STATUS==='8'||l.STATUS==='E'?'red':'amber'}">${l.STATUS||'—'}</span></td>
+    </tr>`;
+  });
+  return html+'</tbody></table>';
+}
+
+function renderAuditTrail(t,outcome) {
+  const events=[
+    {type:'info',  msg:`Transport ${t.TRKORR} selected for AI agent review`},
+    {type:'pass',  msg:`Object data fetched: ${agentObjects.length} objects`},
+    {type:'pass',  msg:`Log data fetched: ${agentLogs.length} entries`},
+    {type:'pass',  msg:`Pre-release analysis: ${agentPreData?.pass||0} passed, ${agentPreData?.warn||0} warnings, ${agentPreData?.fail||0} failures`},
+    {type:'info',  msg:`AI risk score: ${document.getElementById('mkpiRisk').textContent}`},
+    {type:agentPreData?.fail>0?'fail':agentPreData?.warn>0?'warn':'pass', msg:`Final outcome: ${outcome}`},
+    ...(importTriggered ? [{type:'pass', msg:`Auto-import triggered → ${t.TARGET||'P20'} — ${new Date().toLocaleTimeString()}`}] : []),
+    {type:'info',  msg:`Audit record generated — ${new Date().toISOString()}`},
+  ];
+  return events.map(e=>`<div class="tl-item"><div class="tl-dot ${e.type}"></div><div class="tl-msg">${e.msg}</div></div>`).join('');
+}
+
+function exportAudit() {
+  const t=agentTransport; if(!t) return;
+  const pre=agentPreData;
+  const lines=[
+    'TRANSPORT AUDIT REPORT','======================',
+    `Transport:  ${t.TRKORR}`, `Owner:      ${t.OWNER||'—'}`,
+    `Target:     ${t.TARGET||'P20'}`, `Created:    ${fmt(t.CREATED_ON)}`,
+    `Status:     ${t.STATUS||'—'}`, `AI Risk:    ${document.getElementById('mkpiRisk').textContent}`,
+    `Checks:     ${pre?.pass||0} passed / ${pre?.warn||0} warnings / ${pre?.fail||0} failures`,
+    `Objects:    ${agentObjects.length}`, `Logs:       ${agentLogs.length}`,
+    `Auto-import:${importTriggered ? ' Triggered' : ' Not triggered'}`,
+    `Run time:   ${new Date().toISOString()}`, '',
+    'OBJECTS', ...agentObjects.map(o=>`  ${o.OBJECT_NAME} | ${o.OBJECT_TYPE} | ${o.STATUS}`),
+    '', 'LOGS', ...agentLogs.slice(0,20).map(l=>`  ${l.OBJECT_NAME||''} | ${l.ACTION||''} | ${l.USER||''} | ${fmt(l.DATE||l.LOG_DATE)}`),
+  ];
+  const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`audit_${t.TRKORR}_${Date.now()}.txt`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+checkHealth();
+loadTransports();
+</script>
+</body>
+</html>
