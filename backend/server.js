@@ -38,17 +38,88 @@ try {
   console.error("❌ Failed to load BTP services:", err.message);
 }
 
-// Try to load AI Core from VCAP_SERVICES (service name: "aicore")
-try {
-  xsenv.loadEnv();
-  const aiServices = xsenv.getServices({ aicore: { tag: "aicore" } });
-  aiCoreCredentials = aiServices.aicore;
-  console.log("✅ AI Core service loaded from VCAP_SERVICES");
-} catch {
-  // Not bound as a service — fall back to env vars below
+// ─── Load AI Core credentials (3 sources, tried in order) ────────────────────
+//
+//  Source 1 — VCAP_SERVICES service binding (Cloud Foundry, when app is bound)
+//             xsenv returns the credentials block directly, so serviceurls,
+//             clientid, clientsecret, url are all top-level fields.
+//
+//  Source 2 — AICORE_SERVICE_KEY env var (SAP's official local-dev approach)
+//             Paste your entire service key JSON as a single env var.
+//             e.g. AICORE_SERVICE_KEY='{"clientid":"...","clientsecret":"...",
+//                                       "url":"...","serviceurls":{"AI_API_URL":"..."}}'
+//
+//  Source 3 — Individual env vars (AICORE_BASE_URL etc.) as a last resort.
+
+function loadAiCoreCredentials() {
+  // ── Source 1: VCAP_SERVICES binding ──────────────────────────────────────
+  try {
+    // Try by tag first ("aicore" is the standard CF tag)
+    const svc = xsenv.getServices({ aicore: { tag: "aicore" } });
+    if (svc?.aicore?.serviceurls?.AI_API_URL) {
+      console.log("✅ AI Core loaded from VCAP_SERVICES (tag: aicore)");
+      return svc.aicore;
+    }
+  } catch { /* not found by tag */ }
+
+  try {
+    // Fallback: try by service label "aicore"
+    const svc = xsenv.getServices({ aicore: { label: "aicore" } });
+    if (svc?.aicore?.serviceurls?.AI_API_URL) {
+      console.log("✅ AI Core loaded from VCAP_SERVICES (label: aicore)");
+      return svc.aicore;
+    }
+  } catch { /* not found by label */ }
+
+  // Manual VCAP parse — sometimes xsenv misses it; scan all services ourselves
+  try {
+    const vcap = JSON.parse(process.env.VCAP_SERVICES || "{}");
+    // AI Core can appear under "aicore" or "sap-aicore" or similar
+    const allEntries = Object.values(vcap).flat();
+    const entry = allEntries.find(
+      (s) =>
+        s?.credentials?.serviceurls?.AI_API_URL ||
+        s?.label?.includes("aicore") ||
+        s?.tags?.includes("aicore")
+    );
+    if (entry?.credentials?.serviceurls?.AI_API_URL) {
+      console.log(`✅ AI Core loaded from VCAP_SERVICES (manual scan, label: ${entry.label})`);
+      return entry.credentials;
+    }
+  } catch { /* VCAP parse failed */ }
+
+  // ── Source 2: AICORE_SERVICE_KEY env var ──────────────────────────────────
+  if (process.env.AICORE_SERVICE_KEY) {
+    try {
+      const key = JSON.parse(process.env.AICORE_SERVICE_KEY);
+      if (key?.serviceurls?.AI_API_URL) {
+        console.log("✅ AI Core loaded from AICORE_SERVICE_KEY env var");
+        return key;
+      }
+      console.warn("⚠️  AICORE_SERVICE_KEY parsed but missing serviceurls.AI_API_URL");
+    } catch {
+      console.error("❌ AICORE_SERVICE_KEY is set but is not valid JSON");
+    }
+  }
+
+  // ── Source 3: Individual env vars ─────────────────────────────────────────
+  if (process.env.AICORE_BASE_URL) {
+    console.log("✅ AI Core loaded from individual AICORE_* env vars");
+    return {
+      serviceurls:  { AI_API_URL: process.env.AICORE_BASE_URL },
+      clientid:     process.env.AICORE_CLIENT_ID     || "",
+      clientsecret: process.env.AICORE_CLIENT_SECRET || "",
+      url:          process.env.AICORE_TOKEN_URL      || "",
+    };
+  }
+
+  console.warn("⚠️  AI Core credentials NOT loaded — set AICORE_SERVICE_KEY or bind the aicore service");
+  return null;
 }
 
-// ─── Fallbacks from .env ──────────────────────────────────────────────────────
+aiCoreCredentials = loadAiCoreCredentials();
+
+// ─── Fallbacks from .env (existing services) ──────────────────────────────────
 
 if (!xsuaaCredentials && process.env.XSUAA_URL) {
   xsuaaCredentials = {
@@ -72,16 +143,6 @@ if (!connectivityCredentials && process.env.CONNECTIVITY_PROXY_HOST) {
     token_service_url:         process.env.CONNECTIVITY_TOKEN_URL,
     onpremise_proxy_host:      process.env.CONNECTIVITY_PROXY_HOST,
     onpremise_proxy_http_port: process.env.CONNECTIVITY_PROXY_PORT || "20003",
-  };
-}
-
-// AI Core env-var fallback (if not bound as a service)
-if (!aiCoreCredentials && process.env.AICORE_BASE_URL) {
-  aiCoreCredentials = {
-    serviceurls: { AI_API_URL: process.env.AICORE_BASE_URL },
-    clientid:     process.env.AICORE_CLIENT_ID     || process.env.XSUAA_CLIENT_ID,
-    clientsecret: process.env.AICORE_CLIENT_SECRET || process.env.XSUAA_CLIENT_SECRET,
-    url:          process.env.AICORE_TOKEN_URL      || process.env.XSUAA_URL,
   };
 }
 
