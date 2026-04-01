@@ -616,7 +616,7 @@ app.post("/api/ai-core/analyze", async (req, res) => {
     //    (or use AICORE_DEPLOYMENT_ID env var if pinned)
     const { deploymentId, modelName } = await resolveDeployment(baseUrl, token, resourceGroup);
 
-    const inferenceUrl = `${baseUrl}/v2/inference/deployments/${deploymentId}`;
+    const inferenceUrl = `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`;
     console.log(`🤖 AI Core → ${inferenceUrl}  model: ${modelName}  transport: ${payload.trkorr}`);
 
     // 3. Call inference
