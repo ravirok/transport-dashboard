@@ -469,11 +469,13 @@ async function resolveDeployment(baseUrl, token, resourceGroup) {
   // If pinned via env var, skip discovery but still resolve model name
   if (process.env.AICORE_DEPLOYMENT_ID) {
     const deploymentId = process.env.AICORE_DEPLOYMENT_ID;
-    const modelName    = process.env.AICORE_MODEL_NAME || await fetchModelName(baseUrl, token, resourceGroup, deploymentId);
+    const modelName    = process.env.AICORE_MODEL_NAME || null;
+    // For pinned deployments, build URL from base — deploymentUrl not available without a list call
     const inferenceUrl = `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`;
     const entry        = { deploymentId, modelName, inferenceUrl, expiresAt: now + 10 * 60 * 1000 };
     _deploymentCache[cacheKey] = entry;
-    console.log(`✅ AI Core deployment pinned via env: ${deploymentId} (${modelName})`);
+    console.log(`✅ AI Core deployment pinned via env: ${deploymentId}`);
+    console.log(`🔗 Inference URL: ${inferenceUrl}`);
     return entry;
   }
 
@@ -507,7 +509,8 @@ async function resolveDeployment(baseUrl, token, resourceGroup) {
   const entry = { deploymentId, modelName, inferenceUrl, expiresAt: now + 10 * 60 * 1000 };
   _deploymentCache[cacheKey] = entry;
 
-  console.log(`✅ AI Core auto-discovered: ${deploymentId} (${modelName})`);
+  console.log(`✅ AI Core auto-discovered: ${deploymentId} (model: ${modelName || "not sent"})`);
+  console.log(`🔗 Inference URL: ${inferenceUrl} ${dep?.deploymentUrl ? "[from deploymentUrl]" : "[constructed]"}`);
   if (deployments.length > 1) {
     console.log(`   ℹ️  ${deployments.length} running deployments — using first. Set AICORE_DEPLOYMENT_ID to pin one.`);
   }
@@ -659,11 +662,11 @@ app.post("/api/ai-core/analyze", async (req, res) => {
     //    (or use AICORE_DEPLOYMENT_ID env var if pinned)
     const { deploymentId, modelName, inferenceUrl } = await resolveDeployment(baseUrl, token, resourceGroup);
 
-    console.log(`🤖 AI Core → ${inferenceUrl}  model: ${modelName || "(omitted — deployment decides)"}  transport: ${payload.trkorr}`);
+    console.log(`🤖 AI Core → ${inferenceUrl}  model: ${modelName || "(not sent)"}  transport: ${payload.trkorr}`);
 
-    // Build request body — omit "model" field if we couldn't resolve it.
-    // SAP Generative AI Hub deployments already know their model; sending an
-    // incorrect or unknown model name causes 404 "Resource not found".
+    // SAP AI Core "foundation-models" deployments do NOT accept a "model" field
+    // in the request body — the deployment URL already identifies the model.
+    // Sending model:"gpt-5" causes 404 "Resource not found" even when correct.
     const requestBody = {
       messages: [
         {
@@ -677,8 +680,9 @@ app.post("/api/ai-core/analyze", async (req, res) => {
       ],
       max_tokens:  300,
       temperature: 0.2,
+      // NOTE: "model" field intentionally omitted — foundation-models deployments
+      // reject it. The deployment URL already encodes the model.
     };
-    if (modelName) requestBody.model = modelName;
 
     // 3. Call inference
     const aiRes = await axios.post(
