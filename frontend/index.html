@@ -423,8 +423,6 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
 /* ══════════════════════════════════════════
    AUTO-IMPORT STYLES
 ══════════════════════════════════════════ */
-
-/* Confirmation banner — shown after post-release checks */
 .import-confirm-banner {
   margin: 14px 22px 0;
   border: 1px solid #a8dfc4;
@@ -436,23 +434,13 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
 .import-confirm-inner {
   display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
 }
-.import-confirm-icon {
-  font-size: 22px; flex-shrink: 0; margin-top: 1px;
-}
+.import-confirm-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
 .import-confirm-text { flex: 1; }
-.import-confirm-title {
-  font-size: 13px; font-weight: 700; color: var(--text-hi); margin-bottom: 3px;
-}
-.import-confirm-desc {
-  font-size: 12px; color: var(--text-med); line-height: 1.5;
-}
-.import-confirm-meta {
-  display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;
-}
+.import-confirm-title { font-size: 13px; font-weight: 700; color: var(--text-hi); margin-bottom: 3px; }
+.import-confirm-desc  { font-size: 12px; color: var(--text-med); line-height: 1.5; }
+.import-confirm-meta  { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .import-confirm-meta .achip { font-size: 10px; }
-.import-confirm-actions {
-  display: flex; gap: 8px; align-items: center; flex-shrink: 0; margin-top: 4px;
-}
+.import-confirm-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; margin-top: 4px; }
 .btn-import-yes {
   padding: 8px 20px; font-size: 13px; font-weight: 600; border-radius: var(--radius);
   cursor: pointer; background: var(--green); color: #fff; border: none;
@@ -468,7 +456,6 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
 }
 .btn-import-no:hover { background: var(--red-light); border-color: var(--red); }
 
-/* Import progress panel */
 .import-progress-panel {
   margin: 14px 22px 0;
   border: 1px solid var(--blue-mid);
@@ -483,9 +470,7 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
   background: linear-gradient(135deg, var(--blue-light), #f0f8ff);
   border-bottom: 1px solid var(--blue-mid);
 }
-.import-progress-title {
-  font-size: 13px; font-weight: 700; color: var(--blue); flex: 1;
-}
+.import-progress-title  { font-size: 13px; font-weight: 700; color: var(--blue); flex: 1; }
 .import-progress-status {
   font-family: var(--mono); font-size: 10px;
   padding: 2px 8px; border-radius: 20px;
@@ -494,23 +479,16 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
 .import-progress-status.done  { background: var(--green); }
 .import-progress-status.error { background: var(--red); }
 .import-progress-body { padding: 14px 16px; }
-.import-pb-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-lo); margin-bottom: 6px; }
+.import-pb-row   { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-lo); margin-bottom: 6px; }
 .import-pb-track { height: 8px; border-radius: 4px; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; margin-bottom: 14px; }
 .import-pb-fill  { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--blue), #60a5fa); transition: width .6s cubic-bezier(.4,0,.2,1); }
 .import-pb-fill.done  { background: linear-gradient(90deg, var(--green), #34d399); }
 .import-pb-fill.error { background: linear-gradient(90deg, var(--red), #f87171); }
 
-/* Import live log */
 .import-log {
-  background: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 10px 14px;
-  max-height: 160px;
-  overflow-y: auto;
-  font-family: var(--mono);
-  font-size: 11px;
-  line-height: 1.7;
+  background: #0d1117; border: 1px solid #30363d; border-radius: 8px;
+  padding: 10px 14px; max-height: 160px; overflow-y: auto;
+  font-family: var(--mono); font-size: 11px; line-height: 1.7;
 }
 .import-log-line { display: flex; gap: 10px; }
 .import-log-time { color: #8b949e; white-space: nowrap; }
@@ -520,14 +498,12 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
 .import-log-msg.err  { color: #f85149; }
 .import-log-msg.info { color: #58a6ff; }
 
-/* Import result summary */
 .import-result-summary {
   display: grid; grid-template-columns: repeat(3,1fr);
   gap: 8px; margin-top: 12px;
 }
 .import-result-box {
-  text-align: center; padding: 10px;
-  border-radius: var(--radius);
+  text-align: center; padding: 10px; border-radius: var(--radius);
   border: 1px solid; font-size: 11px; font-weight: 600;
 }
 .import-result-box.ok   { background: var(--green-light); color: var(--green); border-color: #a8dfc4; }
@@ -536,53 +512,21 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
 .import-result-num { font-size: 22px; font-weight: 700; display: block; line-height: 1.2; }
 
 /* ── STMS LOGS ── */
-.stms-logs-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 8px;
-}
-.stms-logs-title {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 12px; font-weight: 700; color: var(--text-hi);
-  text-transform: uppercase; letter-spacing: .5px;
-}
-.stms-logs-badge {
-  font-family: var(--mono); font-size: 10px;
-  background: var(--blue-light); color: var(--blue);
-  border: 1px solid var(--blue-mid); padding: 1px 8px; border-radius: 20px;
-  font-weight: 600; text-transform: none; letter-spacing: 0;
-}
-.stms-logs-fetching {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 11px; color: var(--text-lo); font-style: italic;
-}
+.stms-logs-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.stms-logs-title  { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--text-hi); text-transform: uppercase; letter-spacing: .5px; }
+.stms-logs-badge  { font-family: var(--mono); font-size: 10px; background: var(--blue-light); color: var(--blue); border: 1px solid var(--blue-mid); padding: 1px 8px; border-radius: 20px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+.stms-logs-fetching { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-lo); font-style: italic; }
 .stms-tbl { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-.stms-tbl thead th {
-  background: #0d1117; color: #8b949e;
-  font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
-  padding: 7px 10px; text-align: left; border-bottom: 1px solid #30363d;
-  font-family: var(--mono);
-}
-.stms-tbl tbody td {
-  padding: 6px 10px; border-bottom: 1px solid #21262d;
-  font-family: var(--mono); font-size: 11px; color: #e6edf3;
-  background: #0d1117;
-}
+.stms-tbl thead th { background: #0d1117; color: #8b949e; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; padding: 7px 10px; text-align: left; border-bottom: 1px solid #30363d; font-family: var(--mono); }
+.stms-tbl tbody td { padding: 6px 10px; border-bottom: 1px solid #21262d; font-family: var(--mono); font-size: 11px; color: #e6edf3; background: #0d1117; }
 .stms-tbl tbody tr:last-child td { border-bottom: none; }
 .stms-tbl tbody tr:hover td { background: #161b22; }
-.stms-tbl-wrap {
-  border-radius: 8px; overflow: hidden;
-  border: 1px solid #30363d; max-height: 200px; overflow-y: auto;
-}
+.stms-tbl-wrap { border-radius: 8px; overflow: hidden; border: 1px solid #30363d; max-height: 200px; overflow-y: auto; }
 .stms-sev-ok   { color: #3fb950; }
 .stms-sev-warn { color: #d29922; }
 .stms-sev-err  { color: #f85149; }
 .stms-sev-info { color: #58a6ff; }
-.stms-empty {
-  padding: 14px; text-align: center; font-size: 12px;
-  color: var(--text-lo); background: var(--bg);
-  border: 1px solid var(--border); border-radius: 8px;
-  font-style: italic;
-}
+.stms-empty { padding: 14px; text-align: center; font-size: 12px; color: var(--text-lo); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-style: italic; }
 </style>
 </head>
 <body>
@@ -724,7 +668,6 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
       <div id="aiBannerTxt"></div>
     </div>
 
-    <!-- AUTO-IMPORT CONFIRM BANNER (shown after post-release checks on Released transports) -->
     <div class="import-confirm-banner" id="importConfirmBanner" style="display:none">
       <div class="import-confirm-inner">
         <div class="import-confirm-icon">🚀</div>
@@ -746,7 +689,6 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
       </div>
     </div>
 
-    <!-- AUTO-IMPORT PROGRESS PANEL (shown after Yes is clicked) -->
     <div class="import-progress-panel" id="importProgressPanel" style="display:none">
       <div class="import-progress-header">
         <div>🔄</div>
@@ -764,7 +706,6 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
         <div class="import-log" id="importLog"></div>
         <div class="import-result-summary" id="importResultSummary" style="display:none"></div>
 
-        <!-- STMS IMPORT LOGS SECTION -->
         <div id="stmsLogsSection" style="display:none; margin-top:14px;">
           <div class="stms-logs-header">
             <div class="stms-logs-title">
@@ -800,8 +741,6 @@ td.td-target { font-family: var(--mono); font-size: 11px; color: var(--cyan); fo
 let allTransports = [], filtered = [], pieInst, barInst;
 let agentTransport = null, agentObjects = [], agentLogs = [];
 let agentTab = 'pre', agentPreData = null, agentPostData = null;
-
-// Import state
 let importTriggered = false;
 
 // ═══════════════════════════════════════════════════════
@@ -1099,15 +1038,12 @@ async function openAgent(t) {
 //  ANALYSIS ENGINE
 // ═══════════════════════════════════════════════════════
 async function runAgentAnalysis() {
-  const t=agentTransport, objects=agentObjects, logs=agentLogs;
+  const t = agentTransport, objects = agentObjects, logs = agentLogs;
   const failedObjs = objects.filter(o=>(o.STATUS||'').trim()==='E');
   const warnObjs   = objects.filter(o=>(o.STATUS||'').trim()==='W');
   const failedLogs = logs.filter(l=>(l.ACTION||'').toUpperCase().includes('ERR') || (l.STATUS||'').trim()==='8' || (l.STATUS||'').toUpperCase().includes('ERR'));
 
-  // ── Fetch Code Inspector, ATC and DGP data in parallel ──────────────────────
-  const lbl = document.getElementById('pbLabel');
-  if (lbl) lbl.textContent = 'Fetching CI / ATC / DGP results...';
-
+  // ── Fetch CI / ATC / DGP data in parallel ────────────────────────────────
   const [ciData, atcData, dgpData] = await Promise.all([
     fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/ci`).then(r=>r.json()).catch(()=>({})),
     fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/atc`).then(r=>r.json()).catch(()=>({})),
@@ -1118,39 +1054,35 @@ async function runAgentAnalysis() {
   const atcResults = atcData?.d?.results || atcData?.results || [];
   const dgpResults = dgpData?.d?.results || dgpData?.results || [];
 
-  // Summarise CI findings
-  const ciErrors   = ciResults.filter(f=>(f.KIND||f.SEVERITY||'').toUpperCase()==='E'||(f.KIND||'').toUpperCase()==='ERROR').length;
-  const ciWarnings = ciResults.filter(f=>(f.KIND||f.SEVERITY||'').toUpperCase()==='W'||(f.KIND||'').toUpperCase()==='WARNING').length;
-  const ciInfos    = ciResults.length - ciErrors - ciWarnings;
+  const ciErrors      = ciResults.filter(f=>(f.KIND||f.SEVERITY||'').toUpperCase()==='E'||(f.KIND||'').toUpperCase()==='ERROR').length;
+  const ciWarnings    = ciResults.filter(f=>(f.KIND||f.SEVERITY||'').toUpperCase()==='W'||(f.KIND||'').toUpperCase()==='WARNING').length;
+  const ciInfos       = ciResults.length - ciErrors - ciWarnings;
 
-  // Summarise ATC findings (priority 1=critical, 2=warning, 3/4=info)
   const atcPrio1  = atcResults.filter(f=>String(f.PRIORITY||f.PRIO||'')==='1').length;
   const atcPrio2  = atcResults.filter(f=>String(f.PRIORITY||f.PRIO||'')==='2').length;
   const atcExempt = atcResults.filter(f=>(f.EXEMPTION||f.EXEMPTION_STATUS||'').length>0).length;
 
-  // Summarise DGP findings
   const dgpViolations = dgpResults.filter(f=>(f.STATUS||f.RESULT||'').toUpperCase().includes('VIOL')||(f.STATUS||'').toUpperCase()==='E').length;
   const dgpWarnings   = dgpResults.filter(f=>(f.STATUS||f.RESULT||'').toUpperCase().includes('WARN')||(f.STATUS||'').toUpperCase()==='W').length;
 
-  // CI/ATC/DGP status helpers
   const ciStatus  = ciResults.length===0?'info':ciErrors>0?'fail':ciWarnings>0?'warn':'pass';
   const atcStatus = atcResults.length===0?'info':atcPrio1>0?'fail':atcPrio2>0?'warn':'pass';
   const dgpStatus = dgpResults.length===0?'info':dgpViolations>0?'fail':dgpWarnings>0?'warn':'pass';
 
-  // ── Call SAP AI Core with full CI/ATC/DGP context ───────────────────────────
-  if (lbl) lbl.textContent = 'Calling SAP AI Core...';
-
+  // ── Call SAP AI Core (single call, with CI/ATC/DGP context) ──────────────
   const aiCoreResult = await callAiCoreRisk(t, objects, logs, failedObjs, failedLogs, {
     ci:  { total: ciResults.length,  errors: ciErrors,       warnings: ciWarnings,    infos: ciInfos },
     atc: { total: atcResults.length, prio1:  atcPrio1,       prio2:    atcPrio2,      exempt: atcExempt },
     dgp: { total: dgpResults.length, violations: dgpViolations, warnings: dgpWarnings },
   });
+
   const riskScore    = aiCoreResult.score;
   const aiCoreUsed   = aiCoreResult.source === 'aicore';
   const aiCoreReason = aiCoreResult.reasoning || '';
   const riskLevel    = riskScore>=65?'high':riskScore>=40?'medium':'low';
 
-  const preChecks=[
+  // ── Build pre-release checklist (includes CI/ATC/DGP sections) ───────────
+  const preChecks = [
     { section:'Content verification' },
     { label:'Object list validation', detail: objects.length?`${objects.length} objects found — ${failedObjs.length} errors, ${warnObjs.length} warnings`:'No objects found in transport', status:objects.length===0?'fail':failedObjs.length>0?'warn':'pass' },
     { label:'Dependency check', detail:failedObjs.length>0?`${failedObjs.length} objects in error state — dependencies may be missing`:'No dependency errors detected', status:failedObjs.length>0?'fail':'pass' },
@@ -1178,31 +1110,7 @@ async function runAgentAnalysis() {
     { label:'Historical data comparison', detail:logs.length>0?`${logs.length} historical log entries found`:'No historical data — first occurrence', status:failedLogs.length>0?'warn':logs.length>0?'pass':'info' },
   ];
 
-  const aiCoreResult = await callAiCoreRisk(t, objects, logs, failedObjs, failedLogs);
-  const riskScore    = aiCoreResult.score;
-  const aiCoreUsed   = aiCoreResult.source === 'aicore';
-  const aiCoreReason = aiCoreResult.reasoning || '';
-  const riskLevel    = riskScore>=65?'high':riskScore>=40?'medium':'low';
-
-  const preChecks=[
-    { section:'Content verification' },
-    { label:'Object list validation', detail: objects.length?`${objects.length} objects found — ${failedObjs.length} errors, ${warnObjs.length} warnings`:'No objects found in transport', status:objects.length===0?'fail':failedObjs.length>0?'warn':'pass' },
-    { label:'Dependency check', detail:failedObjs.length>0?`${failedObjs.length} objects in error state — dependencies may be missing`:'No dependency errors detected', status:failedObjs.length>0?'fail':'pass' },
-    { label:'Transport path verification', detail:`Target: ${t.TARGET||'P20'} — route DEV → QAS → PROD`, status:'pass' },
-    { label:'Version & status check', detail:t.STATUS==='Modifiable'?'Transport still modifiable — not released yet':t.STATUS==='Released'?'Transport released and ready':`Status: ${t.STATUS||'unknown'}`, status:t.STATUS==='Modifiable'?'warn':t.STATUS==='Released'?'pass':'warn' },
-    { section:'Impact analysis' },
-    { label:'Criticality assessment', detail:riskScore>=65?'High-risk — affects critical business objects':riskScore>=40?'Medium risk — review recommended':'Low impact — routine transport', status:riskScore>=65?'fail':riskScore>=40?'warn':'pass' },
-    { label:'Risk analysis (AI model)', detail:`Predicted error likelihood: ${riskScore}%`, status:riskScore>=65?'fail':riskScore>=40?'warn':'pass' },
-    { label:'Authorization check', detail:t.OWNER?`Owner ${t.OWNER} identified — verify SE10/basis roles`:'No owner assigned — verify authorization', status:t.OWNER?'pass':'warn' },
-    { section:'Pre-import simulation' },
-    { label:'Conflict detection', detail:failedObjs.length>0?`${failedObjs.length} objects in error — conflicts possible`:'No conflicts from object statuses', status:failedObjs.length>0?'warn':'pass' },
-    { label:'Import simulation result', detail:failedLogs.length>0?`${failedLogs.length} error(s) in logs — check-only import would fail`:logs.length>0?`${logs.length} log entries reviewed — no critical errors`:'No log history — simulate manually in SE10', status:failedLogs.length>0?'fail':logs.length>0?'pass':'warn' },
-    { section:'AI-specific checks' },
-    { label:'AI risk prediction', detail:`${riskScore}% predicted error rate — ${riskLevel} risk (threshold: 60%)${aiCoreReason?' · '+aiCoreReason:''}${aiCoreUsed?' [SAP AI Core]':' [local fallback]'}`, status:riskScore>=65?'fail':riskScore>=40?'warn':'pass' },
-    { label:'Historical data comparison', detail:logs.length>0?`${logs.length} historical log entries found`:'No historical data — first occurrence', status:failedLogs.length>0?'warn':logs.length>0?'pass':'info' },
-  ];
-
-  const postChecks=[
+  const postChecks = [
     { section:'Import verification' },
     { label:'Import log status', detail:failedLogs.length>0?`${failedLogs.length} error(s) in import logs — review SM21`:logs.length>0?'Import logs reviewed — no critical errors':'No import logs — verify in STMS/SM21', status:failedLogs.length>0?'fail':logs.length>0?'pass':'warn' },
     { label:'Object status verification', detail:failedObjs.length>0?`${failedObjs.length} object(s) in error — reactivation needed`:`${objects.length} object(s) verified active`, status:failedObjs.length>0?'fail':'pass' },
@@ -1260,7 +1168,6 @@ async function runAgentAnalysis() {
   document.getElementById('modalProgress').style.display='none';
   renderAgentTab(agentTab);
 
-  // ── SHOW AUTO-IMPORT CONFIRM for Released transports (on post tab) ──
   if (st === 'Released' && !importTriggered) {
     showImportConfirm();
   }
@@ -1275,7 +1182,6 @@ function showImportConfirm() {
   const hasFail = post && post.fail > 0;
   const hasWarn = post && post.warn > 0;
 
-  // Build meta chips
   const meta = [
     `<span class="achip blue">Transport: <strong>${t.TRKORR}</strong></span>`,
     `<span class="achip">Target: <strong>${t.TARGET||'P20'}</strong></span>`,
@@ -1289,7 +1195,6 @@ function showImportConfirm() {
 
   document.getElementById('importConfirmMeta').innerHTML = meta;
 
-  // Adjust Yes button styling based on risk
   const yesBtn = document.getElementById('btnImportYes');
   if (hasFail) {
     yesBtn.style.background = 'var(--amber)';
@@ -1304,7 +1209,6 @@ function showImportConfirm() {
 
 function dismissImport() {
   document.getElementById('importConfirmBanner').style.display = 'none';
-  // Append a note to the AI banner
   const bannerTxt = document.getElementById('aiBannerTxt');
   bannerTxt.innerHTML += ' <strong style="color:var(--amber)">— Auto-import skipped by operator.</strong>';
 }
@@ -1316,19 +1220,18 @@ async function triggerImport() {
   if (importTriggered) return;
   importTriggered = true;
 
-  // Hide confirm, show progress
   document.getElementById('importConfirmBanner').style.display = 'none';
   const panel = document.getElementById('importProgressPanel');
   panel.style.display = 'block';
   document.getElementById('stmsLogsSection').style.display = 'none';
 
   const t = agentTransport;
-  const logEl   = document.getElementById('importLog');
-  const pbFill  = document.getElementById('importPbFill');
-  const pbPct   = document.getElementById('importPbPct');
-  const pbLabel = document.getElementById('importPbLabel');
-  const titleEl = document.getElementById('importProgressTitle');
-  const statusEl= document.getElementById('importProgressStatus');
+  const logEl    = document.getElementById('importLog');
+  const pbFill   = document.getElementById('importPbFill');
+  const pbPct    = document.getElementById('importPbPct');
+  const pbLabel  = document.getElementById('importPbLabel');
+  const titleEl  = document.getElementById('importProgressTitle');
+  const statusEl = document.getElementById('importProgressStatus');
 
   logEl.innerHTML = '';
 
@@ -1349,7 +1252,6 @@ async function triggerImport() {
     pbLabel.textContent = label;
   }
 
-  // ── Phase 1: Connecting ──
   titleEl.textContent = `Importing ${t.TRKORR} → ${t.TARGET||'P20'}`;
   statusEl.textContent = 'RUNNING';
   statusEl.className = 'import-progress-status';
@@ -1361,7 +1263,6 @@ async function triggerImport() {
   setProgress(15, 'Authenticating...');
   await addLog('RFC connection established', 'ok', 900);
 
-  // ── Phase 2: Pre-import checks ──
   setProgress(25, 'Running pre-import checks...');
   await addLog('Starting pre-import validation...', 'info', 1100);
   await addLog(`Object count: ${agentObjects.length} object(s) queued`, '', 1400);
@@ -1371,7 +1272,6 @@ async function triggerImport() {
     await addLog('Pre-import validation passed — no blocking issues', 'ok', 1700);
   }
 
-  // ── Phase 3: Object import ──
   setProgress(40, 'Importing objects...');
   await addLog('BEGIN IMPORT — locking transport queue', 'info', 2000);
 
@@ -1398,7 +1298,6 @@ async function triggerImport() {
 
   setProgress(70, 'Verifying import...');
 
-  // ── Phase 4: Call real API ──
   let apiSuccess = false;
   let apiMessage = '';
   try {
@@ -1417,13 +1316,12 @@ async function triggerImport() {
       apiMessage = `API returned HTTP ${res.status}`;
     }
   } catch(e) {
-    apiSuccess = true; // graceful fallback — demo mode
+    apiSuccess = true;
     apiMessage = 'Import queued (API endpoint not reachable — demo mode)';
   }
 
   await addLog(apiSuccess ? `API: ${apiMessage}` : `API error: ${apiMessage}`, apiSuccess?'ok':'warn', objDelay+400);
 
-  // ── Phase 5: Finalise ──
   setProgress(90, 'Finalising...');
   await addLog('Updating transport log in SAP...', '', objDelay+800);
   await addLog('Releasing import queue lock...', '', objDelay+1100);
@@ -1439,7 +1337,6 @@ async function triggerImport() {
     objDelay+1400
   );
 
-  // ── Update UI: progress bar, title, status chip ──
   setTimeout(async () => {
     pbFill.className = 'import-pb-fill ' + (importOk ? 'done' : 'warn');
     statusEl.textContent = importOk ? 'DONE' : 'DONE WITH WARNINGS';
@@ -1449,7 +1346,6 @@ async function triggerImport() {
       ? `Import complete — ${t.TRKORR}`
       : `Import complete with warnings — ${t.TRKORR}`;
 
-    // Result summary boxes
     const summary = document.getElementById('importResultSummary');
     summary.style.display = 'grid';
     summary.innerHTML = `
@@ -1467,22 +1363,18 @@ async function triggerImport() {
       </div>
     `;
 
-    // Update AI banner
     const bannerTxt = document.getElementById('aiBannerTxt');
     bannerTxt.innerHTML += importOk
       ? ' <strong style="color:var(--green)">— Auto-import triggered and completed successfully. ✓</strong>'
       : ' <strong style="color:var(--amber)">— Auto-import triggered and completed with warnings. Review SM21.</strong>';
 
-    // Update status chip
     const sc = document.getElementById('agentStatusChip');
     sc.textContent = importOk ? 'Imported ✓' : 'Imported ⚠';
     sc.style.cssText = importOk
       ? 'background:var(--green-light);color:var(--green);border:1px solid #a8dfc4;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;'
       : 'background:var(--amber-light);color:var(--amber);border:1px solid #f5d999;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;';
 
-    // ── Phase 6: Fetch & render STMS import logs ──
     await fetchAndRenderStmsLogs(t);
-
   }, objDelay+1600);
 }
 
@@ -1490,12 +1382,11 @@ async function triggerImport() {
 //  STMS IMPORT LOGS
 // ═══════════════════════════════════════════════════════
 async function fetchAndRenderStmsLogs(t) {
-  const section    = document.getElementById('stmsLogsSection');
-  const fetching   = document.getElementById('stmsLogsFetching');
-  const badge      = document.getElementById('stmsLogsBadge');
-  const tableWrap  = document.getElementById('stmsLogsTableWrap');
+  const section   = document.getElementById('stmsLogsSection');
+  const fetching  = document.getElementById('stmsLogsFetching');
+  const badge     = document.getElementById('stmsLogsBadge');
+  const tableWrap = document.getElementById('stmsLogsTableWrap');
 
-  // Show section with spinner
   section.style.display = 'block';
   fetching.style.display = 'flex';
   tableWrap.innerHTML = '';
@@ -1508,7 +1399,6 @@ async function fetchAndRenderStmsLogs(t) {
     stmsLogs   = data?.d?.results || data?.results || data || [];
     if (!Array.isArray(stmsLogs)) stmsLogs = [];
   } catch(e) {
-    // API not yet reachable — show a clear "not available" message
     stmsLogs = null;
   }
 
@@ -1531,56 +1421,38 @@ async function fetchAndRenderStmsLogs(t) {
 
   badge.textContent = `${stmsLogs.length} entries`;
 
-  // Count severities for a mini summary line
   const errCount  = stmsLogs.filter(l => sevClass(l) === 'err').length;
   const warnCount = stmsLogs.filter(l => sevClass(l) === 'warn').length;
-  badge.style.background = errCount  ? 'var(--red-light)'   :
-                           warnCount ? 'var(--amber-light)'  : 'var(--green-light)';
-  badge.style.color      = errCount  ? 'var(--red)'          :
-                           warnCount ? 'var(--amber)'         : 'var(--green)';
-  badge.style.borderColor= errCount  ? '#f5c0c0'              :
-                           warnCount ? '#f5d999'               : '#a8dfc4';
+  badge.style.background = errCount  ? 'var(--red-light)'   : warnCount ? 'var(--amber-light)'  : 'var(--green-light)';
+  badge.style.color      = errCount  ? 'var(--red)'          : warnCount ? 'var(--amber)'         : 'var(--green)';
+  badge.style.borderColor= errCount  ? '#f5c0c0'              : warnCount ? '#f5d999'               : '#a8dfc4';
 
-  // Build dark-themed table
   let html = `
     <div class="stms-tbl-wrap">
       <table class="stms-tbl">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Time</th>
-            <th>Sev</th>
-            <th>Message</th>
-            <th>Object</th>
-            <th>User</th>
-            <th>RC</th>
-          </tr>
-        </thead>
+        <thead><tr><th>#</th><th>Time</th><th>Sev</th><th>Message</th><th>Object</th><th>User</th><th>RC</th></tr></thead>
         <tbody>`;
 
   stmsLogs.forEach((l, idx) => {
-    const cls   = sevClass(l);
-    const sev   = sevLabel(l);
-    const msg   = escHtml(l.MESSAGE || l.MSG || l.TEXT || l.MSGTEXT || '—');
-    const obj   = escHtml(l.OBJECT_NAME || l.OBJECT || l.TRKORR || '—');
-    const user  = escHtml(l.USER || l.UNAME || '—');
-    const rc    = l.RETURN_CODE || l.RC || l.RETCODE || '';
-    const time  = fmtLogTime(l.TIME || l.LOG_TIME || l.TIMESTAMP || l.DATE || l.LOG_DATE);
-    html += `
-          <tr>
-            <td style="color:#8b949e">${idx+1}</td>
-            <td style="color:#8b949e;white-space:nowrap">${time}</td>
-            <td class="stms-sev-${cls}" style="font-weight:700">${sev}</td>
-            <td style="color:#e6edf3;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msg}">${msg}</td>
-            <td style="color:#58a6ff">${obj}</td>
-            <td style="color:#8b949e">${user}</td>
-            <td class="${rc==='0'||rc===''?'stms-sev-ok':rc==='4'?'stms-sev-warn':'stms-sev-err'}">${rc||'—'}</td>
-          </tr>`;
+    const cls  = sevClass(l);
+    const sev  = sevLabel(l);
+    const msg  = escHtml(l.MESSAGE || l.MSG || l.TEXT || l.MSGTEXT || '—');
+    const obj  = escHtml(l.OBJECT_NAME || l.OBJECT || l.TRKORR || '—');
+    const user = escHtml(l.USER || l.UNAME || '—');
+    const rc   = l.RETURN_CODE || l.RC || l.RETCODE || '';
+    const time = fmtLogTime(l.TIME || l.LOG_TIME || l.TIMESTAMP || l.DATE || l.LOG_DATE);
+    html += `<tr>
+      <td style="color:#8b949e">${idx+1}</td>
+      <td style="color:#8b949e;white-space:nowrap">${time}</td>
+      <td class="stms-sev-${cls}" style="font-weight:700">${sev}</td>
+      <td style="color:#e6edf3;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msg}">${msg}</td>
+      <td style="color:#58a6ff">${obj}</td>
+      <td style="color:#8b949e">${user}</td>
+      <td class="${rc==='0'||rc===''?'stms-sev-ok':rc==='4'?'stms-sev-warn':'stms-sev-err'}">${rc||'—'}</td>
+    </tr>`;
   });
 
   html += `</tbody></table></div>`;
-
-  // Append a mini stat footer
   html += `<div style="display:flex;gap:10px;margin-top:8px;font-size:11px;">
     <span style="color:var(--text-lo)">Total: <strong style="color:var(--text-hi)">${stmsLogs.length}</strong></span>
     ${errCount  ? `<span style="color:var(--red)">✕ Errors: <strong>${errCount}</strong></span>` : ''}
@@ -1593,9 +1465,9 @@ async function fetchAndRenderStmsLogs(t) {
 
 function sevClass(l) {
   const sev = (l.SEVERITY || l.SEV || l.TYPE || l.MSGTYPE || l.STATUS || '').toString().toUpperCase();
-  if (['E','ERROR','8','ABEND'].includes(sev))   return 'err';
-  if (['W','WARNING','4'].includes(sev))          return 'warn';
-  if (['S','I','INFO','0','SUCCESS'].includes(sev)) return 'ok';
+  if (['E','ERROR','8','ABEND'].includes(sev))       return 'err';
+  if (['W','WARNING','4'].includes(sev))              return 'warn';
+  if (['S','I','INFO','0','SUCCESS'].includes(sev))   return 'ok';
   return 'info';
 }
 function sevLabel(l) {
@@ -1604,13 +1476,10 @@ function sevLabel(l) {
 }
 function fmtLogTime(raw) {
   if (!raw) return '—';
-  // OData /Date(...)/ format
   const m = String(raw).match(/\/Date\((\d+)\)\//);
   if (m) return new Date(+m[1]).toLocaleTimeString('en-GB');
-  // HHMMSS numeric
   const s = String(raw);
   if (/^\d{6}$/.test(s)) return `${s.slice(0,2)}:${s.slice(2,4)}:${s.slice(4,6)}`;
-  // YYYYMMDD
   if (/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
   return String(raw).slice(0, 19);
 }
@@ -1639,15 +1508,12 @@ async function callAiCoreRisk(t, objects, logs, failedObjs, failedLogs, quality=
       hasFUGR: objects.some(o=>o.OBJECT_TYPE==='FUGR'),
       hasAUTH: objects.some(o=>o.OBJECT_TYPE==='AUTH'),
       hasTABL: objects.some(o=>o.OBJECT_TYPE==='TABL'),
-      // Code Inspector
       ci:  quality.ci  || { total:0, errors:0, warnings:0, infos:0 },
-      // ATC
       atc: quality.atc || { total:0, prio1:0,  prio2:0,    exempt:0 },
-      // Downgrade Protection
       dgp: quality.dgp || { total:0, violations:0, warnings:0 },
     };
 
-    const res  = await fetch('/api/ai-core/analyze', {
+    const res = await fetch('/api/ai-core/analyze', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(payload),
@@ -1656,7 +1522,6 @@ async function callAiCoreRisk(t, objects, logs, failedObjs, failedLogs, quality=
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    // Expected response shape: { riskScore: 72, reasoning: "..." }
     const score = Math.min(Math.max(parseInt(data.riskScore ?? data.risk_score ?? data.score) || 0, 5), 98);
     return { score, reasoning: data.reasoning || data.reason || '', source: 'aicore' };
 
@@ -1666,7 +1531,6 @@ async function callAiCoreRisk(t, objects, logs, failedObjs, failedLogs, quality=
   }
 }
 
-// Local fallback formula (used when AI Core is unreachable)
 function computeRiskLocal(t, objects, logs, failedObjs, failedLogs) {
   let s=20;
   if (t.STATUS==='Modifiable') s+=20;
