@@ -471,7 +471,8 @@ async function resolveDeployment(baseUrl, token, resourceGroup) {
     const deploymentId = process.env.AICORE_DEPLOYMENT_ID;
     const modelName    = process.env.AICORE_MODEL_NAME || null;
     // For pinned deployments, build URL from base — deploymentUrl not available without a list call
-    const inferenceUrl = `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`;
+    const apiVersion   = process.env.AICORE_API_VERSION || "2024-02-01";
+    const inferenceUrl = `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions?api-version=${apiVersion}`;
     const entry        = { deploymentId, modelName, inferenceUrl, expiresAt: now + 10 * 60 * 1000 };
     _deploymentCache[cacheKey] = entry;
     console.log(`✅ AI Core deployment pinned via env: ${deploymentId}`);
@@ -552,15 +553,16 @@ function extractModelName(dep) {
 
 /**
  * Returns the full inference URL for a deployment.
- * SAP AI Core returns deploymentUrl directly — use it to avoid URL construction issues.
- * e.g. "https://api.ai.prod.eu-central-1.../v2/inference/deployments/d53f2266b21beeea"
+ * IMPORTANT: SAP AI Core (Azure OpenAI backend) requires ?api-version=2024-02-01
+ * Without this query parameter the endpoint returns 404 "Resource not found".
  */
 function resolveInferenceUrl(dep, baseUrl, deploymentId) {
+  const apiVersion = process.env.AICORE_API_VERSION || "2024-02-01";
   const depUrl = dep?.deploymentUrl || dep?.deployment_url;
   if (depUrl) {
-    return `${depUrl.replace(/\/+$/, "")}/chat/completions`;
+    return `${depUrl.replace(/\/+$/, "")}/chat/completions?api-version=${apiVersion}`;
   }
-  return `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`;
+  return `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions?api-version=${apiVersion}`;
 }
 
 /**
