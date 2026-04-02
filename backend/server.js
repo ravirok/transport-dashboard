@@ -681,7 +681,7 @@ app.post("/api/ai-core/analyze", async (req, res) => {
         },
       ],
       max_completion_tokens: 300,
-      temperature: 0.2,
+      // temperature omitted — gpt-5 only supports default value (1)
       // NOTE: "model" field intentionally omitted — foundation-models deployments
       // reject it. The deployment URL already encodes the model.
     };
