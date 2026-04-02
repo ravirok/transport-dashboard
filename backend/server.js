@@ -680,7 +680,7 @@ app.post("/api/ai-core/analyze", async (req, res) => {
           content: buildAiCorePrompt(payload),
         },
       ],
-      max_tokens:  300,
+      max_completion_tokens: 300,
       temperature: 0.2,
       // NOTE: "model" field intentionally omitted — foundation-models deployments
       // reject it. The deployment URL already encodes the model.
