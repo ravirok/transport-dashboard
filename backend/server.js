@@ -372,6 +372,11 @@ app.post("/api/transports/:trkorr/import", async (req, res) => {
 
 const CALM_DESTINATION_NAME = process.env.CALM_DESTINATION_NAME || "Cloud_ALM";
 
+// ─── SAP AI Core hardcoded values (from AI Launchpad) ────────────────────────
+const AI_CORE_DEPLOYMENT_ID  = process.env.AI_CORE_DEPLOYMENT_ID  || "de04c7a085b419f6";
+const AI_CORE_RESOURCE_GROUP = process.env.AI_CORE_RESOURCE_GROUP || "security-intelligence-hub";
+const AI_CORE_MODEL_NAME     = process.env.AI_CORE_MODEL_NAME     || "gpt-4.1";
+
 // Cache: { url, token, expiry }
 let calmDestCache = null;
 
@@ -532,44 +537,44 @@ app.get("/api/calm/debug", async (req, res) => {
 
   // Step 4: Try actual ALM health API call
   try {
-    const data = await fetchFromALM(
-      "/api/calm/v0/healthMonitoring/alerts?$top=1"
-    );
+    const data = await fetchFromALM("/api/calm-health/v0/events?$top=1");
     result.steps["4_calm_api_call"] = {
-      ok:           true,
-      responseKeys: Object.keys(data || {}),
-      recordCount:  data?.value?.length ?? 0,
+      ok: true, responseKeys: Object.keys(data || {}), recordCount: data?.value?.length ?? 0,
     };
   } catch (e) {
-    result.steps["4_calm_api_call"] = {
-      ok:    false,
-      error: e.message,
-      hint:  "Token resolved but API call failed. Check Cloud ALM base URL and API path.",
-    };
+    // Try alternate path
+    try {
+      const data2 = await fetchFromALM("/api/calm-health/v1/events?$top=1");
+      result.steps["4_calm_api_call"] = { ok: true, path: "v1", recordCount: data2?.value?.length ?? 0 };
+    } catch (e2) {
+      result.steps["4_calm_api_call"] = { ok: false, error: e.message, error_v1: e2.message };
+    }
   }
 
   // Step 5: Try change management
   try {
-    const data = await fetchFromALM(
-      "/api/calm/v0/changeManagement/changeRequests?$top=1"
-    );
-    result.steps["5_change_mgmt_api"] = {
-      ok: true, recordCount: data?.value?.length ?? 0,
-    };
+    const data = await fetchFromALM("/api/calm-requirements/v0/changeRequests?$top=1");
+    result.steps["5_change_mgmt_api"] = { ok: true, recordCount: data?.value?.length ?? 0 };
   } catch (e) {
-    result.steps["5_change_mgmt_api"] = { ok: false, error: e.message };
+    try {
+      const data2 = await fetchFromALM("/api/calm-requirements/v1/changeRequests?$top=1");
+      result.steps["5_change_mgmt_api"] = { ok: true, path: "v1", recordCount: data2?.value?.length ?? 0 };
+    } catch (e2) {
+      result.steps["5_change_mgmt_api"] = { ok: false, error: e.message, error_v1: e2.message };
+    }
   }
 
   // Step 6: Try transport management
   try {
-    const data = await fetchFromALM(
-      "/api/calm/v0/transportManagement/deploymentItems?$top=1"
-    );
-    result.steps["6_transport_mgmt_api"] = {
-      ok: true, recordCount: data?.value?.length ?? 0,
-    };
+    const data = await fetchFromALM("/api/calm-operations/v0/deploymentOperations?$top=1");
+    result.steps["6_transport_mgmt_api"] = { ok: true, recordCount: data?.value?.length ?? 0 };
   } catch (e) {
-    result.steps["6_transport_mgmt_api"] = { ok: false, error: e.message };
+    try {
+      const data2 = await fetchFromALM("/api/calm-operations/v1/deploymentOperations?$top=1");
+      result.steps["6_transport_mgmt_api"] = { ok: true, path: "v1", recordCount: data2?.value?.length ?? 0 };
+    } catch (e2) {
+      result.steps["6_transport_mgmt_api"] = { ok: false, error: e.message, error_v1: e2.message };
+    }
   }
 
   const allOk = Object.values(result.steps).every(s => s.ok !== false);
@@ -587,9 +592,9 @@ app.get("/api/calm/debug", async (req, res) => {
 app.get("/api/calm/health", async (req, res) => {
   try {
     const [tmData, cmData, hmData] = await Promise.allSettled([
-      fetchFromALM("/api/calm/v0/transportManagement/deploymentItems?$top=100&$orderby=createdAt desc"),
-      fetchFromALM("/api/calm/v0/changeManagement/changeRequests?$top=100&$orderby=createdAt desc"),
-      fetchFromALM("/api/calm/v0/healthMonitoring/alerts?$filter=status eq 'OPEN'&$top=200"),
+      fetchFromALM("/api/calm-operations/v0/deploymentOperations?$top=100&$orderby=createdAt desc"),
+      fetchFromALM("/api/calm-requirements/v0/changeRequests?$top=100&$orderby=createdAt desc"),
+      fetchFromALM("/api/calm-health/v0/events?$top=200"),
     ]);
 
     // ── Transport Management ──────────────────────────────────────
@@ -679,7 +684,7 @@ app.get("/api/calm/health", async (req, res) => {
 app.get("/api/calm/changes/all", async (req, res) => {
   try {
     const data  = await fetchFromALM(
-      "/api/calm/v0/changeManagement/changeRequests?$top=200&$orderby=createdAt desc"
+      "/api/calm-requirements/v0/changeRequests?$top=200&$orderby=createdAt desc"
     );
     const items = (data?.value || []).map(cr => ({
       id:          cr.id,
@@ -704,13 +709,11 @@ app.get("/api/calm/changes/all", async (req, res) => {
 // 7. GET /api/calm/changes/:trkorr — single CR linked to a transport number
 app.get("/api/calm/changes/:trkorr", async (req, res) => {
   const { trkorr } = req.params;
-
-  // Skip if called with "all" — handled by route above
   if (trkorr === "all") return res.json({ status: "none", id: null });
 
   try {
     const data  = await fetchFromALM(
-      `/api/calm/v0/changeManagement/changeRequests` +
+      `/api/calm-requirements/v0/changeRequests` +
       `?$filter=externalId eq '${trkorr}' or contains(title,'${trkorr}')` +
       `&$top=1&$orderby=createdAt desc`
     );
@@ -738,7 +741,6 @@ app.get("/api/calm/changes/:trkorr", async (req, res) => {
 
   } catch (err) {
     console.error(`❌ /api/calm/changes/${trkorr} error:`, err.message);
-    // Return none — don't break the agent when CR is missing
     res.json({ status: "none", id: null, error: err.message });
   }
 });
@@ -748,7 +750,7 @@ app.patch("/api/calm/changes/:changeId/deploy", async (req, res) => {
   const { changeId } = req.params;
   try {
     await patchToALM(
-      `/api/calm/v0/changeManagement/changeRequests/${changeId}`,
+      `/api/calm-requirements/v0/changeRequests/${changeId}`,
       {
         status:     "DEPLOYED",
         deployedAt: new Date().toISOString(),
@@ -767,8 +769,7 @@ app.patch("/api/calm/changes/:changeId/deploy", async (req, res) => {
 app.get("/api/calm/tm/deployments", async (req, res) => {
   try {
     const data  = await fetchFromALM(
-      "/api/calm/v0/transportManagement/deploymentItems" +
-      "?$top=100&$orderby=createdAt desc&$expand=changeItems"
+      "/api/calm-operations/v0/deploymentOperations?$top=100&$orderby=createdAt desc"
     );
     const items = (data?.value || []).map(d => ({
       id:         d.id,
@@ -777,7 +778,7 @@ app.get("/api/calm/tm/deployments", async (req, res) => {
       target:     d.targetSystemId || d.target,
       createdAt:  d.createdAt,
       deployedAt: d.deployedAt,
-      transports: (d.changeItems || []).map(c => c.externalId || c.id),
+      transports: (d.changeItems || d.transportRequests || []).map(c => c.externalId || c.id),
     }));
     console.log(`✅ Fetched ${items.length} deployment items`);
     res.json({ d: { results: items } });
@@ -859,28 +860,27 @@ function getAICoreBaseUrl() {
 async function callAICore(messages, systemPrompt, maxTokens = 800) {
   const token         = await getAICoreToken();
   const baseUrl       = getAICoreBaseUrl();
-  const resourceGroup = process.env.AI_CORE_RESOURCE_GROUP || "default";
-  const deploymentId  = process.env.AI_CORE_DEPLOYMENT_ID;
+  const resourceGroup = AI_CORE_RESOURCE_GROUP;
+  const deploymentId  = AI_CORE_DEPLOYMENT_ID;
 
-  if (!baseUrl)       throw new Error("AI_CORE_BASE_URL not configured.");
-  if (!deploymentId)  throw new Error("AI_CORE_DEPLOYMENT_ID not configured.");
+  if (!baseUrl) throw new Error("AI_CORE_BASE_URL not configured.");
 
   // SAP AI Core uses OpenAI-compatible chat completions endpoint
   const endpoint = `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`;
 
   const res = await axios.post(endpoint, {
-    model:       "gpt-4o",          // or your deployed model name
+    model:       AI_CORE_MODEL_NAME,
     max_tokens:  maxTokens,
-    temperature: 0.2,               // low temperature for deterministic risk scoring
+    temperature: 0.2,
     messages: [
       { role: "system", content: systemPrompt },
       ...messages,
     ],
   }, {
     headers: {
-      Authorization:    `Bearer ${token}`,
+      Authorization:       `Bearer ${token}`,
       "AI-Resource-Group": resourceGroup,
-      "Content-Type":   "application/json",
+      "Content-Type":      "application/json",
     },
     httpsAgent,
     timeout: 30000,
@@ -1098,44 +1098,51 @@ PROD health OK: ${prodHealthOk}`;
 // ═════════════════════════════════════════════════════════════════════════════
 app.get("/api/ai/status", async (req, res) => {
   const baseUrl      = getAICoreBaseUrl();
-  const deploymentId = process.env.AI_CORE_DEPLOYMENT_ID;
-  const configured   = !!(baseUrl && deploymentId && process.env.AI_CORE_CLIENT_ID);
+  const deploymentId = AI_CORE_DEPLOYMENT_ID;
+  const configured   = !!(baseUrl && process.env.AI_CORE_CLIENT_ID);
 
   if (!configured) {
     return res.json({
       configured:   false,
       reachable:    false,
       mode:         "local-fallback",
-      message:      "SAP AI Core not configured. Set AI_CORE_BASE_URL, AI_CORE_DEPLOYMENT_ID, AI_CORE_CLIENT_ID, AI_CORE_CLIENT_SECRET.",
+      deploymentId,
+      resourceGroup: AI_CORE_RESOURCE_GROUP,
+      message: "SAP AI Core credentials not configured. Set AI_CORE_BASE_URL, AI_CORE_CLIENT_ID, AI_CORE_CLIENT_SECRET.",
     });
   }
 
   try {
     const token = await getAICoreToken();
-    const resourceGroup = process.env.AI_CORE_RESOURCE_GROUP || "default";
-    // Check deployment status
     await axios.get(
       `${baseUrl}/v2/lm/deployments/${deploymentId}`,
       {
-        headers: { Authorization: `Bearer ${token}`, "AI-Resource-Group": resourceGroup },
+        headers: {
+          Authorization:       `Bearer ${token}`,
+          "AI-Resource-Group": AI_CORE_RESOURCE_GROUP,
+        },
         httpsAgent,
         timeout: 8000,
       }
     );
     res.json({
-      configured:  true,
-      reachable:   true,
-      mode:        "sap-core-ai",
+      configured:    true,
+      reachable:     true,
+      mode:          "sap-core-ai",
       baseUrl,
       deploymentId,
-      message:     "SAP AI Core is configured and reachable.",
+      resourceGroup: AI_CORE_RESOURCE_GROUP,
+      model:         AI_CORE_MODEL_NAME,
+      message:       "SAP AI Core is configured and reachable.",
     });
   } catch (err) {
     res.json({
-      configured:  true,
-      reachable:   false,
-      mode:        "local-fallback",
-      message:     `SAP AI Core configured but unreachable: ${err.message}`,
+      configured:    true,
+      reachable:     false,
+      mode:          "local-fallback",
+      deploymentId,
+      resourceGroup: AI_CORE_RESOURCE_GROUP,
+      message:       `SAP AI Core configured but unreachable: ${err.message}`,
     });
   }
 });
@@ -1153,6 +1160,8 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 SAP Destination:       ${DESTINATION_NAME}`);
   console.log(`☁️  Cloud ALM Destination: ${CALM_DESTINATION_NAME}`);
-  console.log(`🧠 AI Core URL:           ${getAICoreBaseUrl()   || "not configured"}`);
-  console.log(`🧠 AI Deployment:         ${process.env.AI_CORE_DEPLOYMENT_ID || "not configured"}`);
+  console.log(`🧠 AI Core URL:           ${getAICoreBaseUrl()    || "not configured"}`);
+  console.log(`🧠 AI Deployment ID:      ${AI_CORE_DEPLOYMENT_ID}`);
+  console.log(`🧠 AI Resource Group:     ${AI_CORE_RESOURCE_GROUP}`);
+  console.log(`🧠 AI Model:              ${AI_CORE_MODEL_NAME}`);
 });
