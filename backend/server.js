@@ -591,21 +591,40 @@ app.get("/api/calm/debug", async (req, res) => {
 //    Combined TM + CM + HM health data in one call
 app.get("/api/calm/health", async (req, res) => {
   try {
-    const [tmData, cmData, hmData] = await Promise.allSettled([
-      fetchFromALM("/api/calm-operations/v0/deploymentOperations?$top=100&$orderby=createdAt desc"),
-      fetchFromALM("/api/calm-requirements/v0/changeRequests?$top=100&$orderby=createdAt desc"),
-      fetchFromALM("/api/calm-health/v0/events?$top=200"),
+    // Fetch all three services in parallel — each tries v0 then v1
+    const tryFetch = async (paths) => {
+      for (const p of paths) {
+        try { return await fetchFromALM(p); } catch {}
+      }
+      return null;
+    };
+
+    const [tmRaw, cmRaw, hmRaw] = await Promise.all([
+      tryFetch([
+        "/api/calm-operations/v0/deploymentOperations?$top=100",
+        "/api/calm-operations/v1/deploymentOperations?$top=100",
+        "/api/calm-operations/v0/operations?$top=100",
+      ]),
+      tryFetch([
+        "/api/calm-requirements/v0/changeRequests?$top=100",
+        "/api/calm-requirements/v1/changeRequests?$top=100",
+      ]),
+      tryFetch([
+        "/api/calm-health/v0/events?$top=200",
+        "/api/calm-health/v1/events?$top=200",
+        "/api/calm-health/v0/alerts?$top=200",
+      ]),
     ]);
 
     // ── Transport Management ──────────────────────────────────────
-    const tmItems   = tmData.status === "fulfilled" ? (tmData.value?.value || []) : [];
-    const tmPending = tmItems.filter(i => ["READY_FOR_DEPLOYMENT","IN_QUEUE"].includes(i.status)).length;
+    const tmItems   = tmRaw?.value || tmRaw?.results || [];
+    const tmPending = tmItems.filter(i => ["READY_FOR_DEPLOYMENT","IN_QUEUE","PENDING"].includes(i.status)).length;
     const tmFailed  = tmItems.filter(i => ["FAILED","ERROR"].includes(i.status)).length;
     const tmLast    = tmItems.find(i => i.status === "DEPLOYED")?.deployedAt || null;
     const pipelineStatus = tmFailed > 0 ? "BLOCKED" : tmPending > 10 ? "DEGRADED" : "OK";
 
     // ── Change Management ─────────────────────────────────────────
-    const cmItems      = cmData.status === "fulfilled" ? (cmData.value?.value || []) : [];
+    const cmItems      = cmRaw?.value || cmRaw?.results || [];
     const cmOpen       = cmItems.filter(i => ["OPEN","IN_PROGRESS"].includes(i.status)).length;
     const cmPending    = cmItems.filter(i => i.status === "PENDING_APPROVAL").length;
     const cmApproved   = cmItems.filter(i => i.status === "APPROVED").length;
@@ -617,7 +636,7 @@ app.get("/api/calm/health", async (req, res) => {
       : 100;
 
     // ── Health Monitoring ─────────────────────────────────────────
-    const hmAlerts   = hmData.status === "fulfilled" ? (hmData.value?.value || []) : [];
+    const hmAlerts   = hmRaw?.value || hmRaw?.results || [];
     const hmCritical = hmAlerts.filter(a => ["CRITICAL","ERROR"].includes(a.severity)).length;
     const hmWarning  = hmAlerts.filter(a => a.severity === "WARNING").length;
     const hmSystems  = [...new Set(hmAlerts.map(a => a.serviceId || a.systemId))].length;
@@ -629,7 +648,7 @@ app.get("/api/calm/health", async (req, res) => {
       ? Math.max(85, 100 - prodAlerts.length * 3).toFixed(1)
       : "99.9";
 
-    console.log(`✅ ALM health: ${hmCritical} critical, ${hmWarning} warnings, pipeline: ${pipelineStatus}`);
+    console.log(`✅ ALM health: TM=${tmItems.length} CM=${cmItems.length} HM=${hmAlerts.length} | pipeline=${pipelineStatus}`);
 
     res.json({
       criticalAlerts: hmCritical,
@@ -683,26 +702,41 @@ app.get("/api/calm/health", async (req, res) => {
 // 6. GET /api/calm/changes/all — all change requests (for CR table in Cloud ALM dashboard)
 app.get("/api/calm/changes/all", async (req, res) => {
   try {
-    const data  = await fetchFromALM(
-      "/api/calm-requirements/v0/changeRequests?$top=200&$orderby=createdAt desc"
+    // SAP Cloud ALM Change Management API — correct path for eu10 tenant
+    const data = await fetchFromALM(
+      "/api/calm-requirements/v0/changeRequests?$top=200"
     );
-    const items = (data?.value || []).map(cr => ({
-      id:          cr.id,
-      title:       cr.title       || cr.name        || "",
-      status:      cr.status                         || "OPEN",
-      assigneeId:  cr.assigneeId  || cr.approver     || "",
-      priority:    cr.priority                       || "",
-      description: cr.description                    || "",
-      externalId:  cr.externalId                     || "",
-      dueDate:     cr.dueDate     || cr.plannedEndDate|| null,
-      createdAt:   cr.createdAt,
-      changedAt:   cr.changedAt   || cr.updatedAt,
+    const items = (data?.value || data?.results || []).map(cr => ({
+      id:          cr.id          || cr.changeRequestId || "",
+      title:       cr.title       || cr.name            || cr.subject || "",
+      status:      cr.status      || cr.changeRequestStatus || "OPEN",
+      assigneeId:  cr.assigneeId  || cr.processor       || cr.approver || "",
+      priority:    cr.priority    || cr.urgency          || "",
+      description: cr.description || "",
+      externalId:  cr.externalId  || cr.transportRequest || "",
+      dueDate:     cr.dueDate     || cr.plannedEndDate   || cr.requestedEndDate || null,
+      createdAt:   cr.createdAt   || cr.createDate,
+      changedAt:   cr.changedAt   || cr.lastChangedDate,
     }));
     console.log(`✅ Fetched ${items.length} change requests`);
     res.json({ d: { results: items } });
   } catch (err) {
     console.error("❌ /api/calm/changes/all error:", err.message);
-    res.status(500).json({ error: err.message });
+    // Try alternate path v1
+    try {
+      const data2 = await fetchFromALM("/api/calm-requirements/v1/changeRequests?$top=200");
+      const items2 = (data2?.value || data2?.results || []).map(cr => ({
+        id: cr.id || "", title: cr.title || cr.name || "", status: cr.status || "OPEN",
+        assigneeId: cr.assigneeId || "", priority: cr.priority || "",
+        description: cr.description || "", externalId: cr.externalId || "",
+        dueDate: cr.dueDate || null, createdAt: cr.createdAt, changedAt: cr.changedAt,
+      }));
+      console.log(`✅ Fetched ${items2.length} CRs via v1`);
+      return res.json({ d: { results: items2 } });
+    } catch (err2) {
+      console.error("❌ v1 also failed:", err2.message);
+      res.status(500).json({ error: err.message, error_v1: err2.message });
+    }
   }
 });
 
@@ -767,25 +801,37 @@ app.patch("/api/calm/changes/:changeId/deploy", async (req, res) => {
 
 // 9. GET /api/calm/tm/deployments — deployment items from ALM TM
 app.get("/api/calm/tm/deployments", async (req, res) => {
-  try {
-    const data  = await fetchFromALM(
-      "/api/calm-operations/v0/deploymentOperations?$top=100&$orderby=createdAt desc"
-    );
-    const items = (data?.value || []).map(d => ({
-      id:         d.id,
-      title:      d.title      || d.name,
-      status:     d.status,
-      target:     d.targetSystemId || d.target,
-      createdAt:  d.createdAt,
-      deployedAt: d.deployedAt,
-      transports: (d.changeItems || d.transportRequests || []).map(c => c.externalId || c.id),
-    }));
-    console.log(`✅ Fetched ${items.length} deployment items`);
-    res.json({ d: { results: items } });
-  } catch (err) {
-    console.error("❌ /api/calm/tm/deployments error:", err.message);
-    res.status(500).json({ error: err.message });
+  // Try multiple path versions — Cloud ALM API version varies by tenant
+  const paths = [
+    "/api/calm-operations/v0/deploymentOperations?$top=100",
+    "/api/calm-operations/v1/deploymentOperations?$top=100",
+    "/api/calm-operations/v0/operations?$top=100",
+    "/api/calm/v1/operations/deployments?$top=100",
+  ];
+
+  for (const path of paths) {
+    try {
+      const data  = await fetchFromALM(path);
+      const items = (data?.value || data?.results || []).map(d => ({
+        id:         d.id,
+        title:      d.title       || d.name          || d.description || "",
+        status:     d.status      || d.deploymentStatus || "",
+        target:     d.targetSystemId || d.target     || d.targetSystem || "",
+        createdAt:  d.createdAt   || d.createDate,
+        deployedAt: d.deployedAt  || d.finishedAt,
+        transports: (d.changeItems || d.transportRequests || d.transports || [])
+                    .map(c => c.externalId || c.transportRequest || c.id),
+      }));
+      console.log(`✅ TM deployments via ${path}: ${items.length} items`);
+      return res.json({ d: { results: items } });
+    } catch (err) {
+      console.warn(`⚠️ TM path failed (${path}): ${err.message}`);
+    }
   }
+
+  // All paths failed
+  console.error("❌ All TM deployment paths failed");
+  res.status(500).json({ error: "Could not fetch deployment operations — all API paths returned 404" });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -865,10 +911,14 @@ async function callAICore(messages, systemPrompt, maxTokens = 800) {
 
   if (!baseUrl) throw new Error("AI_CORE_BASE_URL not configured.");
 
-  // SAP AI Core uses OpenAI-compatible chat completions endpoint
-  const endpoint = `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`;
+  // Try v2 first, fall back to v1
+  const endpoints = [
+    `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`,
+    `${baseUrl}/v1/inference/deployments/${deploymentId}/chat/completions`,
+    `${baseUrl}/inference/deployments/${deploymentId}/chat/completions`,
+  ];
 
-  const res = await axios.post(endpoint, {
+  const payload = {
     model:       AI_CORE_MODEL_NAME,
     max_tokens:  maxTokens,
     temperature: 0.2,
@@ -876,17 +926,24 @@ async function callAICore(messages, systemPrompt, maxTokens = 800) {
       { role: "system", content: systemPrompt },
       ...messages,
     ],
-  }, {
-    headers: {
-      Authorization:       `Bearer ${token}`,
-      "AI-Resource-Group": resourceGroup,
-      "Content-Type":      "application/json",
-    },
-    httpsAgent,
-    timeout: 30000,
-  });
+  };
 
-  return res.data?.choices?.[0]?.message?.content || "";
+  const headers = {
+    Authorization:       `Bearer ${token}`,
+    "AI-Resource-Group": resourceGroup,
+    "Content-Type":      "application/json",
+  };
+
+  for (const endpoint of endpoints) {
+    try {
+      const res = await axios.post(endpoint, payload, { headers, httpsAgent, timeout: 30000 });
+      console.log(`✅ AI Core inference via: ${endpoint}`);
+      return res.data?.choices?.[0]?.message?.content || "";
+    } catch (err) {
+      console.warn(`⚠️ AI Core endpoint failed (${endpoint}): ${err.message}`);
+      if (endpoint === endpoints[endpoints.length - 1]) throw err;
+    }
+  }
 }
 
 // ─── Fallback: local scoring when AI Core unavailable ────────────────────────
