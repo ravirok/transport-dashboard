@@ -339,96 +339,139 @@ app.post("/api/transports/:trkorr/import", async (req, res) => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  CLOUD ALM TOKEN + HELPERS
+//  CLOUD ALM — CROSS-SUBACCOUNT VIA BTP DESTINATION SERVICE
+//
+//  Architecture:
+//    YOUR APP SUBACCOUNT
+//      └─ Destination Service  ──►  CLOUD ALM SUBACCOUNT
+//                                        └─ Cloud ALM APIs
+//
+//  Setup steps in BTP Cockpit:
+//  1. In YOUR subaccount → Destinations → New Destination:
+//       Name:            CLOUD_ALM_DEST        (or set CALM_DESTINATION_NAME)
+//       Type:            HTTP
+//       URL:             https://your-calm-tenant.eu10.alm.cloud.sap
+//       Authentication:  OAuth2ClientCredentials
+//       Token Service URL: https://your-calm-subdomain.authentication.eu10.hana.ondemand.com/oauth/token
+//       Client ID:       <from Cloud ALM service key in ALM subaccount>
+//       Client Secret:   <from Cloud ALM service key in ALM subaccount>
+//       Additional Properties:
+//         HTML5.DynamicDestination = true
+//         WebIDEEnabled            = true
+//
+//  2. The Destination Service fetches the token automatically — your app
+//     just calls the Destination Service API and gets back the resolved URL
+//     + a ready-to-use Bearer token via "authTokens" in the response.
+//
+//  Required env vars (in addition to existing ones):
+//    CALM_DESTINATION_NAME   — name of the destination above (default: CLOUD_ALM_DEST)
+//
+//  No CALM_CLIENT_ID / CALM_CLIENT_SECRET needed in your app env —
+//  those live inside the BTP Destination configuration in the ALM subaccount.
 // ═════════════════════════════════════════════════════════════════════════════
-let calmToken       = null;
-let calmTokenExpiry = 0;
 
-async function getCloudALMToken() {
-  // Return cached token if still valid (with 30s buffer)
-  if (calmToken && Date.now() < calmTokenExpiry - 30000) return calmToken;
+const CALM_DESTINATION_NAME = process.env.CALM_DESTINATION_NAME || "Cloud_ALM";
 
-  // Try VCAP_SERVICES first (BTP service binding), then env vars
-  let clientId, clientSecret, tokenUrl;
-  try {
-    const vcap = JSON.parse(process.env.VCAP_SERVICES || "{}");
-    const calm =
-      vcap["cloud-alm"]?.[0]?.credentials ||
-      vcap["cloudalm"]?.[0]?.credentials  ||
-      vcap["alm"]?.[0]?.credentials;
-    if (calm) {
-      clientId     = calm.clientid     || calm.client_id;
-      clientSecret = calm.clientsecret || calm.client_secret;
-      tokenUrl     = calm.url          || calm.token_service_url;
+// Cache: { url, token, expiry }
+let calmDestCache = null;
+
+// ─── Step 1: Get Destination Service OAuth token (YOUR subaccount) ────────────
+async function getDestinationServiceToken() {
+  // Reuse the existing getBTPToken() — it already fetches a token
+  // scoped to your subaccount's Destination Service
+  return getBTPToken();
+}
+
+// ─── Step 2: Resolve the CLOUD_ALM_DEST destination ──────────────────────────
+//   Returns { baseUrl, authToken } — the Destination Service resolves
+//   the cross-subaccount OAuth token automatically using the stored credentials.
+async function resolveCALMDestination() {
+  // Return cache if still valid (5 min buffer)
+  if (calmDestCache && Date.now() < calmDestCache.expiry - 300000) {
+    return calmDestCache;
+  }
+
+  const destToken = await getDestinationServiceToken();
+
+  // Call Destination Service to get the resolved destination including auth token
+  const res = await axios.get(
+    `${destinationCredentials.uri}/destination-configuration/v1/destinations/${CALM_DESTINATION_NAME}`,
+    {
+      headers: { Authorization: `Bearer ${destToken}` },
+      httpsAgent,
     }
-  } catch {}
+  );
 
-  // Fallback to env vars
-  clientId     = clientId     || process.env.CALM_CLIENT_ID;
-  clientSecret = clientSecret || process.env.CALM_CLIENT_SECRET;
-  tokenUrl     = tokenUrl     || process.env.CALM_TOKEN_URL;
+  const config     = res.data?.destinationConfiguration || {};
+  const authTokens = res.data?.authTokens || [];
 
-  if (!clientId || !clientSecret || !tokenUrl) {
+  // The Destination Service handles the cross-subaccount token exchange
+  // and returns a ready-to-use Bearer token in authTokens[0]
+  const authToken  = authTokens[0]?.value;
+  const tokenType  = authTokens[0]?.type || "Bearer";
+  const expiresIn  = parseInt(authTokens[0]?.expiresIn || "3600");
+
+  if (!authToken) {
     throw new Error(
-      "Cloud ALM credentials not configured. " +
-      "Set CALM_TOKEN_URL, CALM_CLIENT_ID, CALM_CLIENT_SECRET in environment."
+      `Destination '${CALM_DESTINATION_NAME}' resolved but no auth token returned. ` +
+      `Check OAuth2ClientCredentials configuration in BTP Destination.`
     );
   }
 
-  const res = await axios.post(
-    `${tokenUrl}/oauth/token`,
-    new URLSearchParams({
-      grant_type:    "client_credentials",
-      client_id:     clientId,
-      client_secret: clientSecret,
-    }),
-    { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent }
-  );
+  const baseUrl = config.URL || config.url;
+  if (!baseUrl) {
+    throw new Error(
+      `Destination '${CALM_DESTINATION_NAME}' has no URL configured.`
+    );
+  }
 
-  calmToken       = res.data.access_token;
-  calmTokenExpiry = Date.now() + (res.data.expires_in || 3600) * 1000;
-  console.log("✅ Cloud ALM token fetched");
-  return calmToken;
+  console.log(`✅ Cloud ALM destination resolved: ${CALM_DESTINATION_NAME} → ${baseUrl}`);
+
+  calmDestCache = {
+    baseUrl,
+    authToken,
+    tokenType,
+    expiry: Date.now() + expiresIn * 1000,
+  };
+
+  return calmDestCache;
 }
 
-function getCALMBaseUrl() {
-  try {
-    const vcap = JSON.parse(process.env.VCAP_SERVICES || "{}");
-    const calm =
-      vcap["cloud-alm"]?.[0]?.credentials ||
-      vcap["cloudalm"]?.[0]?.credentials;
-    if (calm?.endpoints?.["calm-service"]) return calm.endpoints["calm-service"];
-    if (calm?.url) return calm.url.replace(/\/oauth\/token.*/, "");
-  } catch {}
-  return process.env.CALM_BASE_URL || "";
-}
-
+// ─── ALM GET helper ───────────────────────────────────────────────────────────
 async function fetchFromALM(path) {
-  const token   = await getCloudALMToken();
-  const baseUrl = getCALMBaseUrl();
-  if (!baseUrl) throw new Error("CALM_BASE_URL not configured.");
+  const { baseUrl, authToken, tokenType } = await resolveCALMDestination();
 
+  // Destination URL: https://hcl-america-solutions-inc-cloudalm.eu10.alm.cloud.sap
+  // API paths:       /api/calm/v0/...
+  // path already includes /api/calm/v0/... so use as-is
   const res = await axios.get(`${baseUrl}${path}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    headers: {
+      Authorization: `${tokenType} ${authToken}`,
+      Accept:        "application/json",
+    },
     httpsAgent,
   });
   return res.data;
 }
 
+// ─── ALM PATCH helper ─────────────────────────────────────────────────────────
 async function patchToALM(path, body) {
-  const token   = await getCloudALMToken();
-  const baseUrl = getCALMBaseUrl();
-  if (!baseUrl) throw new Error("CALM_BASE_URL not configured.");
+  const { baseUrl, authToken, tokenType } = await resolveCALMDestination();
 
   const res = await axios.patch(`${baseUrl}${path}`, body, {
     headers: {
-      Authorization:  `Bearer ${token}`,
+      Authorization:  `${tokenType} ${authToken}`,
       Accept:         "application/json",
       "Content-Type": "application/json",
     },
     httpsAgent,
   });
   return res.data;
+}
+
+// ─── Expose base URL for startup log ─────────────────────────────────────────
+function getCALMBaseUrl() {
+  return calmDestCache?.baseUrl || `via destination: ${CALM_DESTINATION_NAME}`;
 }
 
 // ─── Week helper ──────────────────────────────────────────────────────────────
@@ -439,9 +482,105 @@ function isThisWeek(dateStr) {
   return d >= weekAgo;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  CLOUD ALM ROUTES
-// ═════════════════════════════════════════════════════════════════════════════
+// ─── CALM Debug endpoint — shows exactly what's failing ──────────────────────
+// Visit: https://your-app.cfapps.eu10.hana.ondemand.com/api/calm/debug
+// Remove this after fixing the issue
+app.get("/api/calm/debug", async (req, res) => {
+  const result = {
+    timestamp: new Date().toISOString(),
+    steps: {},
+  };
+
+  // Step 1: Check destination credentials loaded
+  result.steps["1_destination_credentials"] = {
+    loaded: !!destinationCredentials,
+    uri:    destinationCredentials?.uri   || "MISSING",
+    url:    destinationCredentials?.url   || "MISSING",
+  };
+
+  // Step 2: Try get BTP token
+  try {
+    const token = await getBTPToken();
+    result.steps["2_btp_token"] = { ok: true, tokenLength: token?.length };
+  } catch (e) {
+    result.steps["2_btp_token"] = { ok: false, error: e.message };
+    return res.json(result);
+  }
+
+  // Step 3: Try resolve CLOUD_ALM_DEST destination
+  try {
+    const dest = await resolveCALMDestination();
+    result.steps["3_calm_destination"] = {
+      ok:       true,
+      baseUrl:  dest.baseUrl,
+      hasToken: !!dest.authToken,
+      tokenType:dest.tokenType,
+    };
+  } catch (e) {
+    result.steps["3_calm_destination"] = {
+      ok:                false,
+      error:             e.message,
+      destinationName:   CALM_DESTINATION_NAME,
+      fix: "Create destination '" + CALM_DESTINATION_NAME + "' in BTP Cockpit → " +
+           "your app subaccount → Connectivity → Destinations. " +
+           "Type: HTTP, Auth: OAuth2ClientCredentials, " +
+           "URL: your Cloud ALM base URL, " +
+           "Token Service URL + Client ID + Secret from ALM subaccount service key.",
+    };
+    return res.json(result);
+  }
+
+  // Step 4: Try actual ALM health API call
+  try {
+    const data = await fetchFromALM(
+      "/api/calm/v0/healthMonitoring/alerts?$top=1"
+    );
+    result.steps["4_calm_api_call"] = {
+      ok:           true,
+      responseKeys: Object.keys(data || {}),
+      recordCount:  data?.value?.length ?? 0,
+    };
+  } catch (e) {
+    result.steps["4_calm_api_call"] = {
+      ok:    false,
+      error: e.message,
+      hint:  "Token resolved but API call failed. Check Cloud ALM base URL and API path.",
+    };
+  }
+
+  // Step 5: Try change management
+  try {
+    const data = await fetchFromALM(
+      "/api/calm/v0/changeManagement/changeRequests?$top=1"
+    );
+    result.steps["5_change_mgmt_api"] = {
+      ok: true, recordCount: data?.value?.length ?? 0,
+    };
+  } catch (e) {
+    result.steps["5_change_mgmt_api"] = { ok: false, error: e.message };
+  }
+
+  // Step 6: Try transport management
+  try {
+    const data = await fetchFromALM(
+      "/api/calm/v0/transportManagement/deploymentItems?$top=1"
+    );
+    result.steps["6_transport_mgmt_api"] = {
+      ok: true, recordCount: data?.value?.length ?? 0,
+    };
+  } catch (e) {
+    result.steps["6_transport_mgmt_api"] = { ok: false, error: e.message };
+  }
+
+  const allOk = Object.values(result.steps).every(s => s.ok !== false);
+  result.summary = allOk
+    ? "✅ All checks passed — ALM integration should work"
+    : "❌ Some checks failed — see steps above for details";
+
+  res.json(result);
+});
+
+
 
 // 5. GET /api/calm/health
 //    Combined TM + CM + HM health data in one call
@@ -649,6 +788,359 @@ app.get("/api/calm/tm/deployments", async (req, res) => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  SAP AI CORE INTEGRATION
+//
+//  Required env vars / BTP service binding (aicore service):
+//    AI_CORE_TOKEN_URL     — https://your-subdomain.authentication.eu10.hana.ondemand.com
+//    AI_CORE_CLIENT_ID     — client id from AI Core service key
+//    AI_CORE_CLIENT_SECRET — client secret from AI Core service key
+//    AI_CORE_BASE_URL      — https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com
+//    AI_CORE_RESOURCE_GROUP— default  (or your resource group name)
+//    AI_CORE_DEPLOYMENT_ID — your deployed model's deployment ID (from AI Launchpad)
+//
+//  On BTP these come from VCAP_SERVICES under service "aicore".
+// ═════════════════════════════════════════════════════════════════════════════
+
+let aiCoreToken       = null;
+let aiCoreTokenExpiry = 0;
+
+// ─── AI Core token (cached, auto-renews) ─────────────────────────────────────
+async function getAICoreToken() {
+  if (aiCoreToken && Date.now() < aiCoreTokenExpiry - 30000) return aiCoreToken;
+
+  let clientId, clientSecret, tokenUrl;
+  try {
+    const vcap    = JSON.parse(process.env.VCAP_SERVICES || "{}");
+    const aicore  = vcap["aicore"]?.[0]?.credentials;
+    if (aicore) {
+      clientId     = aicore.clientid     || aicore.client_id;
+      clientSecret = aicore.clientsecret || aicore.client_secret;
+      tokenUrl     = aicore.url          || aicore.serviceurls?.AI_API_URL;
+    }
+  } catch {}
+
+  clientId     = clientId     || process.env.AI_CORE_CLIENT_ID;
+  clientSecret = clientSecret || process.env.AI_CORE_CLIENT_SECRET;
+  tokenUrl     = tokenUrl     || process.env.AI_CORE_TOKEN_URL;
+
+  if (!clientId || !clientSecret || !tokenUrl) {
+    throw new Error(
+      "SAP AI Core credentials not configured. " +
+      "Set AI_CORE_TOKEN_URL, AI_CORE_CLIENT_ID, AI_CORE_CLIENT_SECRET."
+    );
+  }
+
+  const res = await axios.post(
+    `${tokenUrl}/oauth/token`,
+    new URLSearchParams({
+      grant_type:    "client_credentials",
+      client_id:     clientId,
+      client_secret: clientSecret,
+    }),
+    { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent }
+  );
+
+  aiCoreToken       = res.data.access_token;
+  aiCoreTokenExpiry = Date.now() + (res.data.expires_in || 3600) * 1000;
+  console.log("✅ SAP AI Core token fetched");
+  return aiCoreToken;
+}
+
+function getAICoreBaseUrl() {
+  try {
+    const vcap   = JSON.parse(process.env.VCAP_SERVICES || "{}");
+    const aicore = vcap["aicore"]?.[0]?.credentials;
+    if (aicore?.serviceurls?.AI_API_URL) return aicore.serviceurls.AI_API_URL;
+  } catch {}
+  return process.env.AI_CORE_BASE_URL || "";
+}
+
+// ─── AI Core inference helper ─────────────────────────────────────────────────
+async function callAICore(messages, systemPrompt, maxTokens = 800) {
+  const token         = await getAICoreToken();
+  const baseUrl       = getAICoreBaseUrl();
+  const resourceGroup = process.env.AI_CORE_RESOURCE_GROUP || "default";
+  const deploymentId  = process.env.AI_CORE_DEPLOYMENT_ID;
+
+  if (!baseUrl)       throw new Error("AI_CORE_BASE_URL not configured.");
+  if (!deploymentId)  throw new Error("AI_CORE_DEPLOYMENT_ID not configured.");
+
+  // SAP AI Core uses OpenAI-compatible chat completions endpoint
+  const endpoint = `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`;
+
+  const res = await axios.post(endpoint, {
+    model:       "gpt-4o",          // or your deployed model name
+    max_tokens:  maxTokens,
+    temperature: 0.2,               // low temperature for deterministic risk scoring
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...messages,
+    ],
+  }, {
+    headers: {
+      Authorization:    `Bearer ${token}`,
+      "AI-Resource-Group": resourceGroup,
+      "Content-Type":   "application/json",
+    },
+    httpsAgent,
+    timeout: 30000,
+  });
+
+  return res.data?.choices?.[0]?.message?.content || "";
+}
+
+// ─── Fallback: local scoring when AI Core unavailable ────────────────────────
+function localRiskScore(input) {
+  const { criticalAlerts=0, warningAlerts=0, failedDeployments=0,
+          pendingDeployments=0, pipelineStatus="OK", prodAvailability=99.9,
+          pendingApprovals=0, rejectedCRs=0, complianceRate=100 } = input;
+
+  const importRisk = Math.min(98, Math.max(2,
+    criticalAlerts * 20 +
+    warningAlerts  *  7 +
+    failedDeployments * 12 +
+    (pipelineStatus === "BLOCKED" ? 25 : pipelineStatus === "DEGRADED" ? 12 : 0) +
+    ((100 - prodAvailability) * 2.5) +
+    pendingApprovals * 3 +
+    rejectedCRs * 8
+  ));
+
+  const healthScore = Math.round(Math.max(0, Math.min(100,
+    100 -
+    criticalAlerts    * 15 -
+    warningAlerts     *  5 -
+    failedDeployments *  8 -
+    (pendingDeployments > 10 ? 8 : 0) -
+    ((100 - complianceRate) * 0.5)
+  )));
+
+  const approvalRate = Math.min(99, Math.max(50, complianceRate));
+
+  const factors = [];
+  if (criticalAlerts > 0)      factors.push({ factor: "Critical health alerts",     impact: "HIGH",   value: criticalAlerts });
+  if (warningAlerts  > 0)      factors.push({ factor: "Warning alerts active",       impact: warningAlerts > 3 ? "HIGH" : "MEDIUM", value: warningAlerts });
+  if (failedDeployments > 0)   factors.push({ factor: "Failed deployments",          impact: "HIGH",   value: failedDeployments });
+  if (pendingDeployments > 5)  factors.push({ factor: "Large deployment backlog",    impact: "MEDIUM", value: pendingDeployments });
+  if (rejectedCRs > 0)         factors.push({ factor: "Rejected change requests",    impact: "MEDIUM", value: rejectedCRs });
+  if (pendingApprovals > 3)    factors.push({ factor: "CRs awaiting approval",       impact: "LOW",    value: pendingApprovals });
+
+  const level = importRisk >= 65 ? "HIGH" : importRisk >= 35 ? "MEDIUM" : "LOW";
+
+  const recommendation =
+    level === "HIGH"
+      ? `Do not proceed with imports. ${criticalAlerts} critical alert(s) active on PROD. ` +
+        `Resolve health issues in SM21/SLG1 before importing any transports.`
+      : level === "MEDIUM"
+      ? `Proceed with caution. Run import simulation in STMS and verify all change requests ` +
+        `are approved. Monitor SM21 closely post-import for at least 2 hours.`
+      : `System is stable. All indicators are within normal range. ` +
+        `Safe to proceed with planned imports. Continue standard 24h post-import monitoring.`;
+
+  return {
+    healthScore,
+    importRisk,
+    importRiskLevel: level,
+    approvalRate,
+    factors,
+    recommendation,
+    trend:          healthScore >= 80 ? "STABLE" : healthScore >= 60 ? "DEGRADING" : "CRITICAL",
+    modelVersion:   "local-fallback-v1",
+    aiPowered:      false,
+  };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  10. POST /api/ai/predict — main AI Core risk prediction endpoint
+//      Called by cloud_alm.html on page load and every 45s refresh
+// ═════════════════════════════════════════════════════════════════════════════
+app.post("/api/ai/predict", async (req, res) => {
+  const {
+    criticalAlerts    = 0,
+    warningAlerts     = 0,
+    failedDeployments = 0,
+    pendingDeployments= 0,
+    pipelineStatus    = "OK",
+    prodAvailability  = 99.9,
+    pendingApprovals  = 0,
+    rejectedCRs       = 0,
+    complianceRate    = 100,
+    recentAlerts      = [],
+    recentCRs         = [],
+  } = req.body;
+
+  // Always compute local score first (fast, used as fallback)
+  const local = localRiskScore({
+    criticalAlerts, warningAlerts, failedDeployments, pendingDeployments,
+    pipelineStatus, prodAvailability, pendingApprovals, rejectedCRs, complianceRate,
+  });
+
+  // Try SAP AI Core for enriched natural-language analysis
+  try {
+    const systemPrompt = `You are SAP Core AI, an expert system for SAP transport risk assessment and system health analysis.
+Analyse the provided SAP system metrics and return a JSON response ONLY — no markdown, no explanation outside the JSON.
+
+Response schema:
+{
+  "healthScore": <integer 0-100>,
+  "importRisk": <integer 0-100>,
+  "importRiskLevel": "LOW" | "MEDIUM" | "HIGH",
+  "approvalRate": <integer 0-100>,
+  "trend": "IMPROVING" | "STABLE" | "DEGRADING" | "CRITICAL",
+  "recommendation": "<2-3 sentence actionable recommendation>",
+  "factors": [
+    { "factor": "<factor name>", "impact": "HIGH" | "MEDIUM" | "LOW", "value": <number> }
+  ],
+  "insight": "<1 sentence executive summary>",
+  "modelVersion": "sap-core-ai-v2.4",
+  "aiPowered": true
+}`;
+
+    const userMessage = `Current SAP system metrics:
+- Critical health alerts: ${criticalAlerts}
+- Warning alerts: ${warningAlerts}
+- Failed deployments: ${failedDeployments}
+- Pending deployments in queue: ${pendingDeployments}
+- Pipeline status: ${pipelineStatus}
+- PROD system availability: ${prodAvailability}%
+- Change requests pending approval: ${pendingApprovals}
+- Change requests rejected this week: ${rejectedCRs}
+- CR compliance rate: ${complianceRate}%
+- Recent alert types: ${recentAlerts.slice(0,5).map(a => `${a.severity}:${a.systemId}`).join(", ") || "none"}
+- Recent CR statuses: ${recentCRs.slice(0,5).map(c => c.status).join(", ") || "none"}
+
+Provide risk assessment and import recommendation for the SAP operations team.`;
+
+    const raw    = await callAICore([{ role: "user", content: userMessage }], systemPrompt, 600);
+    const clean  = raw.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+
+    console.log(`✅ SAP AI Core prediction: healthScore=${parsed.healthScore}, importRisk=${parsed.importRisk}%`);
+    return res.json({ ...parsed, aiPowered: true, modelVersion: "sap-core-ai-v2.4" });
+
+  } catch (aiErr) {
+    // AI Core unavailable — return local score with flag
+    console.warn(`⚠️  SAP AI Core unavailable (${aiErr.message}) — using local fallback`);
+    return res.json({ ...local, aiPowered: false, modelVersion: "local-fallback-v1" });
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  11. POST /api/ai/predict/transport — per-transport AI risk score
+//      Called when a transport is clicked in TransTrack Pro
+// ═════════════════════════════════════════════════════════════════════════════
+app.post("/api/ai/predict/transport", async (req, res) => {
+  const {
+    trkorr        = "",
+    owner         = "",
+    status        = "",
+    objectCount   = 0,
+    objectTypes   = [],
+    failedObjects = 0,
+    logErrors     = 0,
+    crStatus      = "NONE",
+    prodHealthOk  = true,
+  } = req.body;
+
+  // Local fallback score
+  let score = 20;
+  if (status === "Modifiable")        score += 20;
+  if (status === "Failed")            score += 35;
+  score += Math.min(failedObjects * 12, 36);
+  score += Math.min(logErrors * 8, 24);
+  if (objectCount > 10)               score += 10;
+  if (objectTypes.includes("PROG") || objectTypes.includes("FUGR")) score += 8;
+  if (objectTypes.includes("AUTH"))   score += 10;
+  if (crStatus === "REJECTED")        score += 15;
+  if (!crStatus || crStatus === "NONE") score += 10;
+  if (!prodHealthOk)                  score += 12;
+  const localScore = Math.min(98, Math.max(5, score));
+  const localLevel = localScore >= 65 ? "HIGH" : localScore >= 40 ? "MEDIUM" : "LOW";
+
+  try {
+    const systemPrompt = `You are SAP Core AI specialised in transport risk assessment.
+Return ONLY a JSON object — no markdown, no text outside JSON.
+Schema: { "riskScore": <0-100>, "riskLevel": "LOW"|"MEDIUM"|"HIGH", "recommendation": "<2 sentences>", "aiPowered": true }`;
+
+    const userMessage = `Assess transport risk for:
+Transport: ${trkorr}
+Owner: ${owner}
+Status: ${status}
+Objects: ${objectCount} (types: ${objectTypes.join(", ")||"unknown"})
+Failed objects: ${failedObjects}
+Log errors: ${logErrors}
+ALM CR status: ${crStatus}
+PROD health OK: ${prodHealthOk}`;
+
+    const raw    = await callAICore([{ role: "user", content: userMessage }], systemPrompt, 200);
+    const clean  = raw.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+
+    console.log(`✅ AI Core transport prediction: ${trkorr} → ${parsed.riskScore}%`);
+    return res.json({ ...parsed, aiPowered: true });
+
+  } catch (aiErr) {
+    console.warn(`⚠️  AI Core unavailable for transport prediction — using local`);
+    return res.json({
+      riskScore:      localScore,
+      riskLevel:      localLevel,
+      recommendation: localLevel === "HIGH"
+        ? "High risk detected. Resolve object errors and ensure ALM CR is approved before importing."
+        : localLevel === "MEDIUM"
+        ? "Medium risk. Review warnings and run STMS import simulation before proceeding."
+        : "Low risk. Transport appears safe to import. Standard monitoring applies.",
+      aiPowered:      false,
+    });
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  12. GET /api/ai/status — check if AI Core is configured and reachable
+// ═════════════════════════════════════════════════════════════════════════════
+app.get("/api/ai/status", async (req, res) => {
+  const baseUrl      = getAICoreBaseUrl();
+  const deploymentId = process.env.AI_CORE_DEPLOYMENT_ID;
+  const configured   = !!(baseUrl && deploymentId && process.env.AI_CORE_CLIENT_ID);
+
+  if (!configured) {
+    return res.json({
+      configured:   false,
+      reachable:    false,
+      mode:         "local-fallback",
+      message:      "SAP AI Core not configured. Set AI_CORE_BASE_URL, AI_CORE_DEPLOYMENT_ID, AI_CORE_CLIENT_ID, AI_CORE_CLIENT_SECRET.",
+    });
+  }
+
+  try {
+    const token = await getAICoreToken();
+    const resourceGroup = process.env.AI_CORE_RESOURCE_GROUP || "default";
+    // Check deployment status
+    await axios.get(
+      `${baseUrl}/v2/lm/deployments/${deploymentId}`,
+      {
+        headers: { Authorization: `Bearer ${token}`, "AI-Resource-Group": resourceGroup },
+        httpsAgent,
+        timeout: 8000,
+      }
+    );
+    res.json({
+      configured:  true,
+      reachable:   true,
+      mode:        "sap-core-ai",
+      baseUrl,
+      deploymentId,
+      message:     "SAP AI Core is configured and reachable.",
+    });
+  } catch (err) {
+    res.json({
+      configured:  true,
+      reachable:   false,
+      mode:        "local-fallback",
+      message:     `SAP AI Core configured but unreachable: ${err.message}`,
+    });
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  SERVE FRONTEND
 // ═════════════════════════════════════════════════════════════════════════════
 app.use(express.static(path.join(__dirname, "../frontend")));
@@ -659,7 +1151,8 @@ app.get(/^\/(?!api|debug).*/, (req, res) => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 SAP Destination:  ${DESTINATION_NAME}`);
-  console.log(`☁️  Cloud ALM URL:   ${getCALMBaseUrl() || "not configured"}`);
+  console.log(`📡 SAP Destination:       ${DESTINATION_NAME}`);
+  console.log(`☁️  Cloud ALM Destination: ${CALM_DESTINATION_NAME}`);
+  console.log(`🧠 AI Core URL:           ${getAICoreBaseUrl()   || "not configured"}`);
+  console.log(`🧠 AI Deployment:         ${process.env.AI_CORE_DEPLOYMENT_ID || "not configured"}`);
 });
-
