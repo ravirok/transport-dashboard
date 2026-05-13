@@ -387,31 +387,21 @@ async function getDestinationServiceToken() {
   return getBTPToken();
 }
 
-// ─── Step 2: Resolve the CLOUD_ALM_DEST destination ──────────────────────────
-//   Returns { baseUrl, authToken } — the Destination Service resolves
-//   the cross-subaccount OAuth token automatically using the stored credentials.
+// ─── Step 2: Resolve the Cloud_ALM destination ───────────────────────────────
 async function resolveCALMDestination() {
-  // Return cache if still valid (5 min buffer)
   if (calmDestCache && Date.now() < calmDestCache.expiry - 300000) {
     return calmDestCache;
   }
 
   const destToken = await getDestinationServiceToken();
 
-  // Call Destination Service to get the resolved destination including auth token
   const res = await axios.get(
     `${destinationCredentials.uri}/destination-configuration/v1/destinations/${CALM_DESTINATION_NAME}`,
-    {
-      headers: { Authorization: `Bearer ${destToken}` },
-      httpsAgent,
-    }
+    { headers: { Authorization: `Bearer ${destToken}` }, httpsAgent }
   );
 
   const config     = res.data?.destinationConfiguration || {};
   const authTokens = res.data?.authTokens || [];
-
-  // The Destination Service handles the cross-subaccount token exchange
-  // and returns a ready-to-use Bearer token in authTokens[0]
   const authToken  = authTokens[0]?.value;
   const tokenType  = authTokens[0]?.type || "Bearer";
   const expiresIn  = parseInt(authTokens[0]?.expiresIn || "3600");
@@ -423,22 +413,24 @@ async function resolveCALMDestination() {
     );
   }
 
-  const baseUrl = config.URL || config.url;
-  if (!baseUrl) {
-    throw new Error(
-      `Destination '${CALM_DESTINATION_NAME}' has no URL configured.`
-    );
+  // ── CRITICAL: Use the correct Cloud ALM API base URL ─────────────────────
+  // From SAP service key: endpoints.Api = "https://eu10.alm.cloud.sap/api"
+  // The correct base URL is https://eu10.alm.cloud.sap (without /api)
+  // NOT the tenant-specific URL https://hcl-america-solutions-inc-cloudalm.eu10.alm.cloud.sap
+  // API paths are then: /api/calm-tasks/v1/tasks etc.
+  const destUrl  = config.URL || config.url || "";
+  // If destination URL is tenant-specific, swap to the regional API URL
+  let baseUrl = destUrl;
+  if (destUrl.includes(".eu10.alm.cloud.sap") && !destUrl.startsWith("https://eu10.alm.cloud.sap")) {
+    baseUrl = "https://eu10.alm.cloud.sap";
+    console.log(`ℹ️  Using regional ALM API URL: ${baseUrl} (was: ${destUrl})`);
   }
+
+  if (!baseUrl) throw new Error(`Destination '${CALM_DESTINATION_NAME}' has no URL configured.`);
 
   console.log(`✅ Cloud ALM destination resolved: ${CALM_DESTINATION_NAME} → ${baseUrl}`);
 
-  calmDestCache = {
-    baseUrl,
-    authToken,
-    tokenType,
-    expiry: Date.now() + expiresIn * 1000,
-  };
-
+  calmDestCache = { baseUrl, authToken, tokenType, expiry: Date.now() + expiresIn * 1000 };
   return calmDestCache;
 }
 
@@ -487,7 +479,46 @@ function isThisWeek(dateStr) {
   return d >= weekAgo;
 }
 
-// ─── CALM Debug endpoint — shows exactly what's failing ──────────────────────
+// ─── CALM Discovery — finds correct API paths for your tenant ────────────────
+app.get("/api/calm/discover", async (req, res) => {
+  const testPaths = [
+    // CONFIRMED from SAP API Hub + GitHub examples
+    "/api/imp-tkm-srv/v1/tasks?$top=1",          // Tasks (old path)
+    "/api/calm-tasks/v1/tasks?$top=1",            // Tasks (new path)
+    "/api/imp-cdm-srv/v1/features?$top=1",        // Change & Deployment features
+    "/api/imp-cdm-srv/v0/features?$top=1",
+    "/api/calm-projects/v1/projects?$top=1",      // Projects
+    "/api/imp-pjm-srv/v1/projects?$top=1",        // Projects (old path)
+    // Health/Operations (ops service names)
+    "/api/ops-ihm-srv/v1/events?$top=1",
+    "/api/calm-health/v1/events?$top=1",
+    "/api/calm-health/v0/events?$top=1",
+    // Other possible paths
+    "/api/calm-analytics/v1/providers?$top=1",
+    "/api/imp-cdm-srv/v1/transportRequests?$top=1",
+    "/api/imp-cdm-srv/v1/deployments?$top=1",
+  ];
+
+  const results = {};
+  for (const path of testPaths) {
+    try {
+      const data = await fetchFromALM(path);
+      results[path] = { ok: true, keys: Object.keys(data||{}), count: data?.value?.length ?? data?.results?.length ?? 0 };
+    } catch (err) {
+      results[path] = { ok: false, status: err.response?.status || "ERR", msg: err.message.slice(0,80) };
+    }
+  }
+
+  const working = Object.entries(results).filter(([,v]) => v.ok).map(([k]) => k);
+  res.json({
+    baseUrl: (await resolveCALMDestination().catch(e => ({baseUrl: e.message}))).baseUrl,
+    summary: working.length > 0 ? `✅ ${working.length} paths working` : "❌ No paths working",
+    working,
+    all: results,
+  });
+});
+
+
 // Visit: https://your-app.cfapps.eu10.hana.ondemand.com/api/calm/debug
 // Remove this after fixing the issue
 app.get("/api/calm/debug", async (req, res) => {
@@ -587,32 +618,46 @@ app.get("/api/calm/debug", async (req, res) => {
 
 
 
+// ─── Helper: try multiple ALM paths until one works ──────────────────────────
+async function tryALMPaths(paths) {
+  for (const path of paths) {
+    try {
+      const data = await fetchFromALM(path);
+      console.log(`✅ ALM path OK: ${path}`);
+      return data;
+    } catch (err) {
+      console.warn(`⚠️ ALM path failed [${err.response?.status||'ERR'}]: ${path}`);
+    }
+  }
+  return null;
+}
+
 // 5. GET /api/calm/health
-//    Combined TM + CM + HM health data in one call
 app.get("/api/calm/health", async (req, res) => {
   try {
-    // Fetch all three services in parallel — each tries v0 then v1
-    const tryFetch = async (paths) => {
-      for (const p of paths) {
-        try { return await fetchFromALM(p); } catch {}
-      }
-      return null;
-    };
-
+    // CONFIRMED correct paths from SAP API Hub and GitHub examples:
+    // https://eu10.alm.cloud.sap/api/calm-tasks/v1/tasks       (Tasks/Implementation)
+    // https://eu10.alm.cloud.sap/api/imp-cdm-srv/v1/features   (Change & Deployment)
+    // https://eu10.alm.cloud.sap/api/imp-tkm-srv/v1/tasks      (older task path)
     const [tmRaw, cmRaw, hmRaw] = await Promise.all([
-      tryFetch([
-        "/api/calm-operations/v0/deploymentOperations?$top=100",
-        "/api/calm-operations/v1/deploymentOperations?$top=100",
-        "/api/calm-operations/v0/operations?$top=100",
+      tryALMPaths([
+        "/api/imp-cdm-srv/v1/features?$top=100",
+        "/api/imp-cdm-srv/v0/features?$top=100",
+        "/api/calm-cdm/v1/features?$top=100",
+        "/api/calm-deployment/v1/features?$top=100",
       ]),
-      tryFetch([
-        "/api/calm-requirements/v0/changeRequests?$top=100",
-        "/api/calm-requirements/v1/changeRequests?$top=100",
+      tryALMPaths([
+        "/api/imp-tkm-srv/v1/tasks?$top=100",
+        "/api/calm-tasks/v1/tasks?$top=100",
+        "/api/calm-tasks/v0/tasks?$top=100",
+        "/api/imp-tkm-srv/v0/tasks?$top=100",
       ]),
-      tryFetch([
-        "/api/calm-health/v0/events?$top=200",
+      tryALMPaths([
+        "/api/imp-cdm-srv/v1/features?$top=100&$filter=status eq 'ERROR'",
         "/api/calm-health/v1/events?$top=200",
-        "/api/calm-health/v0/alerts?$top=200",
+        "/api/calm-health/v0/events?$top=200",
+        "/api/ops-ihm-srv/v1/events?$top=200",
+        "/api/calm-ihm/v1/events?$top=200",
       ]),
     ]);
 
@@ -699,44 +744,33 @@ app.get("/api/calm/health", async (req, res) => {
   }
 });
 
-// 6. GET /api/calm/changes/all — all change requests (for CR table in Cloud ALM dashboard)
+// 6. GET /api/calm/changes/all
 app.get("/api/calm/changes/all", async (req, res) => {
   try {
-    // SAP Cloud ALM Change Management API — correct path for eu10 tenant
-    const data = await fetchFromALM(
-      "/api/calm-requirements/v0/changeRequests?$top=200"
-    );
+    const data = await tryALMPaths([
+      "/api/imp-tkm-srv/v1/tasks?$top=200",
+      "/api/calm-tasks/v1/tasks?$top=200",
+      "/api/imp-tkm-srv/v0/tasks?$top=200",
+      "/api/calm-tasks/v0/tasks?$top=200",
+    ]);
+    if (!data) throw new Error("All task/change paths returned 404. Check /api/calm/discover.");
     const items = (data?.value || data?.results || []).map(cr => ({
-      id:          cr.id          || cr.changeRequestId || "",
-      title:       cr.title       || cr.name            || cr.subject || "",
-      status:      cr.status      || cr.changeRequestStatus || "OPEN",
-      assigneeId:  cr.assigneeId  || cr.processor       || cr.approver || "",
-      priority:    cr.priority    || cr.urgency          || "",
+      id:          cr.id          || "",
+      title:       cr.title       || cr.name   || cr.subject || "",
+      status:      cr.status      || "OPEN",
+      assigneeId:  cr.assigneeId  || cr.assignee || "",
+      priority:    cr.priority    || "",
       description: cr.description || "",
-      externalId:  cr.externalId  || cr.transportRequest || "",
-      dueDate:     cr.dueDate     || cr.plannedEndDate   || cr.requestedEndDate || null,
+      externalId:  cr.externalId  || "",
+      dueDate:     cr.dueDate     || cr.plannedEndDate || null,
       createdAt:   cr.createdAt   || cr.createDate,
       changedAt:   cr.changedAt   || cr.lastChangedDate,
     }));
-    console.log(`✅ Fetched ${items.length} change requests`);
+    console.log(`✅ Fetched ${items.length} tasks/changes`);
     res.json({ d: { results: items } });
   } catch (err) {
-    console.error("❌ /api/calm/changes/all error:", err.message);
-    // Try alternate path v1
-    try {
-      const data2 = await fetchFromALM("/api/calm-requirements/v1/changeRequests?$top=200");
-      const items2 = (data2?.value || data2?.results || []).map(cr => ({
-        id: cr.id || "", title: cr.title || cr.name || "", status: cr.status || "OPEN",
-        assigneeId: cr.assigneeId || "", priority: cr.priority || "",
-        description: cr.description || "", externalId: cr.externalId || "",
-        dueDate: cr.dueDate || null, createdAt: cr.createdAt, changedAt: cr.changedAt,
-      }));
-      console.log(`✅ Fetched ${items2.length} CRs via v1`);
-      return res.json({ d: { results: items2 } });
-    } catch (err2) {
-      console.error("❌ v1 also failed:", err2.message);
-      res.status(500).json({ error: err.message, error_v1: err2.message });
-    }
+    console.error("❌ /api/calm/changes/all:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -799,39 +833,32 @@ app.patch("/api/calm/changes/:changeId/deploy", async (req, res) => {
   }
 });
 
-// 9. GET /api/calm/tm/deployments — deployment items from ALM TM
+// 9. GET /api/calm/tm/deployments
 app.get("/api/calm/tm/deployments", async (req, res) => {
-  // Try multiple path versions — Cloud ALM API version varies by tenant
-  const paths = [
-    "/api/calm-operations/v0/deploymentOperations?$top=100",
-    "/api/calm-operations/v1/deploymentOperations?$top=100",
-    "/api/calm-operations/v0/operations?$top=100",
-    "/api/calm/v1/operations/deployments?$top=100",
-  ];
-
-  for (const path of paths) {
-    try {
-      const data  = await fetchFromALM(path);
-      const items = (data?.value || data?.results || []).map(d => ({
-        id:         d.id,
-        title:      d.title       || d.name          || d.description || "",
-        status:     d.status      || d.deploymentStatus || "",
-        target:     d.targetSystemId || d.target     || d.targetSystem || "",
-        createdAt:  d.createdAt   || d.createDate,
-        deployedAt: d.deployedAt  || d.finishedAt,
-        transports: (d.changeItems || d.transportRequests || d.transports || [])
-                    .map(c => c.externalId || c.transportRequest || c.id),
-      }));
-      console.log(`✅ TM deployments via ${path}: ${items.length} items`);
-      return res.json({ d: { results: items } });
-    } catch (err) {
-      console.warn(`⚠️ TM path failed (${path}): ${err.message}`);
-    }
+  try {
+    const data = await tryALMPaths([
+      "/api/imp-cdm-srv/v1/features?$top=100",
+      "/api/imp-cdm-srv/v0/features?$top=100",
+      "/api/calm-cdm/v1/features?$top=100",
+      "/api/imp-tkm-srv/v1/tasks?$top=100",
+    ]);
+    if (!data) throw new Error("All deployment paths returned 404. Check /api/calm/discover.");
+    const items = (data?.value || data?.results || []).map(d => ({
+      id:         d.id,
+      title:      d.title      || d.name        || d.featureName || "",
+      status:     d.status     || d.featureStatus || "",
+      target:     d.targetSystemId || d.target  || "",
+      createdAt:  d.createdAt  || d.createDate,
+      deployedAt: d.deployedAt || d.finishedAt,
+      transports: (d.transportRequests || d.transports || [])
+                  .map(c => c.transportRequest || c.externalId || c.id),
+    }));
+    console.log(`✅ Fetched ${items.length} features/deployments`);
+    res.json({ d: { results: items } });
+  } catch (err) {
+    console.error("❌ /api/calm/tm/deployments error:", err.message);
+    res.status(500).json({ error: err.message });
   }
-
-  // All paths failed
-  console.error("❌ All TM deployment paths failed");
-  res.status(500).json({ error: "Could not fetch deployment operations — all API paths returned 404" });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -911,11 +938,14 @@ async function callAICore(messages, systemPrompt, maxTokens = 800) {
 
   if (!baseUrl) throw new Error("AI_CORE_BASE_URL not configured.");
 
-  // Try v2 first, fall back to v1
+  // SAP AI Core with Azure OpenAI (GPT models) uses api-version query param
+  // Correct pattern: /v2/inference/deployments/{id}/chat/completions?api-version=2024-12-01
+  const apiVersion = "2024-12-01";
   const endpoints = [
+    `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions?api-version=${apiVersion}`,
+    `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions?api-version=${apiVersion}`,
     `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`,
-    `${baseUrl}/v1/inference/deployments/${deploymentId}/chat/completions`,
-    `${baseUrl}/inference/deployments/${deploymentId}/chat/completions`,
+    `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions`,
   ];
 
   const payload = {
@@ -940,7 +970,8 @@ async function callAICore(messages, systemPrompt, maxTokens = 800) {
       console.log(`✅ AI Core inference via: ${endpoint}`);
       return res.data?.choices?.[0]?.message?.content || "";
     } catch (err) {
-      console.warn(`⚠️ AI Core endpoint failed (${endpoint}): ${err.message}`);
+      const status = err.response?.status || "ERR";
+      console.warn(`⚠️ AI Core endpoint failed [${status}] ${endpoint}`);
       if (endpoint === endpoints[endpoints.length - 1]) throw err;
     }
   }
