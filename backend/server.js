@@ -389,8 +389,14 @@ async function discoverAICoreDeployment() {
   const baseUrl = getAICoreBaseUrl();
   if (!baseUrl) throw new Error("AI_CORE_BASE_URL not configured.");
 
-  // Step 1: Try to list all resource groups
-  let resourceGroups = ["default", "security-intelligence-hub"];
+  // Search known resource groups — security-intelligence-hub first (has GPT-4.1)
+  const resourceGroups = [
+    "security-intelligence-hub",
+    "default",
+    process.env.AI_CORE_RESOURCE_GROUP,
+  ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+
+  // Step 1: Try to list all resource groups and add them
   try {
     const rgRes = await axios.get(`${baseUrl}/v2/admin/resourceGroups`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -398,43 +404,52 @@ async function discoverAICoreDeployment() {
     });
     const fetched = (rgRes.data?.resourceGroups || rgRes.data?.value || [])
       .map(rg => rg.resourceGroupId || rg.id || rg.name).filter(Boolean);
-    if (fetched.length > 0) {
-      resourceGroups = fetched;
-      console.log(`✅ AI Core resource groups: ${resourceGroups.join(", ")}`);
-    }
+    // Add any new ones not already in list
+    fetched.forEach(rg => { if (!resourceGroups.includes(rg)) resourceGroups.push(rg); });
+    console.log(`✅ AI Core resource groups: ${resourceGroups.join(", ")}`);
   } catch (err) {
-    console.warn(`⚠️ Resource group list failed [${err.response?.status}] — trying known groups`);
+    console.warn(`⚠️ Resource group list failed [${err.response?.status}]`);
   }
 
-  // Step 2: Search each resource group for a RUNNING deployment
+  // Step 2: Search each resource group — prefer GPT/Azure OpenAI models
   for (const rg of resourceGroups) {
     try {
       const res = await axios.get(`${baseUrl}/v2/lm/deployments?status=RUNNING`, {
-        headers: {
-          Authorization:       `Bearer ${token}`,
-          "AI-Resource-Group": rg,
-        },
+        headers: { Authorization: `Bearer ${token}`, "AI-Resource-Group": rg },
         httpsAgent, timeout: 10000,
       });
 
-      const list    = res.data?.resources || res.data?.value || [];
-      const running = Array.isArray(list)
-        ? list.find(d => d.status === "RUNNING" || d.deploymentStatus === "RUNNING")
-        : null;
+      const list = res.data?.resources || res.data?.value || [];
+      if (!Array.isArray(list) || list.length === 0) continue;
 
-      if (running) {
-        const id = running.id || running.deploymentId;
-        console.log(`✅ Found RUNNING deployment: ${id} | resource group: ${rg}`);
-        aiCoreDeploymentCache  = { deploymentId: id, resourceGroup: rg, baseUrl };
+      console.log(`ℹ️  Resource group '${rg}' has ${list.length} RUNNING deployment(s):`);
+      list.forEach(d => console.log(`   - ${d.id} | model: ${d.details?.resources?.backendDetails?.modelName || d.modelName || "unknown"} | status: ${d.status}`));
+
+      // Prefer GPT/Azure OpenAI models — avoid Claude for chat/completions endpoint
+      const gptDep = list.find(d => {
+        const model = (d.details?.resources?.backendDetails?.modelName || d.modelName || "").toLowerCase();
+        return model.includes("gpt") || model.includes("azure") || model.includes("4");
+      });
+
+      const dep = gptDep || list.find(d => {
+        const model = (d.details?.resources?.backendDetails?.modelName || d.modelName || "").toLowerCase();
+        return !model.includes("claude") && !model.includes("anthropic");
+      });
+
+      if (dep) {
+        const id = dep.id || dep.deploymentId;
+        const modelName = dep.details?.resources?.backendDetails?.modelName || dep.modelName || AI_CORE_MODEL_NAME;
+        console.log(`✅ Selected deployment: ${id} | model: ${modelName} | rg: ${rg}`);
+        aiCoreDeploymentCache  = { deploymentId: id, resourceGroup: rg, baseUrl, modelName };
         aiCoreDeploymentExpiry = Date.now() + 10 * 60 * 1000;
         return aiCoreDeploymentCache;
       }
     } catch (err) {
-      console.warn(`⚠️ Deployments in '${rg}' failed [${err.response?.status}]: ${err.message?.slice(0,60)}`);
+      console.warn(`⚠️ Deployments in '${rg}' failed [${err.response?.status}]`);
     }
   }
 
-  throw new Error(`No RUNNING deployment found in: ${resourceGroups.join(", ")}`);
+  throw new Error(`No suitable RUNNING deployment found in: ${resourceGroups.join(", ")}`);
 }
 
 // Cache: { url, token, expiry }
@@ -706,53 +721,61 @@ async function tryALMPaths(paths) {
 // 5. GET /api/calm/health
 app.get("/api/calm/health", async (req, res) => {
   try {
-    // calm-tasks/v1/tasks requires ?projectId — fetch projects first, then tasks
-    // imp-cdm-srv/v1/features = Change & Deployment Management (Features app)
-    // ops-ihm-srv = Health Monitoring (internal service name from UI app ID)
-    const [tmRaw, cmRaw, hmRaw] = await Promise.all([
-      // Transport/Deployment: Features from Change & Deployment Management
-      tryALMPaths([
-        "/api/imp-cdm-srv/v1/features?$top=100&$expand=transports",
-        "/api/imp-cdm-srv/v1/features?$top=100",
-        "/api/imp-cdm-srv/v0/features?$top=100",
-      ]),
-      // Change Management: Projects (doesn't need projectId)
-      tryALMPaths([
-        "/api/imp-pjm-srv/v1/projects?$top=100",
-        "/api/calm-projects/v1/projects?$top=100",
-        "/api/imp-pjm-srv/v0/projects?$top=100",
-      ]),
-      // Health Monitoring
-      tryALMPaths([
-        "/api/ops-alm-evt-srv/v1/eventSubscriptions?$top=200",
-        "/api/ops-alm-evt-srv/v1/events?$top=200",
-        "/api/calm-health/v1/events?$top=200",
-        "/api/ops-ihm-srv/v1/healthStatus?$top=200",
-        "/api/ops-ihm-srv/v1/monitoringData?$top=200",
-      ]),
+    // Step 1: Fetch projects first (confirmed working)
+    const projectsRaw = await tryALMPaths([
+      "/api/calm-projects/v1/projects?$top=100",
+      "/api/imp-pjm-srv/v1/projects?$top=100",
     ]);
+    const projects = projectsRaw?.value || projectsRaw?.results || [];
+    console.log(`✅ ALM projects fetched: ${projects.length}`);
 
-    // ── Transport Management ──────────────────────────────────────
-    const tmItems   = tmRaw?.value || tmRaw?.results || [];
-    const tmPending = tmItems.filter(i => ["READY_FOR_DEPLOYMENT","IN_QUEUE","PENDING"].includes(i.status)).length;
-    const tmFailed  = tmItems.filter(i => ["FAILED","ERROR"].includes(i.status)).length;
-    const tmLast    = tmItems.find(i => i.status === "DEPLOYED")?.deployedAt || null;
+    // Step 2: Fetch tasks for first few projects (tasks need projectId)
+    let allTasks = [];
+    for (const proj of projects.slice(0, 5)) {
+      const pid = proj.id || proj.projectId;
+      if (!pid) continue;
+      const tasksRaw = await tryALMPaths([
+        `/api/calm-tasks/v1/tasks?projectId=${pid}&$top=50`,
+        `/api/imp-tkm-srv/v1/tasks?projectId=${pid}&$top=50`,
+      ]);
+      const tasks = tasksRaw?.value || tasksRaw?.results || [];
+      allTasks = allTasks.concat(tasks);
+    }
+    console.log(`✅ ALM tasks fetched: ${allTasks.length}`);
+
+    // Step 3: Features / deployments (404 on most tenants without CDM)
+    const tmRaw = await tryALMPaths([
+      "/api/imp-cdm-srv/v1/features?$top=100",
+      "/api/imp-cdm-srv/v0/features?$top=100",
+    ]);
+    const tmItems = tmRaw?.value || tmRaw?.results || [];
+
+    // Step 4: Health monitoring events
+    const hmRaw = await tryALMPaths([
+      "/api/ops-alm-evt-srv/v1/events?$top=200",
+      "/api/calm-health/v1/events?$top=200",
+      "/api/ops-ihm-srv/v1/healthStatus?$top=200",
+    ]);
+    const hmAlerts = hmRaw?.value || hmRaw?.results || [];
+
+    // ── Transport Management (from features if available, else projects) ──
+    const tmPending      = tmItems.filter(i => ["READY_FOR_DEPLOYMENT","IN_QUEUE","PENDING"].includes(i.status)).length;
+    const tmFailed       = tmItems.filter(i => ["FAILED","ERROR"].includes(i.status)).length;
+    const tmLast         = tmItems.find(i => i.status === "DEPLOYED")?.deployedAt || null;
     const pipelineStatus = tmFailed > 0 ? "BLOCKED" : tmPending > 10 ? "DEGRADED" : "OK";
 
-    // ── Change Management ─────────────────────────────────────────
-    const cmItems      = cmRaw?.value || cmRaw?.results || [];
-    const cmOpen       = cmItems.filter(i => ["OPEN","IN_PROGRESS"].includes(i.status)).length;
-    const cmPending    = cmItems.filter(i => i.status === "PENDING_APPROVAL").length;
-    const cmApproved   = cmItems.filter(i => i.status === "APPROVED").length;
-    const cmRejected   = cmItems.filter(i => i.status === "REJECTED" && isThisWeek(i.changedAt)).length;
-    const cmDeployed   = cmItems.filter(i => i.status === "DEPLOYED").length;
-    const cmTotal      = cmItems.length;
+    // ── Change Management (from projects + tasks) ─────────────────────
+    const cmItems    = projects;
+    const taskOpen   = allTasks.filter(t => ["OPEN","CIPTKOPEN","IN_PROGRESS"].includes(t.status)).length;
+    const taskClosed = allTasks.filter(t => ["CLOSED","CIPTYCLOSE","DONE"].includes(t.status)).length;
+    const cmOpen     = projects.filter(p => p.status === "O" || p.status === "OPEN").length;
+    const cmClosed   = projects.filter(p => p.status === "C" || p.status === "CLOSED").length;
+    const cmTotal    = projects.length;
     const cmCompliance = cmTotal > 0
-      ? Math.round(((cmTotal - cmItems.filter(i => i.status === "REJECTED").length) / cmTotal) * 100)
+      ? Math.round((cmClosed / cmTotal) * 100)
       : 100;
 
-    // ── Health Monitoring ─────────────────────────────────────────
-    const hmAlerts   = hmRaw?.value || hmRaw?.results || [];
+    // ── Health Monitoring ─────────────────────────────────────────────
     const hmCritical = hmAlerts.filter(a => ["CRITICAL","ERROR"].includes(a.severity)).length;
     const hmWarning  = hmAlerts.filter(a => a.severity === "WARNING").length;
     const hmSystems  = [...new Set(hmAlerts.map(a => a.serviceId || a.systemId))].length;
@@ -760,11 +783,11 @@ app.get("/api/calm/health", async (req, res) => {
       (a.systemId || "").toUpperCase().includes("PROD") &&
       ["CRITICAL","ERROR"].includes(a.severity)
     );
-    const prodAvail  = prodAlerts.length > 0
+    const prodAvail = prodAlerts.length > 0
       ? Math.max(85, 100 - prodAlerts.length * 3).toFixed(1)
       : "99.9";
 
-    console.log(`✅ ALM health: TM=${tmItems.length} CM=${cmItems.length} HM=${hmAlerts.length} | pipeline=${pipelineStatus}`);
+    console.log(`✅ ALM health: projects=${projects.length} tasks=${allTasks.length} TM=${tmItems.length} HM=${hmAlerts.length} | pipeline=${pipelineStatus}`);
 
     res.json({
       criticalAlerts: hmCritical,
@@ -818,26 +841,46 @@ app.get("/api/calm/health", async (req, res) => {
 // 6. GET /api/calm/changes/all
 app.get("/api/calm/changes/all", async (req, res) => {
   try {
-    const data = await tryALMPaths([
-      "/api/imp-cdm-srv/v1/features?$top=200",
-      "/api/imp-cdm-srv/v0/features?$top=200",
-      "/api/imp-pjm-srv/v1/projects?$top=200",
-      "/api/calm-projects/v1/projects?$top=200",
+    // Get projects first
+    const projectsRaw = await tryALMPaths([
+      "/api/calm-projects/v1/projects?$top=100",
+      "/api/imp-pjm-srv/v1/projects?$top=100",
     ]);
-    if (!data) throw new Error("All paths 404. Open /api/calm/discover for diagnosis.");
-    const items = (data?.value || data?.results || []).map(cr => ({
-      id:          cr.id              || "",
-      title:       cr.title           || cr.name       || cr.featureName || "",
-      status:      cr.status          || cr.featureStatus || "OPEN",
-      assigneeId:  cr.assigneeId      || cr.responsible  || cr.owner || "",
-      priority:    cr.priority        || "",
-      description: cr.description     || "",
-      externalId:  cr.externalId      || "",
-      dueDate:     cr.dueDate         || cr.plannedEndDate || null,
-      createdAt:   cr.createdAt       || cr.createDate,
-      changedAt:   cr.changedAt       || cr.lastChangedDate,
+    const projects = projectsRaw?.value || projectsRaw?.results || [];
+
+    // Get tasks for each project
+    let allTasks = [];
+    for (const proj of projects.slice(0, 10)) {
+      const pid = proj.id || proj.projectId;
+      if (!pid) continue;
+      const tasksRaw = await tryALMPaths([
+        `/api/calm-tasks/v1/tasks?projectId=${pid}&$top=100`,
+        `/api/imp-tkm-srv/v1/tasks?projectId=${pid}&$top=100`,
+      ]);
+      const tasks = (tasksRaw?.value || tasksRaw?.results || []).map(t => ({
+        ...t,
+        projectName: proj.name || proj.title || pid,
+      }));
+      allTasks = allTasks.concat(tasks);
+    }
+
+    // If no tasks, return projects as items
+    const source = allTasks.length > 0 ? allTasks : projects;
+
+    const items = source.map(item => ({
+      id:          item.id          || item.projectId || "",
+      title:       item.title       || item.name      || item.subject    || "",
+      status:      item.status      || "OPEN",
+      assigneeId:  item.assigneeId  || item.assignee  || item.responsible || "",
+      priority:    item.priority    || "",
+      description: item.description || item.projectName || "",
+      externalId:  item.externalId  || "",
+      dueDate:     item.dueDate     || item.plannedEndDate || null,
+      createdAt:   item.createdAt   || item.createDate,
+      changedAt:   item.changedAt   || item.lastChangedDate,
     }));
-    console.log(`✅ Fetched ${items.length} features/projects`);
+
+    console.log(`✅ /api/calm/changes/all: ${items.length} items (${projects.length} projects, ${allTasks.length} tasks)`);
     res.json({ d: { results: items } });
   } catch (err) {
     console.error("❌ /api/calm/changes/all:", err.message);
@@ -1017,20 +1060,19 @@ function getAICoreBaseUrl() {
 
 // ─── AI Core inference helper ─────────────────────────────────────────────────
 async function callAICore(messages, systemPrompt, maxTokens = 800) {
-  // Dynamically discover the RUNNING deployment
-  const { deploymentId, resourceGroup, baseUrl } = await discoverAICoreDeployment();
-
+  const { deploymentId, resourceGroup, baseUrl, modelName } = await discoverAICoreDeployment();
   const token = await getAICoreToken();
+  const model = modelName || AI_CORE_MODEL_NAME;
 
   const endpoints = [
-    `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions?api-version=2024-12-01`,
-    `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions`,
     `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions?api-version=2024-12-01`,
     `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`,
+    `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions?api-version=2024-12-01`,
+    `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions`,
   ];
 
   const payload = {
-    model:       AI_CORE_MODEL_NAME,
+    model,
     max_tokens:  maxTokens,
     temperature: 0.2,
     messages: [
@@ -1049,7 +1091,7 @@ async function callAICore(messages, systemPrompt, maxTokens = 800) {
         },
         httpsAgent, timeout: 30000,
       });
-      console.log(`✅ AI Core inference: ${deploymentId} (${resourceGroup})`);
+      console.log(`✅ AI Core inference: ${deploymentId} (${resourceGroup}) model: ${model}`);
       return res.data?.choices?.[0]?.message?.content || "";
     } catch (err) {
       const status = err.response?.status || "ERR";
