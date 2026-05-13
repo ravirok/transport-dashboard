@@ -372,10 +372,70 @@ app.post("/api/transports/:trkorr/import", async (req, res) => {
 
 const CALM_DESTINATION_NAME = process.env.CALM_DESTINATION_NAME || "Cloud_ALM";
 
-// ─── SAP AI Core hardcoded values (from AI Launchpad) ────────────────────────
-const AI_CORE_DEPLOYMENT_ID  = process.env.AI_CORE_DEPLOYMENT_ID  || "de04c7a085b419f6";
-const AI_CORE_RESOURCE_GROUP = process.env.AI_CORE_RESOURCE_GROUP || "security-intelligence-hub";
-const AI_CORE_MODEL_NAME     = process.env.AI_CORE_MODEL_NAME     || "gpt-4.1";
+// ─── SAP AI Core — model name only hardcoded, deployment discovered dynamically
+const AI_CORE_MODEL_NAME = process.env.AI_CORE_MODEL_NAME || "gpt-4.1";
+
+// Deployment cache — populated by discoverAICoreDeployment()
+let aiCoreDeploymentCache  = null;
+let aiCoreDeploymentExpiry = 0;
+
+// ─── Dynamically discover RUNNING deployment across all resource groups ───────
+async function discoverAICoreDeployment() {
+  if (aiCoreDeploymentCache && Date.now() < aiCoreDeploymentExpiry) {
+    return aiCoreDeploymentCache;
+  }
+
+  const token   = await getAICoreToken();
+  const baseUrl = getAICoreBaseUrl();
+  if (!baseUrl) throw new Error("AI_CORE_BASE_URL not configured.");
+
+  // Step 1: Try to list all resource groups
+  let resourceGroups = ["default", "security-intelligence-hub"];
+  try {
+    const rgRes = await axios.get(`${baseUrl}/v2/admin/resourceGroups`, {
+      headers: { Authorization: `Bearer ${token}` },
+      httpsAgent, timeout: 10000,
+    });
+    const fetched = (rgRes.data?.resourceGroups || rgRes.data?.value || [])
+      .map(rg => rg.resourceGroupId || rg.id || rg.name).filter(Boolean);
+    if (fetched.length > 0) {
+      resourceGroups = fetched;
+      console.log(`✅ AI Core resource groups: ${resourceGroups.join(", ")}`);
+    }
+  } catch (err) {
+    console.warn(`⚠️ Resource group list failed [${err.response?.status}] — trying known groups`);
+  }
+
+  // Step 2: Search each resource group for a RUNNING deployment
+  for (const rg of resourceGroups) {
+    try {
+      const res = await axios.get(`${baseUrl}/v2/lm/deployments?status=RUNNING`, {
+        headers: {
+          Authorization:       `Bearer ${token}`,
+          "AI-Resource-Group": rg,
+        },
+        httpsAgent, timeout: 10000,
+      });
+
+      const list    = res.data?.resources || res.data?.value || [];
+      const running = Array.isArray(list)
+        ? list.find(d => d.status === "RUNNING" || d.deploymentStatus === "RUNNING")
+        : null;
+
+      if (running) {
+        const id = running.id || running.deploymentId;
+        console.log(`✅ Found RUNNING deployment: ${id} | resource group: ${rg}`);
+        aiCoreDeploymentCache  = { deploymentId: id, resourceGroup: rg, baseUrl };
+        aiCoreDeploymentExpiry = Date.now() + 10 * 60 * 1000;
+        return aiCoreDeploymentCache;
+      }
+    } catch (err) {
+      console.warn(`⚠️ Deployments in '${rg}' failed [${err.response?.status}]: ${err.message?.slice(0,60)}`);
+    }
+  }
+
+  throw new Error(`No RUNNING deployment found in: ${resourceGroups.join(", ")}`);
+}
 
 // Cache: { url, token, expiry }
 let calmDestCache = null;
@@ -481,22 +541,28 @@ function isThisWeek(dateStr) {
 
 // ─── CALM Discovery — finds correct API paths for your tenant ────────────────
 app.get("/api/calm/discover", async (req, res) => {
+  let resolvedBase = "unknown";
+  try { resolvedBase = (await resolveCALMDestination()).baseUrl; } catch (e) { resolvedBase = e.message; }
+
   const testPaths = [
-    // CONFIRMED from SAP API Hub + GitHub examples
-    "/api/imp-tkm-srv/v1/tasks?$top=1",          // Tasks (old path)
-    "/api/calm-tasks/v1/tasks?$top=1",            // Tasks (new path)
-    "/api/imp-cdm-srv/v1/features?$top=1",        // Change & Deployment features
+    // Change & Deployment
+    "/api/imp-cdm-srv/v1/features?$top=1",
     "/api/imp-cdm-srv/v0/features?$top=1",
-    "/api/calm-projects/v1/projects?$top=1",      // Projects
-    "/api/imp-pjm-srv/v1/projects?$top=1",        // Projects (old path)
-    // Health/Operations (ops service names)
-    "/api/ops-ihm-srv/v1/events?$top=1",
+    // Projects
+    "/api/imp-pjm-srv/v1/projects?$top=1",
+    "/api/imp-pjm-srv/v0/projects?$top=1",
+    "/api/calm-projects/v1/projects?$top=1",
+    // Tasks (needs projectId — test without)
+    "/api/calm-tasks/v1/tasks",
+    "/api/imp-tkm-srv/v1/tasks",
+    // Health Monitoring
+    "/api/ops-alm-evt-srv/v1/events?$top=1",
+    "/api/ops-ihm-srv/v1/healthStatus?$top=1",
+    "/api/ops-ihm-srv/v1/monitoringData?$top=1",
     "/api/calm-health/v1/events?$top=1",
-    "/api/calm-health/v0/events?$top=1",
-    // Other possible paths
-    "/api/calm-analytics/v1/providers?$top=1",
+    // Analytics
+    "/api/calm-analytics/v1/providers",
     "/api/imp-cdm-srv/v1/transportRequests?$top=1",
-    "/api/imp-cdm-srv/v1/deployments?$top=1",
   ];
 
   const results = {};
@@ -505,17 +571,16 @@ app.get("/api/calm/discover", async (req, res) => {
       const data = await fetchFromALM(path);
       results[path] = { ok: true, keys: Object.keys(data||{}), count: data?.value?.length ?? data?.results?.length ?? 0 };
     } catch (err) {
-      results[path] = { ok: false, status: err.response?.status || "ERR", msg: err.message.slice(0,80) };
+      results[path] = {
+        ok: false,
+        status: err.response?.status || "ERR",
+        body: JSON.stringify(err.response?.data || {}).slice(0, 200),
+      };
     }
   }
 
   const working = Object.entries(results).filter(([,v]) => v.ok).map(([k]) => k);
-  res.json({
-    baseUrl: (await resolveCALMDestination().catch(e => ({baseUrl: e.message}))).baseUrl,
-    summary: working.length > 0 ? `✅ ${working.length} paths working` : "❌ No paths working",
-    working,
-    all: results,
-  });
+  res.json({ resolvedBaseUrl: resolvedBase, summary: working.length > 0 ? `✅ ${working.length} paths working` : "❌ No paths working", working, all: results });
 });
 
 
@@ -626,7 +691,13 @@ async function tryALMPaths(paths) {
       console.log(`✅ ALM path OK: ${path}`);
       return data;
     } catch (err) {
-      console.warn(`⚠️ ALM path failed [${err.response?.status||'ERR'}]: ${path}`);
+      const status = err.response?.status || "ERR";
+      console.warn(`⚠️ ALM path failed [${status}]: ${path}`);
+      // 400 = bad request (auth/param issue) — log response body for debugging
+      if (status === 400) {
+        const body = JSON.stringify(err.response?.data || {}).slice(0, 200);
+        console.warn(`   400 response body: ${body}`);
+      }
     }
   }
   return null;
@@ -635,29 +706,29 @@ async function tryALMPaths(paths) {
 // 5. GET /api/calm/health
 app.get("/api/calm/health", async (req, res) => {
   try {
-    // CONFIRMED correct paths from SAP API Hub and GitHub examples:
-    // https://eu10.alm.cloud.sap/api/calm-tasks/v1/tasks       (Tasks/Implementation)
-    // https://eu10.alm.cloud.sap/api/imp-cdm-srv/v1/features   (Change & Deployment)
-    // https://eu10.alm.cloud.sap/api/imp-tkm-srv/v1/tasks      (older task path)
+    // calm-tasks/v1/tasks requires ?projectId — fetch projects first, then tasks
+    // imp-cdm-srv/v1/features = Change & Deployment Management (Features app)
+    // ops-ihm-srv = Health Monitoring (internal service name from UI app ID)
     const [tmRaw, cmRaw, hmRaw] = await Promise.all([
+      // Transport/Deployment: Features from Change & Deployment Management
       tryALMPaths([
+        "/api/imp-cdm-srv/v1/features?$top=100&$expand=transports",
         "/api/imp-cdm-srv/v1/features?$top=100",
         "/api/imp-cdm-srv/v0/features?$top=100",
-        "/api/calm-cdm/v1/features?$top=100",
-        "/api/calm-deployment/v1/features?$top=100",
       ]),
+      // Change Management: Projects (doesn't need projectId)
       tryALMPaths([
-        "/api/imp-tkm-srv/v1/tasks?$top=100",
-        "/api/calm-tasks/v1/tasks?$top=100",
-        "/api/calm-tasks/v0/tasks?$top=100",
-        "/api/imp-tkm-srv/v0/tasks?$top=100",
+        "/api/imp-pjm-srv/v1/projects?$top=100",
+        "/api/calm-projects/v1/projects?$top=100",
+        "/api/imp-pjm-srv/v0/projects?$top=100",
       ]),
+      // Health Monitoring
       tryALMPaths([
-        "/api/imp-cdm-srv/v1/features?$top=100&$filter=status eq 'ERROR'",
+        "/api/ops-alm-evt-srv/v1/eventSubscriptions?$top=200",
+        "/api/ops-alm-evt-srv/v1/events?$top=200",
         "/api/calm-health/v1/events?$top=200",
-        "/api/calm-health/v0/events?$top=200",
-        "/api/ops-ihm-srv/v1/events?$top=200",
-        "/api/calm-ihm/v1/events?$top=200",
+        "/api/ops-ihm-srv/v1/healthStatus?$top=200",
+        "/api/ops-ihm-srv/v1/monitoringData?$top=200",
       ]),
     ]);
 
@@ -748,25 +819,25 @@ app.get("/api/calm/health", async (req, res) => {
 app.get("/api/calm/changes/all", async (req, res) => {
   try {
     const data = await tryALMPaths([
-      "/api/imp-tkm-srv/v1/tasks?$top=200",
-      "/api/calm-tasks/v1/tasks?$top=200",
-      "/api/imp-tkm-srv/v0/tasks?$top=200",
-      "/api/calm-tasks/v0/tasks?$top=200",
+      "/api/imp-cdm-srv/v1/features?$top=200",
+      "/api/imp-cdm-srv/v0/features?$top=200",
+      "/api/imp-pjm-srv/v1/projects?$top=200",
+      "/api/calm-projects/v1/projects?$top=200",
     ]);
-    if (!data) throw new Error("All task/change paths returned 404. Check /api/calm/discover.");
+    if (!data) throw new Error("All paths 404. Open /api/calm/discover for diagnosis.");
     const items = (data?.value || data?.results || []).map(cr => ({
-      id:          cr.id          || "",
-      title:       cr.title       || cr.name   || cr.subject || "",
-      status:      cr.status      || "OPEN",
-      assigneeId:  cr.assigneeId  || cr.assignee || "",
-      priority:    cr.priority    || "",
-      description: cr.description || "",
-      externalId:  cr.externalId  || "",
-      dueDate:     cr.dueDate     || cr.plannedEndDate || null,
-      createdAt:   cr.createdAt   || cr.createDate,
-      changedAt:   cr.changedAt   || cr.lastChangedDate,
+      id:          cr.id              || "",
+      title:       cr.title           || cr.name       || cr.featureName || "",
+      status:      cr.status          || cr.featureStatus || "OPEN",
+      assigneeId:  cr.assigneeId      || cr.responsible  || cr.owner || "",
+      priority:    cr.priority        || "",
+      description: cr.description     || "",
+      externalId:  cr.externalId      || "",
+      dueDate:     cr.dueDate         || cr.plannedEndDate || null,
+      createdAt:   cr.createdAt       || cr.createDate,
+      changedAt:   cr.changedAt       || cr.lastChangedDate,
     }));
-    console.log(`✅ Fetched ${items.length} tasks/changes`);
+    console.log(`✅ Fetched ${items.length} features/projects`);
     res.json({ d: { results: items } });
   } catch (err) {
     console.error("❌ /api/calm/changes/all:", err.message);
@@ -883,16 +954,22 @@ async function getAICoreToken() {
   if (aiCoreToken && Date.now() < aiCoreTokenExpiry - 30000) return aiCoreToken;
 
   let clientId, clientSecret, tokenUrl;
+
+  // Try VCAP_SERVICES first (BTP aicore service binding)
   try {
-    const vcap    = JSON.parse(process.env.VCAP_SERVICES || "{}");
-    const aicore  = vcap["aicore"]?.[0]?.credentials;
+    const vcap   = JSON.parse(process.env.VCAP_SERVICES || "{}");
+    const aicore = vcap["aicore"]?.[0]?.credentials
+                || vcap["ai-core"]?.[0]?.credentials
+                || vcap["sap-aicore"]?.[0]?.credentials;
     if (aicore) {
       clientId     = aicore.clientid     || aicore.client_id;
       clientSecret = aicore.clientsecret || aicore.client_secret;
-      tokenUrl     = aicore.url          || aicore.serviceurls?.AI_API_URL;
+      tokenUrl     = aicore.url          || aicore.uaa?.url;
+      console.log(`ℹ️  AI Core credentials from VCAP_SERVICES`);
     }
   } catch {}
 
+  // Fallback to env vars
   clientId     = clientId     || process.env.AI_CORE_CLIENT_ID;
   clientSecret = clientSecret || process.env.AI_CORE_CLIENT_SECRET;
   tokenUrl     = tokenUrl     || process.env.AI_CORE_TOKEN_URL;
@@ -900,12 +977,18 @@ async function getAICoreToken() {
   if (!clientId || !clientSecret || !tokenUrl) {
     throw new Error(
       "SAP AI Core credentials not configured. " +
-      "Set AI_CORE_TOKEN_URL, AI_CORE_CLIENT_ID, AI_CORE_CLIENT_SECRET."
+      `clientId=${!!clientId} clientSecret=${!!clientSecret} tokenUrl=${!!tokenUrl}. ` +
+      "Set AI_CORE_CLIENT_ID, AI_CORE_CLIENT_SECRET, AI_CORE_TOKEN_URL."
     );
   }
 
+  // Token URL may or may not include /oauth/token
+  const fullTokenUrl = tokenUrl.endsWith("/oauth/token")
+    ? tokenUrl
+    : `${tokenUrl}/oauth/token`;
+
   const res = await axios.post(
-    `${tokenUrl}/oauth/token`,
+    fullTokenUrl,
     new URLSearchParams({
       grant_type:    "client_credentials",
       client_id:     clientId,
@@ -923,29 +1006,27 @@ async function getAICoreToken() {
 function getAICoreBaseUrl() {
   try {
     const vcap   = JSON.parse(process.env.VCAP_SERVICES || "{}");
-    const aicore = vcap["aicore"]?.[0]?.credentials;
+    const aicore = vcap["aicore"]?.[0]?.credentials
+                || vcap["ai-core"]?.[0]?.credentials
+                || vcap["sap-aicore"]?.[0]?.credentials;
     if (aicore?.serviceurls?.AI_API_URL) return aicore.serviceurls.AI_API_URL;
+    if (aicore?.serviceurls?.ai_api_url) return aicore.serviceurls.ai_api_url;
   } catch {}
   return process.env.AI_CORE_BASE_URL || "";
 }
 
 // ─── AI Core inference helper ─────────────────────────────────────────────────
 async function callAICore(messages, systemPrompt, maxTokens = 800) {
-  const token         = await getAICoreToken();
-  const baseUrl       = getAICoreBaseUrl();
-  const resourceGroup = AI_CORE_RESOURCE_GROUP;
-  const deploymentId  = AI_CORE_DEPLOYMENT_ID;
+  // Dynamically discover the RUNNING deployment
+  const { deploymentId, resourceGroup, baseUrl } = await discoverAICoreDeployment();
 
-  if (!baseUrl) throw new Error("AI_CORE_BASE_URL not configured.");
+  const token = await getAICoreToken();
 
-  // SAP AI Core with Azure OpenAI (GPT models) uses api-version query param
-  // Correct pattern: /v2/inference/deployments/{id}/chat/completions?api-version=2024-12-01
-  const apiVersion = "2024-12-01";
   const endpoints = [
-    `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions?api-version=${apiVersion}`,
-    `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions?api-version=${apiVersion}`,
-    `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`,
+    `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions?api-version=2024-12-01`,
     `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions`,
+    `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions?api-version=2024-12-01`,
+    `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`,
   ];
 
   const payload = {
@@ -958,20 +1039,22 @@ async function callAICore(messages, systemPrompt, maxTokens = 800) {
     ],
   };
 
-  const headers = {
-    Authorization:       `Bearer ${token}`,
-    "AI-Resource-Group": resourceGroup,
-    "Content-Type":      "application/json",
-  };
-
   for (const endpoint of endpoints) {
     try {
-      const res = await axios.post(endpoint, payload, { headers, httpsAgent, timeout: 30000 });
-      console.log(`✅ AI Core inference via: ${endpoint}`);
+      const res = await axios.post(endpoint, payload, {
+        headers: {
+          Authorization:       `Bearer ${token}`,
+          "AI-Resource-Group": resourceGroup,
+          "Content-Type":      "application/json",
+        },
+        httpsAgent, timeout: 30000,
+      });
+      console.log(`✅ AI Core inference: ${deploymentId} (${resourceGroup})`);
       return res.data?.choices?.[0]?.message?.content || "";
     } catch (err) {
       const status = err.response?.status || "ERR";
-      console.warn(`⚠️ AI Core endpoint failed [${status}] ${endpoint}`);
+      const body   = JSON.stringify(err.response?.data || {}).slice(0, 200);
+      console.warn(`⚠️ AI Core [${status}] ${endpoint} — ${body}`);
       if (endpoint === endpoints[endpoints.length - 1]) throw err;
     }
   }
@@ -1185,52 +1268,32 @@ PROD health OK: ${prodHealthOk}`;
 //  12. GET /api/ai/status — check if AI Core is configured and reachable
 // ═════════════════════════════════════════════════════════════════════════════
 app.get("/api/ai/status", async (req, res) => {
-  const baseUrl      = getAICoreBaseUrl();
-  const deploymentId = AI_CORE_DEPLOYMENT_ID;
-  const configured   = !!(baseUrl && process.env.AI_CORE_CLIENT_ID);
+  const baseUrl    = getAICoreBaseUrl();
+  const configured = !!(baseUrl && process.env.AI_CORE_CLIENT_ID);
 
   if (!configured) {
     return res.json({
-      configured:   false,
-      reachable:    false,
-      mode:         "local-fallback",
-      deploymentId,
-      resourceGroup: AI_CORE_RESOURCE_GROUP,
-      message: "SAP AI Core credentials not configured. Set AI_CORE_BASE_URL, AI_CORE_CLIENT_ID, AI_CORE_CLIENT_SECRET.",
+      configured: false, reachable: false, mode: "local-fallback",
+      message: "Set AI_CORE_BASE_URL, AI_CORE_CLIENT_ID, AI_CORE_CLIENT_SECRET, AI_CORE_TOKEN_URL.",
     });
   }
 
   try {
-    const token = await getAICoreToken();
-    await axios.get(
-      `${baseUrl}/v2/lm/deployments/${deploymentId}`,
-      {
-        headers: {
-          Authorization:       `Bearer ${token}`,
-          "AI-Resource-Group": AI_CORE_RESOURCE_GROUP,
-        },
-        httpsAgent,
-        timeout: 8000,
-      }
-    );
+    const deployment = await discoverAICoreDeployment();
     res.json({
       configured:    true,
       reachable:     true,
       mode:          "sap-core-ai",
       baseUrl,
-      deploymentId,
-      resourceGroup: AI_CORE_RESOURCE_GROUP,
+      deploymentId:  deployment.deploymentId,
+      resourceGroup: deployment.resourceGroup,
       model:         AI_CORE_MODEL_NAME,
-      message:       "SAP AI Core is configured and reachable.",
+      message:       `RUNNING deployment found: ${deployment.deploymentId} in ${deployment.resourceGroup}`,
     });
   } catch (err) {
     res.json({
-      configured:    true,
-      reachable:     false,
-      mode:          "local-fallback",
-      deploymentId,
-      resourceGroup: AI_CORE_RESOURCE_GROUP,
-      message:       `SAP AI Core configured but unreachable: ${err.message}`,
+      configured: true, reachable: false, mode: "local-fallback",
+      message: `AI Core reachable but no RUNNING deployment: ${err.message}`,
     });
   }
 });
@@ -1248,8 +1311,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 SAP Destination:       ${DESTINATION_NAME}`);
   console.log(`☁️  Cloud ALM Destination: ${CALM_DESTINATION_NAME}`);
-  console.log(`🧠 AI Core URL:           ${getAICoreBaseUrl()    || "not configured"}`);
-  console.log(`🧠 AI Deployment ID:      ${AI_CORE_DEPLOYMENT_ID}`);
-  console.log(`🧠 AI Resource Group:     ${AI_CORE_RESOURCE_GROUP}`);
-  console.log(`🧠 AI Model:              ${AI_CORE_MODEL_NAME}`);
+  console.log(`🧠 AI Core URL:           ${getAICoreBaseUrl() || "not configured"}`);
+  console.log(`🧠 AI Core Model:         ${AI_CORE_MODEL_NAME}`);
+  console.log(`🧠 AI Core Deployment:    dynamically discovered at runtime`);
 });
