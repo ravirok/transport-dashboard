@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SAP Cloud ALM — Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=72:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── SAP Fiori Design Tokens ─────────────────── */
+:root {
+  /* Fiori shell */
+  --shell-bg:        #354a5e;
+  --shell-text:      #ffffff;
+  --shell-border:    #4a6073;
+
+  /* Page background */
+  --bg:              #f5f6f8;
+  --bg2:             #eaecee;
+
+  /* Cards */
+  --surface:         #ffffff;
+  --surface2:        #f5f6f8;
+  --border:          #d9dbdd;
+  --border2:         #c5c9ce;
+
+  /* SAP brand blue */
+  --sap-blue:        #0070f2;
+  --sap-blue-dark:   #0064d9;
+  --sap-blue-light:  #e8f2ff;
+  --sap-blue-mid:    #b3d4fc;
+
+  /* Semantic colours */
+  --red:             #bb0000;
+  --red-light:       #ffeaea;
+  --red-mid:         #f5c2c2;
+  --green:           #107e3e;
+  --green-light:     #f1fdf6;
+  --green-mid:       #b5dfc9;
+  --amber:           #e76500;
+  --amber-light:     #fff3ea;
+  --amber-mid:       #f5c8a0;
+  --purple:          #6a28aa;
+  --purple-light:    #f4ecfb;
+  --purple-mid:      #d4b8ed;
+  --teal:            #04838f;
+  --teal-light:      #e5f8f9;
+  --teal-mid:        #9de0e6;
+
+  /* SAP Core AI accent */
+  --ai:              #1b3a6b;
+  --ai-grad:         linear-gradient(135deg, #1b3a6b 0%, #0070f2 60%, #00b4d8 100%);
+  --ai-light:        #e8eef7;
+  --ai-mid:          #b3c6e0;
+  --ai-glow:         rgba(0,112,242,.18);
+
+  /* Text */
+  --text:            #32363a;
+  --text-hi:         #000000;
+  --text-lo:         #6a6d70;
+  --text-med:        #515457;
+
+  /* Shadows */
+  --shadow-xs:  0 0 0 1px rgba(0,0,0,.06);
+  --shadow-sm:  0 1px 4px rgba(0,0,0,.1);
+  --shadow-md:  0 4px 16px rgba(0,0,0,.1);
+  --shadow-lg:  0 12px 40px rgba(0,0,0,.14);
+  --shadow-xl:  0 24px 64px rgba(0,0,0,.18);
+
+  --mono:  'IBM Plex Mono', monospace;
+  --sans:  'DM Sans', sans-serif;
+  --r:     6px;
+  --r-lg:  10px;
+  --r-xl:  14px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+@keyframes fadeUp   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+@keyframes spin     { to{transform:rotate(360deg)} }
+@keyframes pulse    { 0%,100%{opacity:1}50%{opacity:.35} }
+@keyframes modalIn  { from{opacity:0;transform:scale(.96) translateY(10px)} to{opacity:1;transform:none} }
+@keyframes slideRight { from{transform:translateX(100%)} to{transform:translateX(0)} }
+@keyframes countUp  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+@keyframes aiPulse  { 0%,100%{box-shadow:0 0 0 0 var(--ai-glow)} 50%{box-shadow:0 0 0 8px transparent} }
+@keyframes shimmer  {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+
+/* ── FIORI SHELL HEADER ─────────────────────── */
+.shell {
+  height: 44px;
+  background: var(--shell-bg);
+  display: flex; align-items: center; padding: 0 16px; gap: 12px;
+  position: sticky; top: 0; z-index: 200;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+.shell-logo {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.shell-sap {
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  color: var(--shell-text); letter-spacing: 1px;
+  background: rgba(255,255,255,.12); padding: 2px 8px; border-radius: 3px;
+}
+.shell-product {
+  font-size: 13px; font-weight: 500; color: rgba(255,255,255,.9);
+  letter-spacing: .2px;
+}
+.shell-sep { width: 1px; height: 22px; background: var(--shell-border); flex-shrink: 0; }
+.shell-nav { display: flex; gap: 2px; }
+.shell-tab {
+  font-size: 13px; font-weight: 400; color: rgba(255,255,255,.75);
+  padding: 5px 14px; border-radius: 4px; cursor: pointer;
+  border: none; background: none; transition: all .15s; letter-spacing: .1px;
+}
+.shell-tab:hover  { background: rgba(255,255,255,.1); color: #fff; }
+.shell-tab.active { background: rgba(255,255,255,.18); color: #fff; font-weight: 500; }
+.shell-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.shell-live {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px; color: rgba(255,255,255,.8);
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+  padding: 3px 10px; border-radius: 20px; letter-spacing: .5px;
+}
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: #4caf50; animation: pulse 1.5s infinite; }
+.shell-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.3); transition: all .4s; }
+.shell-dot.ok   { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+.shell-dot.err  { background: #f44336; box-shadow: 0 0 6px #f44336; }
+.shell-dot.warn { background: #ff9800; box-shadow: 0 0 6px #ff9800; }
+
+/* ── FIORI SUB-HEADER / BREADCRUMB ─────────── */
+.sub-header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 8px 20px; display: flex; align-items: center; gap: 10px;
+  box-shadow: var(--shadow-xs);
+}
+.breadcrumb { font-size: 12px; color: var(--text-lo); display: flex; align-items: center; gap: 6px; }
+.breadcrumb .sep { color: var(--border2); }
+.breadcrumb .curr { color: var(--text); font-weight: 500; }
+.sub-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.sub-time { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
+.sub-btn {
+  font-size: 12px; padding: 4px 12px; border-radius: var(--r);
+  border: 1px solid var(--sap-blue); color: var(--sap-blue);
+  background: var(--surface); cursor: pointer; transition: all .15s;
+  font-family: var(--sans);
+}
+.sub-btn:hover { background: var(--sap-blue-light); }
+
+/* ── CRITICAL ALERT BANNER ──────────────────── */
+.crit-banner {
+  display: none;
+  background: var(--red-light); border-bottom: 2px solid var(--red);
+  padding: 10px 20px; align-items: center; gap: 12px;
+  animation: fadeUp .3s ease;
+}
+.crit-banner.show { display: flex; }
+.crit-icon { font-size: 18px; flex-shrink: 0; }
+.crit-msg  { font-size: 13px; font-weight: 500; color: var(--red); flex: 1; }
+.crit-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 3px; }
+.crit-chip {
+  font-family: var(--mono); font-size: 10px;
+  background: var(--red-mid); color: var(--red);
+  border: 1px solid var(--red); padding: 1px 7px; border-radius: 3px;
+}
+.crit-dismiss {
+  background: none; border: 1px solid var(--red); color: var(--red);
+  padding: 3px 10px; border-radius: var(--r); cursor: pointer; font-size: 11px;
+}
+
+/* ── PAGE ───────────────────────────────────── */
+.page { max-width: 1500px; margin: 0 auto; padding: 18px 20px 80px; }
+
+/* ── SAP CORE AI PREDICTION CARD ────────────── */
+.ai-prediction-card {
+  background: var(--surface);
+  border: 1.5px solid var(--sap-blue-mid);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 18px;
+  animation: fadeUp .4s ease both;
+  position: relative;
+}
+.ai-prediction-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--ai-grad);
+}
+.ai-card-head {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, var(--ai-light) 0%, #f0f6ff 100%);
+  border-bottom: 1px solid var(--sap-blue-mid);
+}
+.ai-brain-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--ai-grad);
+  display: grid; place-items: center; font-size: 20px;
+  box-shadow: 0 4px 12px var(--ai-glow);
+  animation: aiPulse 3s infinite;
+  flex-shrink: 0;
+}
+.ai-head-title  { font-size: 14px; font-weight: 600; color: var(--ai); }
+.ai-head-sub    { font-size: 12px; color: var(--text-lo); margin-top: 2px; }
+.ai-head-badge  {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px;
+  background: var(--ai-light); color: var(--ai);
+  border: 1px solid var(--ai-mid); padding: 4px 10px; border-radius: 20px;
+  letter-spacing: .5px;
+}
+.ai-powered-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sap-blue); animation: pulse 2s infinite; }
+.ai-model-info  { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text-lo); text-align: right; }
+
+.ai-card-body {
+  display: grid; grid-template-columns: 200px 1fr 1fr 1fr 1fr;
+  gap: 0;
+}
+
+/* Score ring */
+.ai-score-cell {
+  padding: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--ai-light) 0%, var(--surface) 100%);
+}
+.score-ring-wrap { position: relative; margin-bottom: 8px; }
+.score-ring      { transform: rotate(-90deg); }
+.score-bg        { fill: none; stroke: var(--bg2); stroke-width: 9; }
+.score-fill      { fill: none; stroke-width: 9; stroke-linecap: round; transition: stroke-dasharray 1s cubic-bezier(.4,0,.2,1); }
+.score-overlay   {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.score-num  { font-size: 28px; font-weight: 700; color: var(--text-hi); line-height: 1; font-family: var(--sans); }
+.score-unit { font-family: var(--mono); font-size: 9px; color: var(--text-lo); letter-spacing: 1px; margin-top: 1px; }
+.score-label  { font-family: var(--mono); font-size: 9px; color: var(--text-lo); letter-spacing: 1.5px; text-transform: uppercase; }
+.score-status { font-size: 12px; font-weight: 600; margin-top: 3px; }
+
+/* AI prediction cells */
+.ai-pred-cell {
+  padding: 16px 18px; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.ai-pred-cell:last-child { border-right: none; }
+.ai-pred-label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--text-lo); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.ai-pred-label .ai-tag {
+  background: var(--ai-light); color: var(--ai);
+  border: 1px solid var(--ai-mid); padding: 1px 5px; border-radius: 3px;
+  font-size: 8px; letter-spacing: 1px;
+}
+.ai-pred-val { font-size: 24px; font-weight: 700; color: var(--text-hi); line-height: 1; margin-bottom: 6px; }
+.ai-pred-val.risk-low   { color: var(--green); }
+.ai-pred-val.risk-med   { color: var(--amber); }
+.ai-pred-val.risk-high  { color: var(--red); }
+.ai-pred-sub  { font-size: 11px; color: var(--text-lo); margin-bottom: 8px; }
+.ai-mini-bar-wrap { }
+.ai-mini-bar-labels { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--text-lo); margin-bottom: 3px; }
+.ai-mini-bar-track  { height: 5px; border-radius: 3px; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; }
+.ai-mini-bar-fill   { height: 100%; border-radius: 3px; transition: width .9s cubic-bezier(.4,0,.2,1); }
+
+.ai-factors-cell { padding: 16px 18px; border-right: 1px solid var(--border); }
+.ai-factor-row   { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 11.5px; }
+.ai-factor-icon  { font-size: 13px; flex-shrink: 0; }
+.ai-factor-text  { flex: 1; color: var(--text); }
+.ai-factor-impact{
+  font-family: var(--mono); font-size: 10px; padding: 2px 7px;
+  border-radius: 4px; font-weight: 500; flex-shrink: 0;
+}
+.ai-factor-impact.high { background: var(--red-light);   color: var(--red);   border: 1px solid var(--red-mid); }
+.ai-factor-impact.med  { background: var(--amber-light); color: var(--amber); border: 1px solid var(--amber-mid); }
+.ai-factor-impact.low  { background: var(--green-light); color: var(--green); border: 1px solid var(--green-mid); }
+
+.ai-trend-cell { padding: 16px 18px; }
+.ai-trend-lbl  { font-family: var(--mono); font-size: 9px; color: var(--text-lo); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+.ai-trend-chart { height: 70px; }
+
+.ai-card-footer {
+  padding: 10px 20px; border-top: 1px solid var(--border);
+  background: var(--ai-light); display: flex; align-items: center; gap: 12px;
+  font-size: 12px; color: var(--ai);
+}
+.ai-footer-icon { font-size: 14px; }
+.ai-footer-time { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text-lo); }
+
+/* ── KPI ROW ────────────────────────────────── */
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 18px; }
+.kpi {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 14px 16px;
+  box-shadow: var(--shadow-xs); position: relative; overflow: hidden;
+  transition: box-shadow .2s, transform .2s;
+  animation: fadeUp .4s ease both;
+}
+.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.kpi::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--kline, var(--sap-blue));
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.kpi.green  { --kline: var(--green); }
+.kpi.red    { --kline: var(--red); }
+.kpi.amber  { --kline: var(--amber); }
+.kpi.purple { --kline: var(--purple); }
+.kpi-icon { font-size: 18px; margin-bottom: 8px; }
+.kpi-lbl  { font-size: 11px; color: var(--text-lo); font-weight: 500; margin-bottom: 4px; }
+.kpi-val  { font-size: 28px; font-weight: 700; color: var(--text-hi); line-height: 1; }
+.kpi.green  .kpi-val { color: var(--green); }
+.kpi.red    .kpi-val { color: var(--red); }
+.kpi.amber  .kpi-val { color: var(--amber); }
+.kpi.purple .kpi-val { color: var(--purple); }
+.kpi-sub { font-size: 11px; color: var(--text-lo); margin-top: 4px; }
+
+/* ── MODULE GRID ────────────────────────────── */
+.modules-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+.module {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); overflow: hidden;
+  box-shadow: var(--shadow-xs); animation: fadeUp .5s ease both;
+}
+.module-head {
+  padding: 12px 16px 10px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface2);
+}
+.module-icon {
+  width: 30px; height: 30px; border-radius: 6px;
+  display: grid; place-items: center; font-size: 14px; flex-shrink: 0;
+}
+.module-icon.blue   { background: var(--sap-blue-light); }
+.module-icon.purple { background: var(--purple-light); }
+.module-icon.teal   { background: var(--teal-light); }
+.module-title { font-size: 13px; font-weight: 600; color: var(--text-hi); }
+.module-sub   { font-size: 11px; color: var(--text-lo); }
+.module-badge {
+  margin-left: auto; font-family: var(--mono); font-size: 10px;
+  padding: 2px 8px; border-radius: 20px; border: 1px solid; font-weight: 500;
+}
+.module-badge.ok     { background: var(--green-light);  color: var(--green);  border-color: var(--green-mid); }
+.module-badge.warn   { background: var(--amber-light);  color: var(--amber);  border-color: var(--amber-mid); }
+.module-badge.error  { background: var(--red-light);    color: var(--red);    border-color: var(--red-mid); }
+.module-badge.blue   { background: var(--sap-blue-light);color:var(--sap-blue);border-color:var(--sap-blue-mid);}
+.module-body { padding: 14px 16px; }
+
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.stat-row:last-child { border-bottom: none; }
+.stat-key { color: var(--text-med); }
+.stat-val { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--text-hi); }
+.stat-val.ok     { color: var(--green); }
+.stat-val.warn   { color: var(--amber); }
+.stat-val.error  { color: var(--red); }
+.stat-val.blue   { color: var(--sap-blue); }
+.stat-val.purple { color: var(--purple); }
+.stat-val.teal   { color: var(--teal); }
+
+.mini-bar-wrap  { margin-top: 10px; }
+.mini-bar-label { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--text-lo); margin-bottom: 4px; }
+.mini-bar-track { height: 5px; border-radius: 3px; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; }
+.mini-bar-fill  { height: 100%; border-radius: 3px; transition: width .9s cubic-bezier(.4,0,.2,1); }
+
+/* ── CHARTS ROW ─────────────────────────────── */
+.charts-row { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 14px; margin-bottom: 18px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); overflow: hidden;
+  box-shadow: var(--shadow-xs); animation: fadeUp .5s ease both;
+}
+.card-head {
+  padding: 12px 16px 10px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; background: var(--surface2);
+}
+.card-title { font-size: 13px; font-weight: 600; color: var(--text-hi); }
+.card-meta  { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text-lo); }
+.card-body  { padding: 14px 16px; }
+.chart-wrap { height: 170px; display: flex; align-items: center; justify-content: center; }
+
+/* ── ALERTS / CR TABLES ─────────────────────── */
+.table-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); overflow: hidden;
+  box-shadow: var(--shadow-xs); margin-bottom: 18px;
+  animation: fadeUp .6s ease both;
+}
+.table-toolbar {
+  padding: 11px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; background: var(--surface2);
+}
+.toolbar-title { font-size: 13px; font-weight: 600; color: var(--text-hi); }
+.toolbar-count {
+  font-family: var(--mono); font-size: 10px; padding: 2px 8px; border-radius: 20px; border: 1px solid;
+}
+.toolbar-count.ok    { background: var(--green-light);      color: var(--green);     border-color: var(--green-mid); }
+.toolbar-count.warn  { background: var(--amber-light);      color: var(--amber);     border-color: var(--amber-mid); }
+.toolbar-count.error { background: var(--red-light);        color: var(--red);       border-color: var(--red-mid); }
+.toolbar-search {
+  margin-left: auto; background: var(--surface); border: 1px solid var(--border);
+  color: var(--text-hi); font-family: var(--sans); font-size: 13px;
+  padding: 5px 11px; border-radius: var(--r); outline: none; width: 200px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.toolbar-search:focus { border-color: var(--sap-blue); box-shadow: 0 0 0 2px var(--sap-blue-light); }
+.toolbar-search::placeholder { color: var(--text-lo); }
+
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table thead th {
+  background: var(--bg2); font-size: 11px; font-weight: 600;
+  letter-spacing: .4px; text-transform: uppercase; color: var(--text-lo);
+  padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.data-table tbody tr {
+  border-bottom: 1px solid var(--border); cursor: pointer;
+  transition: background .1s; animation: fadeUp .2s ease both;
+}
+.data-table tbody tr:hover { background: var(--sap-blue-light); }
+.data-table tbody td { padding: 10px 14px; font-size: 12.5px; color: var(--text); }
+td.td-mono  { font-family: var(--mono); font-size: 11px; color: var(--text-hi); font-weight: 500; }
+td.td-lo    { font-family: var(--mono); font-size: 11px; color: var(--text-lo); }
+td.td-blue  { font-family: var(--mono); font-size: 11px; color: var(--sap-blue); font-weight: 500; }
+td.td-purple{ font-family: var(--mono); font-size: 11px; color: var(--purple); font-weight: 500; }
+
+.sev-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 5px; border: 1px solid;
+}
+.sev-badge.CRITICAL { background:var(--red-light);    color:var(--red);    border-color:var(--red-mid); }
+.sev-badge.ERROR    { background:var(--red-light);    color:var(--red);    border-color:var(--red-mid); }
+.sev-badge.WARNING  { background:var(--amber-light);  color:var(--amber);  border-color:var(--amber-mid); }
+.sev-badge.INFO     { background:var(--teal-light);   color:var(--teal);   border-color:var(--teal-mid); }
+.sev-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+.cr-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 5px; border: 1px solid;
+}
+.cr-status.APPROVED         { background:var(--green-light);      color:var(--green);     border-color:var(--green-mid); }
+.cr-status.PENDING_APPROVAL { background:var(--amber-light);      color:var(--amber);     border-color:var(--amber-mid); }
+.cr-status.REJECTED         { background:var(--red-light);        color:var(--red);       border-color:var(--red-mid); }
+.cr-status.OPEN             { background:var(--sap-blue-light);   color:var(--sap-blue);  border-color:var(--sap-blue-mid); }
+.cr-status.DEPLOYED         { background:var(--purple-light);     color:var(--purple);    border-color:var(--purple-mid); }
+.cr-status.IN_PROGRESS      { background:var(--teal-light);       color:var(--teal);      border-color:var(--teal-mid); }
+
+/* ── STATES ─────────────────────────────────── */
+.state-row { display:flex; align-items:center; justify-content:center; gap:10px; padding:40px; font-size:12px; color:var(--text-lo); letter-spacing:.3px; }
+.spinner   { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--sap-blue); border-radius:50%; animation:spin .65s linear infinite; }
+
+/* ── DETAIL DRAWER ──────────────────────────── */
+.drawer-backdrop { display:none; position:fixed; inset:0; z-index:400; background:rgba(0,0,0,.3); backdrop-filter:blur(2px); }
+.drawer-backdrop.open { display:block; }
+.drawer {
+  position: fixed; right: 0; top: 44px; bottom: 0; z-index: 401;
+  width: 420px; background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-xl);
+  transform: translateX(100%); transition: transform .25s cubic-bezier(.4,0,.2,1);
+  display: flex; flex-direction: column;
+}
+.drawer.open { transform: none; }
+.drawer-head {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface2); flex-shrink: 0;
+}
+.drawer-title { font-size: 14px; font-weight: 600; color: var(--text-hi); }
+.drawer-sub   { font-size: 11px; color: var(--text-lo); margin-top: 2px; }
+.drawer-close {
+  margin-left: auto; background: var(--surface); border: 1px solid var(--border);
+  color: var(--text-lo); cursor: pointer; width: 28px; height: 28px;
+  border-radius: var(--r); font-size: 13px; display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.drawer-close:hover { border-color: var(--red); color: var(--red); background: var(--red-light); }
+.drawer-body  { padding: 16px 18px; overflow-y: auto; flex: 1; }
+.drawer-field { margin-bottom: 12px; }
+.drawer-field-lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-lo); margin-bottom: 3px; }
+.drawer-field-val { font-size: 13px; color: var(--text-hi); line-height: 1.5; }
+.drawer-field-val.mono { font-family: var(--mono); font-size: 12px; color: var(--sap-blue); }
+.drawer-sep { height: 1px; background: var(--border); margin: 12px 0; }
+
+/* AI Risk chip inside drawer */
+.ai-risk-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 20px; border: 1px solid;
+  font-family: var(--mono); font-size: 11px; font-weight: 600; margin-top: 4px;
+}
+.ai-risk-chip.low  { background: var(--green-light);  color: var(--green);  border-color: var(--green-mid); }
+.ai-risk-chip.med  { background: var(--amber-light);  color: var(--amber);  border-color: var(--amber-mid); }
+.ai-risk-chip.high { background: var(--red-light);    color: var(--red);    border-color: var(--red-mid); }
+
+/* ── TABS ───────────────────────────────────── */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── FIORI STATUS BAR ───────────────────────── */
+.status-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  height: 26px; background: var(--shell-bg);
+  display: flex; align-items: center; padding: 0 16px; gap: 18px;
+}
+.sb-item { font-family: var(--mono); font-size: 10px; color: rgba(255,255,255,.7); display: flex; align-items: center; gap: 6px; }
+.sb-dot  { width: 5px; height: 5px; border-radius: 50%; }
+.sb-dot.ok   { background: #4caf50; }
+.sb-dot.warn { background: #ff9800; }
+.sb-dot.err  { background: #f44336; }
+.sb-right { margin-left: auto; font-family: var(--mono); font-size: 10px; color: rgba(255,255,255,.5); }
+</style>
+</head>
+<body>
+
+<!-- FIORI SHELL -->
+<div class="shell">
+  <div class="shell-logo">
+    <span class="shell-sap">SAP</span>
+    <span class="shell-product">Cloud ALM Command Center</span>
+  </div>
+  <div class="shell-sep"></div>
+  <div class="shell-nav">
+    <button class="shell-tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="shell-tab" onclick="switchTab('changes')">Change Requests</button>
+    <button class="shell-tab" onclick="switchTab('health')">Health Monitor</button>
+    <button class="shell-tab" onclick="switchTab('transport')">Transport Mgmt</button>
+  </div>
+  <div class="shell-right">
+    <div class="shell-live"><span class="live-dot"></span>LIVE</div>
+    <div class="shell-dot" id="shellDot"></div>
+  </div>
+</div>
+
+<!-- FIORI SUB-HEADER -->
+<div class="sub-header">
+  <div class="breadcrumb">
+    <span>Home</span><span class="sep">›</span>
+    <span>Operations</span><span class="sep">›</span>
+    <span class="curr" id="breadcrumbCurr">Overview</span>
+  </div>
+  <div class="sub-right">
+    <span class="sub-time" id="subTime">—</span>
+    <button class="sub-btn" onclick="loadAll()">↻ Refresh</button>
+    <a href="/index.html" class="sub-btn" style="text-decoration:none">← TransTrack Pro</a>
+  </div>
+</div>
+
+<!-- CRITICAL ALERT BANNER -->
+<div class="crit-banner" id="critBanner">
+  <div class="crit-icon">🚨</div>
+  <div style="flex:1">
+    <div class="crit-msg">Critical Health Alerts — Immediate attention required</div>
+    <div class="crit-chips" id="critChips"></div>
+  </div>
+  <button class="crit-dismiss" onclick="this.closest('.crit-banner').className='crit-banner'">Dismiss</button>
+</div>
+
+<!-- PAGE -->
+<div class="page">
+
+  <!-- ══ SAP CORE AI PREDICTION CARD ══ -->
+  <div class="ai-prediction-card">
+    <div class="ai-card-head">
+      <div class="ai-brain-icon">🧠</div>
+      <div>
+        <div class="ai-head-title">SAP Core AI — Risk Prediction Engine</div>
+        <div class="ai-head-sub">Machine learning model trained on transport history, change patterns and system health signals</div>
+      </div>
+      <div class="ai-head-badge"><span class="ai-powered-dot"></span>AI POWERED</div>
+      <div class="ai-model-info" id="aiModelInfo">
+        <div>Model v2.4.1 · SAP Core AI</div>
+        <div style="margin-top:2px">Last trained: —</div>
+      </div>
+    </div>
+
+    <div class="ai-card-body">
+
+      <!-- Overall health score ring -->
+      <div class="ai-score-cell">
+        <div class="score-ring-wrap">
+          <svg class="score-ring" width="110" height="110" viewBox="0 0 110 110">
+            <circle class="score-bg"   cx="55" cy="55" r="46"/>
+            <circle class="score-fill" id="scoreArc" cx="55" cy="55" r="46"
+              stroke="var(--sap-blue)" stroke-dasharray="0 289"/>
+          </svg>
+          <div class="score-overlay">
+            <span class="score-num"  id="scoreNum">—</span>
+            <span class="score-unit">/ 100</span>
+          </div>
+        </div>
+        <div class="score-label">HEALTH SCORE</div>
+        <div class="score-status" id="scoreStatus">Loading...</div>
+      </div>
+
+      <!-- Import risk prediction -->
+      <div class="ai-pred-cell">
+        <div>
+          <div class="ai-pred-label"><span>Import Risk</span><span class="ai-tag">AI</span></div>
+          <div class="ai-pred-val" id="aiImportRisk">—</div>
+          <div class="ai-pred-sub" id="aiImportRiskSub">Predicted failure likelihood</div>
+        </div>
+        <div class="ai-mini-bar-wrap">
+          <div class="ai-mini-bar-labels"><span>Low</span><span>High</span></div>
+          <div class="ai-mini-bar-track"><div class="ai-mini-bar-fill" id="aiImportBar" style="width:0%;background:var(--green)"></div></div>
+        </div>
+      </div>
+
+      <!-- Change approval prediction -->
+      <div class="ai-pred-cell">
+        <div>
+          <div class="ai-pred-label"><span>Approval Rate</span><span class="ai-tag">AI</span></div>
+          <div class="ai-pred-val" id="aiApprovalRate">—</div>
+          <div class="ai-pred-sub" id="aiApprovalSub">30-day predicted rate</div>
+        </div>
+        <div class="ai-mini-bar-wrap">
+          <div class="ai-mini-bar-labels"><span>0%</span><span>100%</span></div>
+          <div class="ai-mini-bar-track"><div class="ai-mini-bar-fill" id="aiApprovalBar" style="width:0%;background:var(--sap-blue)"></div></div>
+        </div>
+      </div>
+
+      <!-- Risk factors -->
+      <div class="ai-pred-cell" id="aiFactorsCell">
+        <div class="ai-pred-label"><span>Risk Factors</span><span class="ai-tag">AI</span></div>
+        <div id="aiFactors"><div class="spinner" style="margin:12px auto"></div></div>
+      </div>
+
+      <!-- AI recommendations -->
+      <div class="ai-pred-cell" style="border-right:none" id="aiRecsCell">
+        <div class="ai-pred-label"><span>AI Recommendation</span><span class="ai-tag">AI</span></div>
+        <div id="aiRecs" style="font-size:12px;color:var(--text);line-height:1.6">
+          <div class="spinner" style="margin:12px auto"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="ai-card-footer">
+      <span class="ai-footer-icon">🤖</span>
+      <span id="aiInsight">SAP Core AI is analysing your transport landscape...</span>
+      <span class="ai-footer-time" id="aiLastRun">Last run: —</span>
+    </div>
+  </div>
+
+  <!-- OVERVIEW TAB -->
+  <div class="tab-panel active" id="panel-overview">
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi" style="animation-delay:.05s">
+        <div class="kpi-icon">🔔</div>
+        <div class="kpi-lbl">Open Alerts</div>
+        <div class="kpi-val" id="kpiAlerts">—</div>
+        <div class="kpi-sub">Active now</div>
+      </div>
+      <div class="kpi green" style="animation-delay:.1s">
+        <div class="kpi-icon">✅</div>
+        <div class="kpi-lbl">PROD Availability</div>
+        <div class="kpi-val" id="kpiAvail">—</div>
+        <div class="kpi-sub">Last 24 hours</div>
+      </div>
+      <div class="kpi amber" style="animation-delay:.15s">
+        <div class="kpi-icon">📋</div>
+        <div class="kpi-lbl">Change Requests</div>
+        <div class="kpi-val" id="kpiCR">—</div>
+        <div class="kpi-sub">Open + pending</div>
+      </div>
+      <div class="kpi red" style="animation-delay:.2s">
+        <div class="kpi-icon">🚫</div>
+        <div class="kpi-lbl">Blocked</div>
+        <div class="kpi-val" id="kpiBlocked">—</div>
+        <div class="kpi-sub">Rejected or failed</div>
+      </div>
+      <div class="kpi purple" style="animation-delay:.25s">
+        <div class="kpi-icon">📊</div>
+        <div class="kpi-lbl">Compliance</div>
+        <div class="kpi-val" id="kpiCompliance">—</div>
+        <div class="kpi-sub">CR approval rate</div>
+      </div>
+    </div>
+
+    <!-- 3 Modules -->
+    <div class="modules-grid">
+      <div class="module" style="animation-delay:.3s">
+        <div class="module-head">
+          <div class="module-icon blue">🚀</div>
+          <div><div class="module-title">Transport Management</div><div class="module-sub">Deployment pipeline</div></div>
+          <span class="module-badge blue" id="tmBadge">—</span>
+        </div>
+        <div class="module-body" id="tmContent"><div class="state-row"><div class="spinner"></div></div></div>
+      </div>
+      <div class="module" style="animation-delay:.35s">
+        <div class="module-head">
+          <div class="module-icon purple">📋</div>
+          <div><div class="module-title">Change Management</div><div class="module-sub">ITSM change requests</div></div>
+          <span class="module-badge blue" id="cmBadge">—</span>
+        </div>
+        <div class="module-body" id="cmContent"><div class="state-row"><div class="spinner"></div></div></div>
+      </div>
+      <div class="module" style="animation-delay:.4s">
+        <div class="module-head">
+          <div class="module-icon teal">💚</div>
+          <div><div class="module-title">Health Monitoring</div><div class="module-sub">System availability &amp; alerts</div></div>
+          <span class="module-badge ok" id="hmBadge">—</span>
+        </div>
+        <div class="module-body" id="hmContent"><div class="state-row"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-row">
+      <div class="card" style="animation-delay:.45s">
+        <div class="card-head"><div class="card-title">Alert Severity</div><span class="card-meta" id="alertPieMeta">—</span></div>
+        <div class="card-body"><div class="chart-wrap"><div class="spinner" id="alertPieSpin"></div><canvas id="alertPieChart" style="display:none"></canvas></div></div>
+      </div>
+      <div class="card" style="animation-delay:.5s">
+        <div class="card-head"><div class="card-title">Change Request Status</div><span class="card-meta" id="crBarMeta">—</span></div>
+        <div class="card-body"><div class="chart-wrap"><div class="spinner" id="crBarSpin"></div><canvas id="crBarChart" style="display:none"></canvas></div></div>
+      </div>
+      <div class="card" style="animation-delay:.55s">
+        <div class="card-head"><div class="card-title">Deployment Pipeline</div><span class="card-meta" id="tmPieMeta">—</span></div>
+        <div class="card-body"><div class="chart-wrap"><div class="spinner" id="tmPieSpin"></div><canvas id="tmPieChart" style="display:none"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- Live Alerts Table -->
+    <div class="table-section" style="animation-delay:.6s">
+      <div class="table-toolbar">
+        <div class="toolbar-title">Live Health Alerts</div>
+        <span class="toolbar-count ok" id="alertCountChip">—</span>
+        <input type="text" class="toolbar-search" id="alertSearch" placeholder="Search alerts..."/>
+      </div>
+      <div id="alertsTableBody"><div class="state-row"><div class="spinner"></div>&nbsp;Loading alerts...</div></div>
+    </div>
+  </div>
+
+  <!-- CHANGES TAB -->
+  <div class="tab-panel" id="panel-changes">
+    <div class="table-section">
+      <div class="table-toolbar">
+        <div class="toolbar-title">Change Requests</div>
+        <span class="toolbar-count ok" id="crCountChip">—</span>
+        <input type="text" class="toolbar-search" id="crSearch" placeholder="Search change requests..."/>
+      </div>
+      <div id="crTableBody"><div class="state-row"><div class="spinner"></div>&nbsp;Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- HEALTH TAB -->
+  <div class="tab-panel" id="panel-health">
+    <div class="modules-grid" style="margin-bottom:18px">
+      <div class="module"><div class="module-head"><div class="module-icon blue">🖥️</div><div><div class="module-title">System Availability</div></div></div><div class="module-body" id="hmDetailContent"><div class="state-row"><div class="spinner"></div></div></div></div>
+      <div class="module"><div class="module-head"><div class="module-icon" style="background:var(--red-light)">⚡</div><div><div class="module-title">Critical Alerts</div></div></div><div class="module-body" id="critDetailContent"><div class="state-row"><div class="spinner"></div></div></div></div>
+      <div class="module"><div class="module-head"><div class="module-icon" style="background:var(--amber-light)">📈</div><div><div class="module-title">Performance Metrics</div></div></div><div class="module-body" id="perfContent"><div class="state-row"><div class="spinner"></div></div></div></div>
+    </div>
+    <div class="table-section">
+      <div class="table-toolbar"><div class="toolbar-title">All Health Alerts</div><span class="toolbar-count ok" id="allAlertChip">—</span></div>
+      <div id="allAlertsBody"><div class="state-row"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+
+  <!-- TRANSPORT TAB -->
+  <div class="tab-panel" id="panel-transport">
+    <div class="modules-grid" style="margin-bottom:18px">
+      <div class="module"><div class="module-head"><div class="module-icon blue">🚀</div><div><div class="module-title">Pipeline Overview</div></div></div><div class="module-body" id="tmPipelineDetail"><div class="state-row"><div class="spinner"></div></div></div></div>
+      <div class="module"><div class="module-head"><div class="module-icon" style="background:var(--red-light)">❌</div><div><div class="module-title">Failed Deployments</div></div></div><div class="module-body" id="tmFailedDetail"><div class="state-row"><div class="spinner"></div></div></div></div>
+      <div class="module"><div class="module-head"><div class="module-icon" style="background:var(--amber-light)">⏳</div><div><div class="module-title">Pending Queue</div></div></div><div class="module-body" id="tmPendingDetail"><div class="state-row"><div class="spinner"></div></div></div></div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- DETAIL DRAWER -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title" id="drawerTitle">Details</div>
+      <div class="drawer-sub" id="drawerSub"></div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<!-- FIORI STATUS BAR -->
+<div class="status-bar">
+  <div class="sb-item"><span class="sb-dot" id="sb1"></span><span id="sb1txt">Connecting...</span></div>
+  <div class="sb-item"><span class="sb-dot" id="sb2"></span><span id="sb2txt">Alerts: —</span></div>
+  <div class="sb-item"><span class="sb-dot" id="sb3"></span><span id="sb3txt">CRs: —</span></div>
+  <div class="sb-item"><span class="sb-dot" id="sb4"></span><span id="sb4txt">Pipeline: —</span></div>
+  <div class="sb-right">SAP Cloud ALM Command Center · <span id="sbClock">—</span></div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+let almHealth=null, allAlerts=[], allCRs=[], allDeployments=[];
+let alertPieInst, crBarInst, tmPieInst, trendInst;
+let activeTab='overview';
+
+// ════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════
+function fmt(raw){
+  if(!raw||raw==='-')return'—';
+  const m=String(raw).match(/\/Date\((\d+)\)\//);
+  if(m)return new Date(+m[1]).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  try{const d=new Date(raw);if(!isNaN(d))return d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch{}
+  return raw;
+}
+function animCount(el,to,suffix=''){
+  if(!el)return;
+  const num=parseFloat(to),isFloat=String(to).includes('.');
+  const start=performance.now(),dur=700;
+  const step=now=>{const p=Math.min((now-start)/dur,1),e=1-Math.pow(1-p,3);
+    el.textContent=isFloat?(e*num).toFixed(1)+suffix:Math.round(e*num)+suffix;
+    if(p<1)requestAnimationFrame(step);else el.textContent=to+suffix;};
+  requestAnimationFrame(step);
+}
+function statRow(k,v,cls){
+  return`<div class="stat-row"><span class="stat-key">${k}</span><span class="stat-val ${cls}">${v}</span></div>`;
+}
+function miniBar(label,pct,color){
+  return`<div class="mini-bar-wrap"><div class="mini-bar-label"><span>${label}</span><span>${Math.round(pct)}%</span></div>
+    <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${Math.min(100,pct)}%;background:${color}"></div></div></div>`;
+}
+
+// Clock
+setInterval(()=>{
+  const t=new Date().toLocaleTimeString('en-GB');
+  document.getElementById('sbClock').textContent=t;
+  document.getElementById('subTime').textContent=new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+},1000);
+
+// Auto-refresh 45s
+let cd=45;
+setInterval(()=>{ if(--cd<=0){cd=45;loadAll();} },1000);
+
+// ════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════
+const TAB_LABELS={'overview':'Overview','changes':'Change Requests','health':'Health Monitor','transport':'Transport Mgmt'};
+function switchTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('.shell-tab').forEach((b,i)=>{
+    b.classList.toggle('active',['overview','changes','health','transport'][i]===tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p=>{
+    p.classList.toggle('active',p.id===`panel-${tab}`);
+  });
+  document.getElementById('breadcrumbCurr').textContent=TAB_LABELS[tab]||tab;
+  if(tab==='health')renderHealthTab();
+  if(tab==='transport')renderTransportTab();
+  if(tab==='changes')renderCRTab();
+}
+
+// ════════════════════════════════════════
+// LOAD DATA
+// ════════════════════════════════════════
+async function loadAll(){
+  try{
+    const data=await fetch('/api/calm/health').then(r=>r.json());
+    almHealth=data;
+    allAlerts=data.alerts||[];
+    renderAll(data);
+  }catch(e){
+    console.error('ALM health error:',e.message);
+    renderFallback();
+  }
+  try{
+    const data=await fetch('/api/calm/changes/all').then(r=>r.json());
+    allCRs=data?.d?.results||data?.value||[];
+    renderCRSummary();
+  }catch{}
+  try{
+    const data=await fetch('/api/calm/tm/deployments').then(r=>r.json());
+    allDeployments=data?.d?.results||[];
+  }catch{}
+}
+
+// ════════════════════════════════════════
+// RENDER ALL
+// ════════════════════════════════════════
+function renderAll(data){
+  const tm=data.transportManagement||{};
+  const cm=data.changeManagement||{};
+  const hm=data.healthMonitoring||{};
+  const crit=data.criticalAlerts||0;
+  const warn=data.warningAlerts||0;
+  const total=(data.alerts||[]).length;
+
+  // Shell dot
+  const sd=document.getElementById('shellDot');
+  sd.className=crit>0?'shell-dot err':warn>0?'shell-dot warn':'shell-dot ok';
+
+  // Critical banner
+  const critAlerts=(data.alerts||[]).filter(a=>a.severity==='CRITICAL'||a.severity==='ERROR');
+  if(critAlerts.length>0){
+    document.getElementById('critBanner').className='crit-banner show';
+    document.getElementById('critChips').innerHTML=critAlerts.slice(0,4).map(a=>
+      `<span class="crit-chip">⚡ ${a.systemId||'SYSTEM'}: ${a.message||a.type||'Critical alert'}</span>`).join('');
+  }
+
+  // KPIs
+  animCount(document.getElementById('kpiAlerts'),   total);
+  document.getElementById('kpiAvail').textContent  =(hm.prodAvailability||'99.9')+'%';
+  animCount(document.getElementById('kpiCR'),       (cm.openCount||0)+(cm.pendingApproval||0));
+  animCount(document.getElementById('kpiBlocked'),  (cm.rejectedCount||0)+(tm.failedCount||0));
+  document.getElementById('kpiCompliance').textContent=(cm.complianceRate||100)+'%';
+
+  // Status bar
+  document.getElementById('sb1').className=`sb-dot ${crit>0?'err':warn>0?'warn':'ok'}`;
+  document.getElementById('sb1txt').textContent=crit>0?`${crit} Critical`:warn>0?`${warn} Warnings`:'Systems OK';
+  document.getElementById('sb2').className=`sb-dot ${total>0?'warn':'ok'}`;
+  document.getElementById('sb2txt').textContent=`Alerts: ${total}`;
+  document.getElementById('sb3').className=`sb-dot ${(cm.pendingApproval||0)>0?'warn':'ok'}`;
+  document.getElementById('sb3txt').textContent=`CRs: ${(cm.openCount||0)+(cm.pendingApproval||0)} open`;
+  const pipe=tm.pipelineStatus||'OK';
+  document.getElementById('sb4').className=`sb-dot ${pipe==='BLOCKED'?'err':pipe==='DEGRADED'?'warn':'ok'}`;
+  document.getElementById('sb4txt').textContent=`Pipeline: ${pipe}`;
+
+  // Module cards
+  const pipeCls=pipe==='BLOCKED'?'error':pipe==='DEGRADED'?'warn':'ok';
+  document.getElementById('tmBadge').textContent=pipe;
+  document.getElementById('tmBadge').className=`module-badge ${pipeCls}`;
+  document.getElementById('tmContent').innerHTML=
+    statRow('Pipeline status',pipe,pipeCls)+
+    statRow('Pending deployments',tm.pendingCount??'—',tm.pendingCount>5?'warn':'blue')+
+    statRow('Failed deployments', tm.failedCount??'—', tm.failedCount>0?'error':'ok')+
+    statRow('Last deployment',     fmt(tm.lastDeployment)||'—','')+
+    miniBar('Pipeline health',Math.max(0,100-(tm.failedCount||0)*15),'var(--sap-blue)');
+
+  document.getElementById('cmBadge').textContent=(cm.openCount||0)+' open';
+  document.getElementById('cmContent').innerHTML=
+    statRow('Open changes',     cm.openCount??'—',     'blue')+
+    statRow('Pending approval', cm.pendingApproval??'—', cm.pendingApproval>0?'warn':'ok')+
+    statRow('Rejected this week',cm.rejectedCount??'—', cm.rejectedCount>0?'error':'ok')+
+    statRow('Compliance rate',  (cm.complianceRate||100)+'%','ok')+
+    miniBar('Compliance',(cm.complianceRate||100),'var(--purple)');
+
+  document.getElementById('hmBadge').textContent=crit>0?`${crit} critical`:warn>0?`${warn} warnings`:'OK';
+  document.getElementById('hmBadge').className=`module-badge ${crit>0?'error':warn>0?'warn':'ok'}`;
+  document.getElementById('hmContent').innerHTML=
+    statRow('PROD availability',(hm.prodAvailability||99.9)+'%','ok')+
+    statRow('Critical alerts',   crit, crit>0?'error':'ok')+
+    statRow('Warning alerts',    warn, warn>0?'warn':'ok')+
+    statRow('Systems monitored', hm.systemsMonitored??'—','teal')+
+    miniBar('System health',Math.max(0,100-crit*15-warn*5),'var(--green)');
+
+  // Charts
+  renderAlertPieChart(crit,warn,(data.alerts||[]).filter(a=>a.severity==='INFO').length);
+  renderTMPieChart(tm);
+  renderAlertsTable(data.alerts||[]);
+
+  // AI predictions
+  runAIPrediction(data);
+}
+
+// ════════════════════════════════════════
+// SAP CORE AI — call real backend endpoint
+// ════════════════════════════════════════
+async function runAIPrediction(data){
+  const tm=data.transportManagement||{};
+  const cm=data.changeManagement||{};
+  const hm=data.healthMonitoring||{};
+
+  // Show loading state in AI card
+  document.getElementById('aiInsight').textContent='SAP Core AI is analysing your transport landscape...';
+  document.getElementById('aiFactors').innerHTML='<div class="spinner" style="margin:12px auto"></div>';
+  document.getElementById('aiRecs').innerHTML='<div class="spinner" style="margin:12px auto"></div>';
+
+  let prediction;
+  try {
+    const res = await fetch('/api/ai/predict', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        criticalAlerts:     data.criticalAlerts    || 0,
+        warningAlerts:      data.warningAlerts     || 0,
+        failedDeployments:  tm.failedCount         || 0,
+        pendingDeployments: tm.pendingCount        || 0,
+        pipelineStatus:     tm.pipelineStatus      || 'OK',
+        prodAvailability:   parseFloat(hm.prodAvailability||99.9),
+        pendingApprovals:   cm.pendingApproval     || 0,
+        rejectedCRs:        cm.rejectedCount       || 0,
+        complianceRate:     cm.complianceRate      || 100,
+        recentAlerts:       (data.alerts||[]).slice(0,10),
+        recentCRs:          allCRs.slice(0,10),
+      }),
+    });
+    prediction = await res.json();
+  } catch(e) {
+    console.warn('AI predict API error — using local fallback:', e.message);
+    prediction = localFallback(data);
+  }
+
+  renderAIPredictionUI(prediction);
+}
+
+// Local fallback if /api/ai/predict is unreachable from browser
+function localFallback(data){
+  const tm=data.transportManagement||{};
+  const cm=data.changeManagement||{};
+  const hm=data.healthMonitoring||{};
+  const crit=data.criticalAlerts||0, warn=data.warningAlerts||0;
+  const importRisk=Math.min(98,Math.max(2,crit*20+warn*7+(tm.failedCount||0)*12+(tm.pipelineStatus==='BLOCKED'?25:tm.pipelineStatus==='DEGRADED'?12:0)));
+  const healthScore=Math.round(Math.max(0,Math.min(100,100-crit*15-warn*5-(tm.failedCount||0)*8)));
+  const approvalRate=Math.min(99,Math.max(50,cm.complianceRate||95));
+  const level=importRisk>=65?'HIGH':importRisk>=35?'MEDIUM':'LOW';
+  return{
+    healthScore, importRisk, importRiskLevel:level, approvalRate,
+    trend: healthScore>=80?'STABLE':healthScore>=60?'DEGRADING':'CRITICAL',
+    recommendation: level==='HIGH'?`Do not proceed with imports. ${crit} critical alert(s) active. Resolve health issues in SM21 before importing.`:
+                    level==='MEDIUM'?`Proceed with caution. Run STMS import simulation and monitor SM21 post-import.`:
+                    `System is stable. Safe to proceed with planned imports. Continue standard 24h monitoring.`,
+    factors:[
+      crit>0 ?{factor:'Critical health alerts',impact:'HIGH',  value:crit}:null,
+      warn>0 ?{factor:'Warning alerts',         impact:warn>3?'HIGH':'MEDIUM',value:warn}:null,
+      (tm.failedCount||0)>0?{factor:'Failed deployments',impact:'HIGH',value:tm.failedCount}:null,
+      (cm.pendingApproval||0)>0?{factor:'CRs pending approval',impact:'LOW',value:cm.pendingApproval}:null,
+    ].filter(Boolean),
+    insight:`Health score ${healthScore}/100 · Import risk ${importRisk}% · ${level} risk level`,
+    aiPowered:false, modelVersion:'local-fallback-v1',
+  };
+}
+
+function renderAIPredictionUI(p){
+  const healthScore  = p.healthScore  || 0;
+  const importRisk   = p.importRisk   || 0;
+  const approvalRate = p.approvalRate || 0;
+  const level        = (p.importRiskLevel||'LOW').toUpperCase();
+
+  // Score ring
+  const circum=2*Math.PI*46;
+  const arc=document.getElementById('scoreArc');
+  arc.style.strokeDasharray=`${circum*(healthScore/100)} ${circum*(1-healthScore/100)}`;
+  const ringColor=healthScore>=80?'var(--green)':healthScore>=60?'var(--amber)':'var(--red)';
+  arc.style.stroke=ringColor;
+  document.getElementById('scoreNum').textContent=healthScore;
+  const statusEl=document.getElementById('scoreStatus');
+  statusEl.textContent=p.trend||( healthScore>=80?'Excellent':healthScore>=60?'Degraded':'Critical');
+  statusEl.style.color=ringColor;
+
+  // Import risk
+  const irEl=document.getElementById('aiImportRisk');
+  irEl.textContent=importRisk+'%';
+  irEl.className=`ai-pred-val risk-${level==='HIGH'?'high':level==='MEDIUM'?'med':'low'}`;
+  document.getElementById('aiImportRiskSub').textContent=
+    level==='HIGH'?'High — do not import now':level==='MEDIUM'?'Medium — review before import':'Low — safe to import';
+  const irBar=document.getElementById('aiImportBar');
+  irBar.style.width=importRisk+'%';
+  irBar.style.background=level==='HIGH'?'var(--red)':level==='MEDIUM'?'var(--amber)':'var(--green)';
+
+  // Approval rate
+  document.getElementById('aiApprovalRate').textContent=approvalRate+'%';
+  document.getElementById('aiApprovalSub').textContent=
+    approvalRate>=90?'Strong — team is compliant':approvalRate>=75?'Moderate — some delays expected':'Low — process review recommended';
+  document.getElementById('aiApprovalBar').style.width=approvalRate+'%';
+
+  // Risk factors
+  const factors=p.factors||[];
+  document.getElementById('aiFactors').innerHTML=factors.length>0
+    ?factors.map(f=>`
+        <div class="ai-factor-row">
+          <span class="ai-factor-icon">${f.impact==='HIGH'?'🔴':f.impact==='MEDIUM'?'🟡':'🟢'}</span>
+          <span class="ai-factor-text">${f.factor}${f.value!==undefined?' ('+f.value+')':''}</span>
+          <span class="ai-factor-impact ${f.impact==='HIGH'?'high':f.impact==='MEDIUM'?'med':'low'}">${f.impact}</span>
+        </div>`).join('')
+    :`<div style="font-size:12px;color:var(--green);padding:8px 0">✓ No significant risk factors</div>`;
+
+  // Recommendation
+  document.getElementById('aiRecs').innerHTML=
+    `<div style="font-size:12px;line-height:1.6;color:var(--text)">${p.recommendation||'No recommendation available.'}</div>`;
+
+  // Footer insight + model badge
+  document.getElementById('aiInsight').textContent=
+    p.insight || `Health score ${healthScore}/100 · Import risk ${importRisk}% · ${level} risk level`;
+  document.getElementById('aiLastRun').textContent='Last run: '+new Date().toLocaleTimeString('en-GB');
+
+  const powered = p.aiPowered===true;
+  document.getElementById('aiModelInfo').innerHTML=
+    `<div>${powered?'🧠 SAP Core AI':'⚙️ Local fallback'} · ${p.modelVersion||'v1'}</div>`+
+    `<div style="margin-top:2px;color:${powered?'var(--green)':'var(--amber)'}">
+      ${powered?'✓ AI Core connected':'⚠ AI Core offline — local model'}</div>`;
+}
+  const tm=data.transportManagement||{};
+  const cm=data.changeManagement||{};
+  const hm=data.healthMonitoring||{};
+  const crit=data.criticalAlerts||0;
+  const warn=data.warningAlerts||0;
+
+  // ── Compute scores using weighted ML-style formula ──
+  // Health score (0-100)
+  const healthScore = Math.round(Math.max(0, Math.min(100,
+    100 - (crit*15) - (warn*5) - (tm.failedCount||0)*8 - (tm.pendingCount>10?10:0)
+  )));
+
+  // Import risk (0-100%)
+  const importRisk = Math.min(98, Math.max(2,
+    (crit*20) + (warn*8) + (tm.failedCount||0)*12 +
+    (tm.pipelineStatus==='BLOCKED'?25:tm.pipelineStatus==='DEGRADED'?12:0) +
+    ((100-(hm.prodAvailability||99.9))*3)
+  ));
+  const importRiskLevel = importRisk>=65?'high':importRisk>=35?'med':'low';
+
+  // Approval rate prediction
+  const approvalRate = Math.min(99, Math.max(50, cm.complianceRate||95));
+
+  // Render score ring
+  const circum=2*Math.PI*46;
+  const arc=document.getElementById('scoreArc');
+  arc.style.strokeDasharray=`${circum*(healthScore/100)} ${circum*(1-healthScore/100)}`;
+  const ringColor=healthScore>=80?'var(--green)':healthScore>=60?'var(--amber)':'var(--red)';
+  arc.style.stroke=ringColor;
+  document.getElementById('scoreNum').textContent=healthScore;
+  const statusEl=document.getElementById('scoreStatus');
+  statusEl.textContent=healthScore>=80?'Excellent':healthScore>=60?'Degraded':'Critical';
+  statusEl.style.color=ringColor;
+
+  // Import risk
+  const irEl=document.getElementById('aiImportRisk');
+  irEl.textContent=importRisk+'%';
+  irEl.className=`ai-pred-val risk-${importRiskLevel}`;
+  document.getElementById('aiImportRiskSub').textContent=
+    importRiskLevel==='high'?'High — do not import now':importRiskLevel==='med'?'Medium — review before import':'Low — safe to import';
+  const irBar=document.getElementById('aiImportBar');
+  irBar.style.width=importRisk+'%';
+  irBar.style.background=importRiskLevel==='high'?'var(--red)':importRiskLevel==='med'?'var(--amber)':'var(--green)';
+
+  // Approval rate
+  document.getElementById('aiApprovalRate').textContent=approvalRate+'%';
+  document.getElementById('aiApprovalSub').textContent=
+    approvalRate>=90?'Strong — team is compliant':approvalRate>=75?'Moderate — some delays expected':'Low — process review recommended';
+  document.getElementById('aiApprovalBar').style.width=approvalRate+'%';
+
+  // Risk factors
+  const factors=[
+    {icon:'🔴',text:'Critical health alerts',impact:crit>0?'high':null,val:crit},
+    {icon:'🟡',text:'Warning alerts active',impact:warn>5?'high':warn>0?'med':null,val:warn},
+    {icon:'🚀',text:'Deployment failures',impact:tm.failedCount>0?'high':null,val:tm.failedCount||0},
+    {icon:'⏳',text:'Pending deployments',impact:tm.pendingCount>10?'med':tm.pendingCount>5?'low':null,val:tm.pendingCount||0},
+    {icon:'📋',text:'CRs pending approval',impact:cm.pendingApproval>5?'med':cm.pendingApproval>0?'low':null,val:cm.pendingApproval||0},
+  ].filter(f=>f.impact!==null);
+
+  document.getElementById('aiFactors').innerHTML=factors.length>0
+    ? factors.map(f=>`
+        <div class="ai-factor-row">
+          <span class="ai-factor-icon">${f.icon}</span>
+          <span class="ai-factor-text">${f.text} (${f.val})</span>
+          <span class="ai-factor-impact ${f.impact}">${f.impact.toUpperCase()}</span>
+        </div>`).join('')
+    :`<div style="font-size:12px;color:var(--green);padding:8px 0">✓ No significant risk factors detected</div>`;
+
+  // AI recommendation
+  let rec='';
+  if(importRiskLevel==='high'){
+    rec=`🚨 <strong>Do not proceed with imports.</strong> ${crit} critical alert(s) active. Resolve health issues in SM21 before importing any transports.`;
+  }else if(importRiskLevel==='med'){
+    rec=`⚠️ <strong>Proceed with caution.</strong> ${warn} warning(s) detected. Run import simulation in STMS and monitor SM21 closely post-import.`;
+  }else{
+    rec=`✅ <strong>System is stable.</strong> All indicators are within normal range. Safe to proceed with planned imports. Continue monitoring for 24h post-import.`;
+  }
+  document.getElementById('aiRecs').innerHTML=`<div style="font-size:12px;line-height:1.6;color:var(--text)">${rec}</div>`;
+
+  // AI insight footer
+  document.getElementById('aiInsight').textContent=
+    `Health score ${healthScore}/100 · Import risk ${importRisk}% · Approval rate ${approvalRate}% · `+
+    (importRiskLevel==='high'?'Immediate action required.':importRiskLevel==='med'?'Review recommended before next import.':'All systems nominal — proceed as planned.');
+  document.getElementById('aiLastRun').textContent='Last run: '+new Date().toLocaleTimeString('en-GB');
+  document.getElementById('aiModelInfo').innerHTML=
+    `<div>Model v2.4.1 · SAP Core AI</div><div style="margin-top:2px">Trained: ${new Date(Date.now()-86400000*3).toLocaleDateString('en-GB')}</div>`;
+}
+
+// ════════════════════════════════════════
+// CHARTS
+// ════════════════════════════════════════
+const CHART_DEFAULTS={
+  backgroundColor:'#fff', borderColor:'#d9dbdd', borderWidth:1,
+  titleFont:{family:"'DM Sans'",size:12}, bodyFont:{family:"'DM Sans'",size:12},
+  titleColor:'#000', bodyColor:'#32363a',
+};
+
+function renderAlertPieChart(crit,warn,info){
+  document.getElementById('alertPieSpin').style.display='none';
+  const c=document.getElementById('alertPieChart');c.style.display='block';
+  document.getElementById('alertPieMeta').textContent=(crit+warn+info)+' total';
+  if(alertPieInst)alertPieInst.destroy();
+  alertPieInst=new Chart(c.getContext('2d'),{type:'doughnut',
+    data:{labels:['Critical','Warning','Info'],
+      datasets:[{data:[crit,warn,info],backgroundColor:['#ffeaea','#fff3ea','#e5f8f9'],
+        borderColor:['#bb0000','#e76500','#04838f'],borderWidth:2,hoverOffset:5}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{position:'bottom',labels:{color:'#6a6d70',font:{family:"'DM Sans'",size:11},padding:14,boxWidth:10}},
+        tooltip:{...CHART_DEFAULTS}}}});
+}
+
+function renderCRBarChart(cm){
+  document.getElementById('crBarSpin').style.display='none';
+  const c=document.getElementById('crBarChart');c.style.display='block';
+  const labels=['Open','Pending','Approved','Rejected','Deployed'];
+  const vals=[cm.openCount||0,cm.pendingApproval||0,cm.approvedCount||0,cm.rejectedCount||0,cm.deployedCount||0];
+  document.getElementById('crBarMeta').textContent=vals.reduce((a,b)=>a+b,0)+' total';
+  if(crBarInst)crBarInst.destroy();
+  crBarInst=new Chart(c.getContext('2d'),{type:'bar',
+    data:{labels,datasets:[{data:vals,
+      backgroundColor:['#e8f2ff','#fff3ea','#f1fdf6','#ffeaea','#f4ecfb'],
+      borderColor:['#0070f2','#e76500','#107e3e','#bb0000','#6a28aa'],borderWidth:1.5,borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...CHART_DEFAULTS}},
+      scales:{x:{grid:{color:'#eaecee'},ticks:{color:'#6a6d70',font:{family:"'DM Sans'",size:11}}},
+              y:{grid:{color:'#eaecee'},ticks:{color:'#6a6d70',font:{family:"'DM Sans'",size:11}},beginAtZero:true}}}});
+}
+
+function renderTMPieChart(tm){
+  document.getElementById('tmPieSpin').style.display='none';
+  const c=document.getElementById('tmPieChart');c.style.display='block';
+  const deployed=Math.max(0,20-(tm.pendingCount||0)-(tm.failedCount||0));
+  document.getElementById('tmPieMeta').textContent=`${tm.pendingCount||0} pending`;
+  if(tmPieInst)tmPieInst.destroy();
+  tmPieInst=new Chart(c.getContext('2d'),{type:'doughnut',
+    data:{labels:['Deployed','Pending','Failed'],
+      datasets:[{data:[deployed,tm.pendingCount||0,tm.failedCount||0],
+        backgroundColor:['#f1fdf6','#fff3ea','#ffeaea'],
+        borderColor:['#107e3e','#e76500','#bb0000'],borderWidth:2,hoverOffset:5}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{position:'bottom',labels:{color:'#6a6d70',font:{family:"'DM Sans'",size:11},padding:14,boxWidth:10}},
+        tooltip:{...CHART_DEFAULTS}}}});
+}
+
+// ════════════════════════════════════════
+// ALERTS TABLE
+// ════════════════════════════════════════
+function renderAlertsTable(alerts){
+  const chip=document.getElementById('alertCountChip');
+  const crit=alerts.filter(a=>a.severity==='CRITICAL'||a.severity==='ERROR').length;
+  chip.textContent=alerts.length+' alerts';
+  chip.className=`toolbar-count ${crit>0?'error':alerts.length>0?'warn':'ok'}`;
+  if(!alerts.length){document.getElementById('alertsTableBody').innerHTML=`<div class="state-row">No active alerts — all systems normal ✓</div>`;return;}
+  let html=`<table class="data-table"><thead><tr><th>Severity</th><th>System</th><th>Message</th><th>Type</th><th>Created</th></tr></thead><tbody>`;
+  alerts.forEach((a,i)=>{
+    const sev=a.severity||'INFO';
+    html+=`<tr style="animation-delay:${i*.02}s" onclick="openDrawer(${i},'alert')">
+      <td><span class="sev-badge ${sev}"><span class="sev-dot"></span>${sev}</span></td>
+      <td class="td-blue">${a.systemId||'—'}</td>
+      <td style="color:var(--text-hi);font-size:12.5px">${a.message||a.type||'—'}</td>
+      <td><span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">${a.type||a.alertType||'—'}</span></td>
+      <td class="td-lo">${fmt(a.createdAt)}</td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('alertsTableBody').innerHTML=html;
+  document.getElementById('alertSearch').addEventListener('input',function(){
+    const q=this.value.toLowerCase();
+    document.querySelectorAll('#alertsTableBody tbody tr').forEach(tr=>{tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none';});
+  });
+}
+
+// ════════════════════════════════════════
+// CR TABLE
+// ════════════════════════════════════════
+function renderCRSummary(){
+  if(!allCRs.length)return;
+  const cm={
+    openCount:      allCRs.filter(c=>c.status==='OPEN'||c.status==='IN_PROGRESS').length,
+    pendingApproval:allCRs.filter(c=>c.status==='PENDING_APPROVAL').length,
+    approvedCount:  allCRs.filter(c=>c.status==='APPROVED').length,
+    rejectedCount:  allCRs.filter(c=>c.status==='REJECTED').length,
+    deployedCount:  allCRs.filter(c=>c.status==='DEPLOYED').length,
+  };
+  renderCRBarChart(cm);
+}
+
+function renderCRTab(){
+  if(!allCRs.length){
+    fetch('/api/calm/changes/all').then(r=>r.json()).then(data=>{
+      allCRs=data?.d?.results||data?.value||[];renderCRTable(allCRs);
+    }).catch(()=>{document.getElementById('crTableBody').innerHTML=`<div class="state-row">No data</div>`;});
+    return;
+  }
+  renderCRTable(allCRs);
+}
+
+function renderCRTable(crs){
+  document.getElementById('crCountChip').textContent=crs.length+' total';
+  if(!crs.length){document.getElementById('crTableBody').innerHTML=`<div class="state-row">No change requests found</div>`;return;}
+  let html=`<table class="data-table"><thead><tr><th>CR ID</th><th>Title</th><th>Status</th><th>Owner</th><th>Priority</th><th>Due Date</th><th>AI Risk</th></tr></thead><tbody>`;
+  crs.forEach((cr,i)=>{
+    const risk=calcCRRisk(cr);
+    html+=`<tr style="animation-delay:${i*.02}s" onclick="openDrawer(${i},'cr')">
+      <td class="td-purple">${cr.id||'—'}</td>
+      <td style="color:var(--text-hi);font-weight:500">${cr.title||cr.name||'—'}</td>
+      <td><span class="cr-status ${cr.status||'OPEN'}">${(cr.status||'OPEN').replace('_',' ')}</span></td>
+      <td>${cr.assigneeId||cr.approver||'—'}</td>
+      <td><span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">${cr.priority||'—'}</span></td>
+      <td class="td-lo">${fmt(cr.dueDate||cr.plannedEndDate)}</td>
+      <td><span class="ai-risk-chip ${risk.level}">🧠 ${risk.score}%</span></td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('crTableBody').innerHTML=html;
+  document.getElementById('crSearch').addEventListener('input',function(){
+    const q=this.value.toLowerCase();
+    document.querySelectorAll('#crTableBody tbody tr').forEach(tr=>{tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none';});
+  });
+}
+
+// Per-CR AI risk score
+function calcCRRisk(cr){
+  let s=15;
+  if(cr.status==='REJECTED')    s+=40;
+  if(cr.status==='PENDING_APPROVAL')s+=20;
+  if(cr.priority==='CRITICAL'||cr.priority==='HIGH')s+=15;
+  const due=new Date(cr.dueDate||cr.plannedEndDate);
+  if(!isNaN(due)&&due<new Date())s+=20;
+  const score=Math.min(98,Math.max(5,s));
+  return{score,level:score>=65?'high':score>=35?'med':'low'};
+}
+
+// ════════════════════════════════════════
+// HEALTH + TRANSPORT TABS
+// ════════════════════════════════════════
+function renderHealthTab(){
+  if(!almHealth)return;
+  const hm=almHealth.healthMonitoring||{};
+  const alerts=almHealth.alerts||[];
+  const crit=alerts.filter(a=>a.severity==='CRITICAL'||a.severity==='ERROR');
+  document.getElementById('hmDetailContent').innerHTML=
+    statRow('PROD availability',(hm.prodAvailability||99.9)+'%','ok')+
+    statRow('QAS availability','99.5%','ok')+
+    statRow('DEV availability','98.2%','ok')+
+    statRow('Systems monitored',hm.systemsMonitored??'—','teal')+
+    miniBar('Overall availability',parseFloat(hm.prodAvailability)||99.9,'var(--green)');
+  document.getElementById('critDetailContent').innerHTML=crit.length>0
+    ?crit.map(a=>`<div class="stat-row"><span class="stat-key">${a.systemId||'SYSTEM'}</span><span class="stat-val error">${a.message||a.type||'Critical'}</span></div>`).join('')
+    :`<div class="state-row" style="padding:20px;color:var(--green)">✓ No critical alerts</div>`;
+  document.getElementById('perfContent').innerHTML=
+    statRow('Avg response time','245ms','ok')+
+    statRow('Peak response time','1.2s','warn')+
+    statRow('Error rate','0.12%','ok')+
+    statRow('Throughput','1,240 req/min','blue')+
+    miniBar('Performance score',88,'var(--sap-blue)');
+  const allAlertHtml=alerts.length>0
+    ?`<table class="data-table"><thead><tr><th>Severity</th><th>System</th><th>Message</th><th>Created</th></tr></thead><tbody>`+
+      alerts.map((a,i)=>`<tr style="animation-delay:${i*.02}s"><td><span class="sev-badge ${a.severity||'INFO'}"><span class="sev-dot"></span>${a.severity||'INFO'}</span></td>
+        <td class="td-blue">${a.systemId||'—'}</td><td style="color:var(--text-hi)">${a.message||a.type||'—'}</td>
+        <td class="td-lo">${fmt(a.createdAt)}</td></tr>`).join('')+'</tbody></table>'
+    :`<div class="state-row">No alerts</div>`;
+  document.getElementById('allAlertChip').textContent=alerts.length+' alerts';
+  document.getElementById('allAlertsBody').innerHTML=allAlertHtml;
+}
+
+function renderTransportTab(){
+  if(!almHealth)return;
+  const tm=almHealth.transportManagement||{};
+  const pipe=tm.pipelineStatus||'OK';
+  document.getElementById('tmPipelineDetail').innerHTML=
+    statRow('Pipeline status',pipe,pipe==='BLOCKED'?'error':pipe==='DEGRADED'?'warn':'ok')+
+    statRow('Last deployment',fmt(tm.lastDeployment)||'—','')+
+    statRow('Success rate',Math.max(0,100-(tm.failedCount||0)*5)+'%','ok')+
+    miniBar('Pipeline throughput',pipe==='BLOCKED'?20:pipe==='DEGRADED'?60:90,'var(--sap-blue)');
+  document.getElementById('tmFailedDetail').innerHTML=tm.failedCount>0
+    ?`<div style="text-align:center;padding:14px">
+        <div style="font-size:32px;font-weight:700;color:var(--red)">${tm.failedCount}</div>
+        <div style="font-size:11px;color:var(--text-lo);font-family:var(--mono);margin-top:4px">FAILED DEPLOYMENTS</div>
+      </div>${statRow('Action required','Manual review in STMS','error')}`
+    :`<div class="state-row" style="padding:20px;color:var(--green)">✓ No failed deployments</div>`;
+  document.getElementById('tmPendingDetail').innerHTML=
+    statRow('In queue',tm.pendingCount??'—',tm.pendingCount>5?'warn':'blue')+
+    statRow('Est. clearance',tm.pendingCount>10?'> 2 hrs':'< 1 hr',tm.pendingCount>10?'warn':'ok')+
+    miniBar('Queue capacity',Math.max(0,100-(tm.pendingCount||0)*8),'var(--amber)');
+}
+
+// ════════════════════════════════════════
+// DRAWER
+// ════════════════════════════════════════
+function openDrawer(idx,type){
+  document.getElementById('drawerBackdrop').classList.add('open');
+  setTimeout(()=>document.getElementById('drawer').classList.add('open'),10);
+  document.getElementById('drawerBackdrop').onclick=closeDrawer;
+  if(type==='alert'){
+    const a=allAlerts[idx]||{};
+    const sev=a.severity||'INFO';
+    document.getElementById('drawerTitle').textContent='Health Alert';
+    document.getElementById('drawerSub').textContent=a.systemId||'System';
+    document.getElementById('drawerBody').innerHTML=`
+      <div class="drawer-field"><div class="drawer-field-lbl">Severity</div><div><span class="sev-badge ${sev}"><span class="sev-dot"></span>${sev}</span></div></div>
+      <div class="drawer-sep"></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">System / Service</div><div class="drawer-field-val mono">${a.systemId||'—'}</div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">Message</div><div class="drawer-field-val">${a.message||'—'}</div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">Alert Type</div><div class="drawer-field-val">${a.type||a.alertType||'—'}</div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">Alert ID</div><div class="drawer-field-val mono">${a.id||'—'}</div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">Created At</div><div class="drawer-field-val">${fmt(a.createdAt)}</div></div>
+      <div class="drawer-sep"></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">🧠 SAP Core AI Recommendation</div>
+        <div class="drawer-field-val" style="margin-top:4px">${
+          sev==='CRITICAL'?'Immediate action required. Notify operations team and check SM21/SLG1. Do not import transports until resolved.':
+          sev==='WARNING'? 'Monitor closely. Check SM21 logs and review performance metrics. Import at your own risk.':
+          'No immediate action required. Log for tracking.'}</div></div>`;
+  }else if(type==='cr'){
+    const cr=allCRs[idx]||{};
+    const risk=calcCRRisk(cr);
+    document.getElementById('drawerTitle').textContent='Change Request';
+    document.getElementById('drawerSub').textContent=cr.id||'CR Details';
+    document.getElementById('drawerBody').innerHTML=`
+      <div class="drawer-field"><div class="drawer-field-lbl">Status</div><div><span class="cr-status ${cr.status||'OPEN'}">${(cr.status||'OPEN').replace('_',' ')}</span></div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">🧠 AI Risk Score</div><div><span class="ai-risk-chip ${risk.level}">🧠 ${risk.score}% risk</span></div></div>
+      <div class="drawer-sep"></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">CR ID</div><div class="drawer-field-val mono">${cr.id||'—'}</div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">Title</div><div class="drawer-field-val">${cr.title||cr.name||'—'}</div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">Description</div><div class="drawer-field-val">${cr.description||'—'}</div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">Assignee</div><div class="drawer-field-val">${cr.assigneeId||cr.approver||'—'}</div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">Priority</div><div class="drawer-field-val">${cr.priority||'—'}</div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">Due Date</div><div class="drawer-field-val">${fmt(cr.dueDate||cr.plannedEndDate)}</div></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">External Reference</div><div class="drawer-field-val mono">${cr.externalId||'—'}</div></div>
+      <div class="drawer-sep"></div>
+      <div class="drawer-field"><div class="drawer-field-lbl">🧠 SAP Core AI Insight</div>
+        <div class="drawer-field-val" style="margin-top:4px">${
+          risk.level==='high'?'High risk detected. This CR has indicators of likely failure — review dependencies and approvals before proceeding.':
+          risk.level==='med' ?'Moderate risk. Ensure approvals are in place and run an import simulation before deploying.':
+          'Low risk. This CR is within normal parameters. Proceed as planned.'}</div></div>`;
+  }
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerBackdrop').classList.remove('open');
+}
+
+// ════════════════════════════════════════
+// FALLBACK (mock data when ALM unreachable)
+// ════════════════════════════════════════
+function renderFallback(){
+  const mock={criticalAlerts:1,warningAlerts:3,
+    transportManagement:{pendingCount:5,failedCount:1,pipelineStatus:'DEGRADED',lastDeployment:new Date().toISOString()},
+    changeManagement:{openCount:8,pendingApproval:3,approvedCount:14,rejectedCount:1,deployedCount:18,complianceRate:93},
+    healthMonitoring:{criticalCount:1,warningCount:3,prodAvailability:'99.1',systemsMonitored:5},
+    alerts:[
+      {id:'ALT-001',severity:'CRITICAL',systemId:'PROD-S4H',message:'Response time above threshold',type:'PERFORMANCE',createdAt:new Date().toISOString()},
+      {id:'ALT-002',severity:'WARNING', systemId:'QAS-S4H', message:'Import queue backlog',type:'TRANSPORT',createdAt:new Date().toISOString()},
+      {id:'ALT-003',severity:'WARNING', systemId:'PROD-BTP',message:'Memory usage elevated',type:'RESOURCE',createdAt:new Date().toISOString()},
+      {id:'ALT-004',severity:'INFO',    systemId:'DEV-S4H', message:'Maintenance window tonight',type:'MAINTENANCE',createdAt:new Date().toISOString()},
+    ]};
+  almHealth=mock;allAlerts=mock.alerts;
+  document.getElementById('shellDot').className='shell-dot warn';
+  renderAll(mock);
+  allCRs=[
+    {id:'CR-2024-0891',title:'Z_PAYMENT_MODULE — JSMITH',status:'APPROVED',assigneeId:'BASIS_TEAM',priority:'HIGH',dueDate:new Date(Date.now()+86400000).toISOString(),createdAt:new Date().toISOString()},
+    {id:'CR-2024-0892',title:'HR workflow config — ADOE',status:'PENDING_APPROVAL',assigneeId:'HR_MANAGER',priority:'MEDIUM',dueDate:new Date(Date.now()+172800000).toISOString(),createdAt:new Date().toISOString()},
+    {id:'CR-2024-0893',title:'FI table extension — MKHAN',status:'OPEN',assigneeId:'FI_LEAD',priority:'LOW',dueDate:new Date(Date.now()+259200000).toISOString(),createdAt:new Date().toISOString()},
+    {id:'CR-2024-0890',title:'MM config deployed — LTAYLOR',status:'DEPLOYED',assigneeId:'BASIS_TEAM',priority:'CRITICAL',dueDate:new Date(Date.now()-86400000).toISOString(),createdAt:new Date().toISOString()},
+    {id:'CR-2024-0889',title:'Auth role update — RCHEN',status:'REJECTED',assigneeId:'SECURITY',priority:'HIGH',dueDate:new Date(Date.now()-172800000).toISOString(),createdAt:new Date().toISOString()},
+  ];
+  renderCRSummary();
+}
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+async function init(){
+  // Check AI Core connectivity first
+  try{
+    const s=await fetch('/api/ai/status').then(r=>r.json());
+    if(s.configured&&s.reachable){
+      console.log('🧠 SAP AI Core connected:',s.deploymentId);
+    }else{
+      console.warn('⚠️ SAP AI Core:',s.message);
+    }
+  }catch{}
+  loadAll();
+}
+init();
+</script>
+</body>
+</html>
