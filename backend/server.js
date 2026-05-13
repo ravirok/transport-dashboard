@@ -470,9 +470,14 @@ async function resolveCALMDestination() {
 
   const destToken = await getDestinationServiceToken();
 
+  // Request destination with token — use ?$needsAdditionalUserAuthorization=false
+  // to get a full service token with all scopes
   const res = await axios.get(
     `${destinationCredentials.uri}/destination-configuration/v1/destinations/${CALM_DESTINATION_NAME}`,
-    { headers: { Authorization: `Bearer ${destToken}` }, httpsAgent }
+    {
+      headers: { Authorization: `Bearer ${destToken}` },
+      httpsAgent,
+    }
   );
 
   const config     = res.data?.destinationConfiguration || {};
@@ -480,56 +485,146 @@ async function resolveCALMDestination() {
   const authToken  = authTokens[0]?.value;
   const tokenType  = authTokens[0]?.type || "Bearer";
   const expiresIn  = parseInt(authTokens[0]?.expiresIn || "3600");
+  const tokenError = authTokens[0]?.error;
+
+  if (tokenError) {
+    console.error(`❌ Destination token error: ${tokenError}`);
+    throw new Error(`Destination token error: ${tokenError}`);
+  }
 
   if (!authToken) {
     throw new Error(
-      `Destination '${CALM_DESTINATION_NAME}' resolved but no auth token returned. ` +
-      `Check OAuth2ClientCredentials configuration in BTP Destination.`
+      `Destination '${CALM_DESTINATION_NAME}' resolved but no auth token. ` +
+      `Check OAuth2ClientCredentials config in BTP Destination.`
     );
   }
 
-  // ── CRITICAL: Use the correct Cloud ALM API base URL ─────────────────────
-  // From SAP service key: endpoints.Api = "https://eu10.alm.cloud.sap/api"
-  // The correct base URL is https://eu10.alm.cloud.sap (without /api)
-  // NOT the tenant-specific URL https://hcl-america-solutions-inc-cloudalm.eu10.alm.cloud.sap
-  // API paths are then: /api/calm-tasks/v1/tasks etc.
-  const destUrl  = config.URL || config.url || "";
-  // If destination URL is tenant-specific, swap to the regional API URL
-  let baseUrl = destUrl;
+  // Fix base URL — use regional API URL
+  const destUrl = config.URL || config.url || "";
+  let baseUrl   = destUrl;
   if (destUrl.includes(".eu10.alm.cloud.sap") && !destUrl.startsWith("https://eu10.alm.cloud.sap")) {
     baseUrl = "https://eu10.alm.cloud.sap";
-    console.log(`ℹ️  Using regional ALM API URL: ${baseUrl} (was: ${destUrl})`);
+    console.log(`ℹ️  Using regional ALM API URL: ${baseUrl}`);
   }
+  if (!baseUrl) throw new Error(`Destination '${CALM_DESTINATION_NAME}' has no URL.`);
 
-  if (!baseUrl) throw new Error(`Destination '${CALM_DESTINATION_NAME}' has no URL configured.`);
-
-  console.log(`✅ Cloud ALM destination resolved: ${CALM_DESTINATION_NAME} → ${baseUrl}`);
+  console.log(`✅ Cloud ALM destination resolved → ${baseUrl} | token: ${authToken.slice(0,20)}...`);
 
   calmDestCache = { baseUrl, authToken, tokenType, expiry: Date.now() + expiresIn * 1000 };
   return calmDestCache;
 }
 
-// ─── ALM GET helper ───────────────────────────────────────────────────────────
+// ─── Direct ALM token fetch (fallback using service key from VCAP) ────────────
+let directCalmToken       = null;
+let directCalmTokenExpiry = 0;
+
+// ─── X.509 Certificate Token Fetch for Cloud ALM ─────────────────────────────
+// Cloud ALM service key uses credential type x509 (mTLS)
+// Credentials come from VCAP_SERVICES or env vars:
+//   CALM_CLIENT_ID       = clientid from service key uaa section
+//   CALM_CERTIFICATE     = certificate (PEM) from service key uaa.certificate
+//   CALM_PRIVATE_KEY     = privateKey (PEM) from service key uaa.key
+//   CALM_TOKEN_URL       = uaa.certurl + /oauth/token  (NOT uaa.url)
+//   CALM_BASE_URL        = https://eu10.alm.cloud.sap
+async function getDirectCALMToken() {
+  if (directCalmToken && Date.now() < directCalmTokenExpiry - 30000) return directCalmToken;
+
+  let clientId, certificate, privateKey, tokenUrl;
+
+  // Try VCAP_SERVICES first
+  try {
+    const vcap = JSON.parse(process.env.VCAP_SERVICES || "{}");
+    const calm = vcap["cloud-alm"]?.[0]?.credentials
+              || vcap["cloudalm"]?.[0]?.credentials
+              || vcap["alm"]?.[0]?.credentials;
+    if (calm) {
+      clientId    = calm.uaa?.clientid  || calm.clientid;
+      certificate = calm.uaa?.certificate;
+      privateKey  = calm.uaa?.key;
+      // x509 uses certurl not url for token endpoint
+      tokenUrl    = calm.uaa?.certurl   || calm.uaa?.url;
+      console.log(`ℹ️  Cloud ALM x509 credentials from VCAP`);
+    }
+  } catch {}
+
+  // Fallback to env vars
+  clientId    = clientId    || process.env.CALM_CLIENT_ID;
+  certificate = certificate || process.env.CALM_CERTIFICATE;
+  privateKey  = privateKey  || process.env.CALM_PRIVATE_KEY;
+  tokenUrl    = tokenUrl    || process.env.CALM_TOKEN_URL;
+
+  if (!clientId || !certificate || !privateKey || !tokenUrl) {
+    console.warn("⚠️ Cloud ALM x509 credentials not fully configured — skipping direct token");
+    return null;
+  }
+
+  // Clean up PEM strings (env vars may have escaped newlines)
+  const cleanCert = certificate.replace(/\\n/g, "\n");
+  const cleanKey  = privateKey.replace(/\\n/g, "\n");
+
+  const fullUrl = tokenUrl.endsWith("/oauth/token") ? tokenUrl : `${tokenUrl}/oauth/token`;
+
+  // mTLS: present client certificate + private key in HTTPS agent
+  const mtlsAgent = new https.Agent({
+    cert:               cleanCert,
+    key:                cleanKey,
+    rejectUnauthorized: false,
+  });
+
+  const res = await axios.post(
+    fullUrl,
+    new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id:  clientId,
+    }),
+    {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      httpsAgent: mtlsAgent,
+    }
+  );
+
+  directCalmToken       = res.data.access_token;
+  directCalmTokenExpiry = Date.now() + (res.data.expires_in || 3600) * 1000;
+  console.log("✅ Cloud ALM x509 token fetched successfully");
+  return directCalmToken;
+}
+
+// ─── ALM GET helper — destination token first, then x509 direct token ─────────
 async function fetchFromALM(path) {
   const { baseUrl, authToken, tokenType } = await resolveCALMDestination();
 
-  // Destination URL: https://hcl-america-solutions-inc-cloudalm.eu10.alm.cloud.sap
-  // API paths:       /api/calm/v0/...
-  // path already includes /api/calm/v0/... so use as-is
-  const res = await axios.get(`${baseUrl}${path}`, {
-    headers: {
-      Authorization: `${tokenType} ${authToken}`,
-      Accept:        "application/json",
-    },
-    httpsAgent,
-  });
-  return res.data;
+  // Try destination token first
+  try {
+    const res = await axios.get(`${baseUrl}${path}`, {
+      headers: { Authorization: `${tokenType} ${authToken}`, Accept: "application/json" },
+      httpsAgent,
+    });
+    return res.data;
+  } catch (err) {
+    const status = err.response?.status;
+    // 401/403 = token issue → try x509 direct token
+    if (status === 401 || status === 403) {
+      console.warn(`⚠️ Destination token rejected [${status}] — trying x509 direct token`);
+      const directToken = await getDirectCALMToken().catch(e => {
+        console.warn(`⚠️ x509 token failed: ${e.message}`);
+        return null;
+      });
+      if (directToken) {
+        console.log(`ℹ️  Retrying with x509 token: ${path}`);
+        const res2 = await axios.get(`${baseUrl}${path}`, {
+          headers: { Authorization: `Bearer ${directToken}`, Accept: "application/json" },
+          httpsAgent,
+        });
+        return res2.data;
+      }
+    }
+    throw err;
+  }
 }
 
 // ─── ALM PATCH helper ─────────────────────────────────────────────────────────
 async function patchToALM(path, body) {
   const { baseUrl, authToken, tokenType } = await resolveCALMDestination();
-
   const res = await axios.patch(`${baseUrl}${path}`, body, {
     headers: {
       Authorization:  `${tokenType} ${authToken}`,
@@ -554,7 +649,24 @@ function isThisWeek(dateStr) {
   return d >= weekAgo;
 }
 
-// ─── CALM Discovery — finds correct API paths for your tenant ────────────────
+// ─── Projects debug — see raw response from projects API ─────────────────────
+app.get("/api/calm/projects", async (req, res) => {
+  try {
+    const data = await tryALMPaths([
+      "/api/calm-projects/v1/projects?$top=50",
+      "/api/imp-pjm-srv/v1/projects?$top=50",
+    ]);
+    res.json({
+      raw:   data,
+      count: (data?.value || data?.results || []).length,
+      keys:  Object.keys(data || {}),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 app.get("/api/calm/discover", async (req, res) => {
   let resolvedBase = "unknown";
   try { resolvedBase = (await resolveCALMDestination()).baseUrl; } catch (e) { resolvedBase = e.message; }
@@ -799,12 +911,15 @@ app.get("/api/calm/health", async (req, res) => {
         lastDeployment: tmLast,
       },
       changeManagement: {
-        openCount:       cmOpen,
-        pendingApproval: cmPending,
-        approvedCount:   cmApproved,
-        rejectedCount:   cmRejected,
-        deployedCount:   cmDeployed,
+        openCount:       cmOpen + taskOpen,
+        pendingApproval: allTasks.filter(t => t.status === "PENDING_APPROVAL").length,
+        approvedCount:   allTasks.filter(t => ["APPROVED","DONE","CLOSED"].includes(t.status)).length,
+        rejectedCount:   0,
+        deployedCount:   cmClosed,
         complianceRate:  cmCompliance,
+        // Extra context
+        projectCount:    projects.length,
+        taskCount:       allTasks.length,
       },
       healthMonitoring: {
         criticalCount:    hmCritical,
@@ -812,14 +927,23 @@ app.get("/api/calm/health", async (req, res) => {
         prodAvailability: prodAvail,
         systemsMonitored: hmSystems,
       },
-      // Full alert list for banner + table
       alerts: hmAlerts.slice(0, 50).map(a => ({
         id:        a.id,
         severity:  a.severity,
         systemId:  a.serviceId || a.systemId || "SYSTEM",
-        message:   a.description || a.name    || "Alert",
+        message:   a.description || a.name   || "Alert",
         type:      a.alertType  || a.type,
         createdAt: a.createdAt,
+      })),
+      // Pass projects for the CR table fallback
+      projects: projects.slice(0, 20).map(p => ({
+        id:        p.id || p.projectId,
+        title:     p.name || p.title || "",
+        status:    p.status || "OPEN",
+        type:      p.type || p.projectType || "PROJECT",
+        startDate: p.startDate || p.plannedStartDate,
+        endDate:   p.endDate   || p.plannedEndDate,
+        createdAt: p.createdAt || p.createDate,
       })),
     });
 
