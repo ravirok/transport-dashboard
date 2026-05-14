@@ -134,7 +134,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .sb-right{margin-left:auto;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.4)}
 .drawer-backdrop{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.3)}
 .drawer-backdrop.open{display:block}
-.drawer{position:fixed;right:0;top:44px;bottom:0;z-index:401;width:400px;background:var(--surface);border-left:1px solid var(--border);box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column}
+.drawer{position:fixed;right:0;top:44px;bottom:0;z-index:401;width:480px;background:var(--surface);border-left:1px solid var(--border);box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column}
 .drawer.open{transform:none}
 .drawer-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--surface2);flex-shrink:0}
 .drawer-title{font-size:14px;font-weight:600;color:var(--text-hi)}
@@ -547,10 +547,36 @@ function renderAI(p){
   set('aiLastRun','Last run: '+new Date().toLocaleTimeString('en-GB'));
   var powered=p.aiPowered===true;
   setHTML('aiModelInfo','<div>'+(powered?'🧠 SAP Core AI':'⚙️ Local model')+' · '+(p.modelVersion||'v1')+'</div><div style="margin-top:2px;color:'+(powered?'var(--green)':'var(--amber)')+';">'+(powered?'✓ AI Core connected':'⚠ Local fallback')+'</div>');
-  // Try real AI Core in background
+  // Try real AI Core in background with real project data
   if(almHealth){
     var tm2=almHealth.transportManagement||{},cm2=almHealth.changeManagement||{},hm2=almHealth.healthMonitoring||{};
-    fetch('/api/ai/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({criticalAlerts:almHealth.criticalAlerts||0,warningAlerts:almHealth.warningAlerts||0,failedDeployments:tm2.failedCount||0,pendingDeployments:tm2.pendingCount||0,pipelineStatus:tm2.pipelineStatus||'OK',prodAvailability:parseFloat(hm2.prodAvailability||99.9),pendingApprovals:cm2.pendingApproval||0,rejectedCRs:0,complianceRate:cm2.complianceRate||100})}).then(function(r){return r.json();}).then(function(pred){if(pred&&pred.healthScore!==undefined&&pred.aiPowered){renderAI(pred);}}).catch(function(){});
+    var payload={
+      criticalAlerts:almHealth.criticalAlerts||0,
+      warningAlerts:almHealth.warningAlerts||0,
+      failedDeployments:tm2.failedCount||0,
+      pendingDeployments:tm2.pendingCount||0,
+      pipelineStatus:tm2.pipelineStatus||'OK',
+      prodAvailability:parseFloat(hm2.prodAvailability||99.9),
+      pendingApprovals:cm2.pendingApproval||0,
+      rejectedCRs:cm2.rejectedCount||0,
+      complianceRate:cm2.complianceRate||100,
+      projectCount:cm2.projectCount||0,
+      openCount:cm2.openCount||0,
+      taskCount:cm2.taskCount||0
+    };
+    fetch('/api/ai/predict',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    }).then(function(r){return r.json();}).then(function(pred){
+      if(pred&&pred.healthScore!==undefined){
+        pred.aiPowered=true;
+        renderAI(pred);
+        console.log('SAP Core AI prediction: score='+pred.healthScore+' risk='+pred.importRisk+'%');
+      }
+    }).catch(function(e){
+      console.warn('SAP Core AI unavailable — using local model:',e.message);
+    });
   }
 }
 
@@ -610,24 +636,64 @@ function renderCRTab(){
   var items=allCRs.length>0?allCRs:allProjects;
   if(!items.length){setHTML('crTableBody','<div class="state-row">No data</div>');return;}
   set('crCountChip',items.length+' items');
-  var html='<table class="data-table"><thead><tr><th>ID / Name</th><th>Status</th><th>Type</th><th>Owner</th><th>AI Risk</th></tr></thead><tbody>';
+  var html='<table class="data-table"><thead><tr><th>Project / Task</th><th>Status</th><th>Type</th><th>Phase</th><th>AI Risk</th></tr></thead><tbody>';
   items.forEach(function(cr,i){
     var status=cr.status||cr.operationalStatus||'OPEN';
-    var sc=status==='REJECTED'?'chip-err':status==='PENDING_APPROVAL'||status==='AT_RISK'?'chip-warn':status==='DEPLOYED'||status==='ONTRK'||status==='CLOSED'?'chip-ok':'chip-blue';
+    var dispStatus=status==='ONTRK'?'On Track':status==='NOTK'?'Not on Track':status==='O'?'Open':status==='C'?'Closed':status;
+    var sc=status==='NOTK'||status==='REJECTED'||status==='FAILED'?'chip-err':status==='AT_RISK'||status==='PENDING_APPROVAL'?'chip-warn':status==='ONTRK'||status==='CLOSED'||status==='C'?'chip-ok':'chip-blue';
     var risk=calcRisk(cr);
-    html+='<tr style="animation-delay:'+(i*.02)+'s"><td class="td-mono">'+(cr.title||cr.name||cr.id||'—')+'</td><td><span class="chip '+sc+'">'+status+'</span></td><td><span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">'+(cr.type||cr.purpose||'—')+'</span></td><td>'+(cr.assigneeId||cr.responsible||'—')+'</td><td><span class="chip rag-ai '+risk.level+'">🧠 '+risk.score+'%</span></td></tr>';
+    html+='<tr style="animation-delay:'+(i*.02)+'s;cursor:pointer" onclick="openCRDrawer('+i+')">'
+      +'<td class="td-mono">'+(cr.title||cr.name||cr.id||'—')+'</td>'
+      +'<td><span class="chip '+sc+'">'+dispStatus+'</span></td>'
+      +'<td><span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">'+(cr.type||cr.purpose||'PROJECT')+'</span></td>'
+      +'<td><span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">'+(cr.currentPhase||cr.phase||'—')+'</span></td>'
+      +'<td><span class="chip rag-ai '+risk.level+'">🧠 '+risk.score+'%</span></td></tr>';
   });
   html+='</tbody></table>';
   setHTML('crTableBody',html);
   var s=document.getElementById('crSearch');
   if(s)s.oninput=function(){var q=this.value.toLowerCase();document.querySelectorAll('#crTableBody tbody tr').forEach(function(r){r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});};
 }
+
+function openCRDrawer(idx){
+  var items=allCRs.length>0?allCRs:allProjects;
+  var cr=items[idx]||{};
+  var risk=calcRisk(cr);
+  var status=cr.status||cr.operationalStatus||'OPEN';
+  set('drawerTitle',cr.title||cr.name||'Project Details');
+  set('drawerSub',cr.id||cr.projectId||'');
+  setHTML('drawerBody',
+    '<div class="drawer-field"><div class="drawer-field-lbl">Status</div><div><span class="chip '+(risk.level==='high'?'chip-err':risk.level==='med'?'chip-warn':'chip-ok')+'">'+status+'</span></div></div>'
+    +'<div class="drawer-field"><div class="drawer-field-lbl">🧠 AI Risk Score</div><div><span class="chip rag-ai '+risk.level+'" style="font-size:12px;padding:4px 12px">🧠 '+risk.score+'% risk</span></div></div>'
+    +'<div class="drawer-sep"></div>'
+    +'<div class="drawer-field"><div class="drawer-field-lbl">Type</div><div class="drawer-field-val">'+(cr.type||cr.purpose||'—')+'</div></div>'
+    +'<div class="drawer-field"><div class="drawer-field-lbl">Phase</div><div class="drawer-field-val">'+(cr.currentPhase||cr.phase||'—')+'</div></div>'
+    +'<div class="drawer-field"><div class="drawer-field-lbl">Operational Status</div><div class="drawer-field-val">'+(cr.operationalStatus||'—')+'</div></div>'
+    +'<div class="drawer-field"><div class="drawer-field-lbl">Start Date</div><div class="drawer-field-val">'+fmt(cr.startDate||cr.plannedStartDate)+'</div></div>'
+    +'<div class="drawer-field"><div class="drawer-field-lbl">End Date</div><div class="drawer-field-val">'+fmt(cr.endDate||cr.plannedEndDate)+'</div></div>'
+    +'<div class="drawer-sep"></div>'
+    +'<div class="drawer-field"><div class="drawer-field-lbl">🧠 SAP Core AI Insight</div>'
+    +'<div class="drawer-field-val" style="margin-top:4px;font-size:12.5px;line-height:1.6">'
+    +(risk.level==='high'?'High risk detected. This project requires immediate attention. Review with project lead and escalate to steering committee.'
+    :risk.level==='med'?'Moderate risk. Review open tasks and confirm quality gate status before next phase transition.'
+    :'Project health indicators are positive. Continue standard monitoring. No immediate action required.')
+    +'</div></div>'
+  );
+  document.getElementById('drawerBackdrop').classList.add('open');
+  setTimeout(function(){document.getElementById('drawer').classList.add('open');},10);
+  document.getElementById('drawerBackdrop').onclick=closeDrawer;
+}
+
 function calcRisk(cr){
-  var s=15;
-  var status=cr.status||cr.operationalStatus||'';
-  if(status==='REJECTED'||status==='FAILED')s+=40;
-  if(status==='PENDING_APPROVAL'||status==='AT_RISK')s+=20;
-  var due=new Date(cr.dueDate||cr.plannedEndDate||'');
+  var s=10;
+  var status=(cr.status||cr.operationalStatus||'').toUpperCase();
+  // SAP Cloud ALM uses ONTRK=On Track, NOTK=Not on Track
+  if(status==='NOTK'||status==='DELAYED'||status==='REJECTED'||status==='FAILED')s+=55;
+  else if(status==='AT_RISK'||status==='PENDING_APPROVAL')s+=30;
+  else if(status==='ONTRK'||status==='CLOSED'||status==='C')s+=0;
+  else if(status==='O'||status==='OPEN'||status==='IN_PROGRESS')s+=15;
+  // Overdue check
+  var due=new Date(cr.dueDate||cr.endDate||cr.plannedEndDate||'');
   if(!isNaN(due)&&due<new Date())s+=20;
   var score=Math.min(98,Math.max(5,s));
   return{score:score,level:score>=65?'high':score>=35?'med':'low'};
@@ -691,12 +757,81 @@ function generateProjects(){
 }
 function openProjectDrawer(idx){
   var p=bsProjects[idx]||{};
-  var rag=getRAG(p),risk=rag==='r'?'high':rag==='a'?'med':'low';
-  set('drawerTitle',p.title||p.name||'Project');set('drawerSub','AI Assessment');
-  setHTML('drawerBody','<div class="drawer-field"><div class="drawer-field-lbl">Status</div><div><span class="chip rag-ai '+risk+'">'+(rag==='g'?'🟢 On Track':rag==='a'?'🟡 At Risk':'🔴 Delayed')+'</span></div></div><div class="drawer-sep"></div><div class="drawer-field"><div class="drawer-field-lbl">Type</div><div class="drawer-field-val">'+(p.type||p.purpose||'—')+'</div></div><div class="drawer-field"><div class="drawer-field-lbl">Phase</div><div class="drawer-field-val">'+(p.currentPhase||'—')+'</div></div><div class="drawer-sep"></div><div class="drawer-field"><div class="drawer-field-lbl">🧠 SAP Core AI Assessment</div><div class="drawer-field-val" style="margin-top:4px;font-size:12.5px;line-height:1.6">'+(risk==='high'?'High risk. Immediate review recommended.':risk==='med'?'Moderate risk. Review open tasks and approvals.':'On track. Continue standard monitoring.')+'</div></div>');
+  var rag=getRAG(p),risk=calcRisk(p);
+  var prog=getProgress(p);
+  var ragLabel=rag==='g'?'On Track':rag==='a'?'At Risk':'Delayed';
+  var ragColor=rag==='g'?'var(--green)':rag==='a'?'var(--amber)':'var(--red)';
+  var ragEmoji=rag==='g'?'🟢':rag==='a'?'🟡':'🔴';
+  set('drawerTitle',p.title||p.name||'Project');
+  set('drawerSub','AI Deep-Dive Assessment');
+  setHTML('drawerBody',
+    // AI Robot Header
+    '<div style="background:linear-gradient(135deg,var(--ai),var(--blue));border-radius:var(--r-lg);padding:16px;margin-bottom:14px;color:#fff;display:flex;gap:12px;align-items:center">'
+    +'<div style="font-size:36px">🤖</div>'
+    +'<div><div style="font-size:13px;font-weight:700;margin-bottom:3px">SAP Core AI — Project Intelligence</div>'
+    +'<div style="font-size:11px;opacity:.8">Analysing project health signals, task patterns &amp; risk indicators</div></div></div>'
+
+    // Risk Score Ring
+    +'<div style="display:grid;grid-template-columns:120px 1fr;gap:14px;margin-bottom:14px">'
+    +'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center">'
+    +'<svg style="transform:rotate(-90deg)" width="80" height="80" viewBox="0 0 80 80">'
+    +'<circle fill="none" stroke="var(--border)" stroke-width="8" cx="40" cy="40" r="32"/>'
+    +'<circle fill="none" stroke="'+(risk.level==='high'?'var(--red)':risk.level==='med'?'var(--amber)':'var(--green)')+'" stroke-width="8" stroke-linecap="round" cx="40" cy="40" r="32"'
+    +' stroke-dasharray="'+(2*Math.PI*32*(risk.score/100))+' '+(2*Math.PI*32*(1-risk.score/100))+'"/>'
+    +'</svg>'
+    +'<div style="margin-top:-4px;font-size:20px;font-weight:700;color:var(--text-hi)">'+risk.score+'%</div>'
+    +'<div style="font-family:var(--mono);font-size:9px;color:var(--text-lo);letter-spacing:1px">AI RISK</div></div>'
+
+    // Status summary
+    +'<div style="display:flex;flex-direction:column;gap:8px">'
+    +'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px">'
+    +'<div style="font-family:var(--mono);font-size:9px;color:var(--text-lo);letter-spacing:1px;margin-bottom:4px">RAG STATUS</div>'
+    +'<div style="font-size:14px;font-weight:600;color:'+ragColor+'">'+ragEmoji+' '+ragLabel+'</div></div>'
+    +'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px">'
+    +'<div style="font-family:var(--mono);font-size:9px;color:var(--text-lo);letter-spacing:1px;margin-bottom:4px">COMPLETION</div>'
+    +'<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+prog+'%;background:'+ragColor+';border-radius:3px"></div></div><span style="font-family:var(--mono);font-size:11px;font-weight:600">'+prog+'%</span></div></div>'
+    +'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px">'
+    +'<div style="font-family:var(--mono);font-size:9px;color:var(--text-lo);letter-spacing:1px;margin-bottom:4px">PHASE</div>'
+    +'<div style="font-size:12px;font-weight:500">'+(p.currentPhase||p.phase||'—')+'</div></div>'
+    +'</div></div>'
+
+    // AI Analysis
+    +'<div style="background:var(--ai-l);border:1.5px solid var(--ai-m);border-radius:var(--r-lg);padding:14px;margin-bottom:12px">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    +'<span style="font-size:16px">🧠</span>'
+    +'<span style="font-family:var(--mono);font-size:10px;font-weight:600;color:var(--ai);letter-spacing:1px">SAP CORE AI ASSESSMENT</span>'
+    +'<span style="margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--text-lo)">'+new Date().toLocaleTimeString('en-GB')+'</span></div>'
+    +'<div style="font-size:12.5px;color:var(--text);line-height:1.7">'
+    +(risk.level==='high'
+      ?'⚠️ <strong>High risk detected.</strong> This project shows critical indicators requiring immediate attention. Recommend emergency steering review within 48 hours. Validate all quality gates and escalate to programme director.'
+      :risk.level==='med'
+      ?'⚡ <strong>Moderate risk.</strong> Project has risk indicators that need monitoring. Review overdue tasks with assignees, confirm quality gate acceptance, and update timeline if phase deadline is approaching.'
+      :'✅ <strong>Project is healthy.</strong> All health indicators are within normal parameters. Continue standard monitoring cadence. No immediate action required — prepare for next phase transition.')
+    +'</div></div>'
+
+    // Key Metrics
+    +'<div style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-lo);margin-bottom:8px">PROJECT DETAILS</div>'
+    +'<div style="display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden">'
+    +drawerRow('Project ID', p.id||p.projectId||'—')
+    +drawerRow('Type', p.type||p.purpose||'PROJECT')
+    +drawerRow('Operational Status', p.operationalStatus||p.status||'—')
+    +drawerRow('Start Date', fmt(p.startDate||p.plannedStartDate))
+    +drawerRow('End Date', fmt(p.endDate||p.plannedEndDate))
+    +'</div>'
+
+    // Actions
+    +'<div style="margin-top:14px;display:flex;gap:8px">'
+    +'<button class="btn-primary" style="flex:1" onclick="runGoLiveCheck(\''+(p.id||p.projectId||idx)+'\');switchTab(\'business\');closeDrawer()">🚀 Check Go-Live Readiness</button>'
+    +'<button class="btn-sec" onclick="closeDrawer()">Close</button>'
+    +'</div>'
+  );
   document.getElementById('drawerBackdrop').classList.add('open');
   setTimeout(function(){document.getElementById('drawer').classList.add('open');},10);
   document.getElementById('drawerBackdrop').onclick=closeDrawer;
+}
+
+function drawerRow(k,v){
+  return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text-med)">'+k+'</span><span style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text-hi)">'+v+'</span></div>';
 }
 function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerBackdrop').classList.remove('open');}
 
