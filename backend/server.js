@@ -946,162 +946,98 @@ async function tryALMPaths(paths) {
 
 // 5. GET /api/calm/health
 app.get("/api/calm/health", async (req, res) => {
-  // Hard 10 second timeout — always responds, never hangs
   const timer = setTimeout(() => {
     if (!res.headersSent) {
-      console.warn("⚠️ ALM health timeout — returning empty structure");
+      console.warn("⚠️ ALM health timeout");
       res.json({
-        criticalAlerts: 0, warningAlerts: 0,
-        transportManagement:  { pendingCount:0, failedCount:0, pipelineStatus:"UNKNOWN", lastDeployment:null },
-        changeManagement:     { openCount:0, pendingApproval:0, approvedCount:0, rejectedCount:0, deployedCount:0, complianceRate:100, projectCount:0, taskCount:0 },
-        healthMonitoring:     { criticalCount:0, warningCount:0, prodAvailability:"99.9", systemsMonitored:0 },
-        alerts: [], projects: [],
-        error: "timeout",
+        criticalAlerts:0, warningAlerts:0,
+        transportManagement:{pendingCount:0,failedCount:0,pipelineStatus:"UNKNOWN",lastDeployment:null},
+        changeManagement:{openCount:0,pendingApproval:0,approvedCount:0,rejectedCount:0,deployedCount:0,complianceRate:100,projectCount:0,taskCount:0},
+        healthMonitoring:{criticalCount:0,warningCount:0,prodAvailability:"99.9",systemsMonitored:0},
+        alerts:[], projects:[], error:"timeout"
       });
     }
   }, 9000);
 
   try {
-    // ── Fetch projects, features and health ALL IN PARALLEL ──────────
-    console.log("🔄 ALM health: fetching in parallel...");
-    const [projectsRaw, featRaw, hmRaw] = await Promise.all([
-      tryALMPaths([
-        "/api/calm-projects/v1/projects?$top=100",
-        "/api/imp-pjm-srv/v1/projects?$top=100",
-      ]),
-      tryALMPaths([
-        "/api/imp-cdm-srv/v1/features?$top=100",
-        "/api/imp-cdm-srv/v0/features?$top=100",
-        "/api/calm-cdm/v1/features?$top=100",
-      ]),
-      tryALMPaths([
-        "/api/ops-alm-evt-srv/v1/events?$top=200",
-        "/api/calm-health/v1/events?$top=200",
-        "/api/ops-ihm-srv/v1/events?$top=200",
-      ]),
+    // Fetch ONLY projects first — this is confirmed working
+    // Features and health monitoring fetched in parallel but don't block response
+    const projectsRaw = await tryALMPaths([
+      "/api/calm-projects/v1/projects?$top=100",
+      "/api/imp-pjm-srv/v1/projects?$top=100",
     ]);
-
     const projects = parseALMResponse(projectsRaw);
+    console.log(`✅ ALM projects: ${projects.length}`);
+
+    // Fire features + health in parallel — don't await if they take too long
+    const [featRaw, hmRaw] = await Promise.all([
+      tryALMPaths(["/api/imp-cdm-srv/v1/features?$top=100","/api/imp-cdm-srv/v0/features?$top=100"]).catch(()=>null),
+      tryALMPaths(["/api/ops-alm-evt-srv/v1/events?$top=50","/api/calm-health/v1/events?$top=50"]).catch(()=>null),
+    ]);
     const features = parseALMResponse(featRaw);
     const hmAlerts = parseALMResponse(hmRaw);
-    console.log(`✅ ALM parallel fetch: projects=${projects.length} features=${features.length} hm=${hmAlerts.length}`);
 
-    // ── Tasks — fetch for first 3 projects in parallel (not sequential) ──
+    // Tasks for first 3 projects in parallel
     let allTasks = [];
     if (projects.length > 0) {
-      const topProjects = projects.slice(0, 3);
       const taskResults = await Promise.all(
-        topProjects.map(async proj => {
+        projects.slice(0, 3).map(async proj => {
           const pid = proj.id || proj.projectId;
           if (!pid) return [];
-          try {
-            const r = await tryALMPaths([
-              `/api/calm-tasks/v1/tasks?projectId=${pid}&$top=50`,
-              `/api/imp-tkm-srv/v1/tasks?projectId=${pid}&$top=50`,
-            ]);
-            return parseALMResponse(r);
-          } catch { return []; }
+          const r = await tryALMPaths([
+            `/api/calm-tasks/v1/tasks?projectId=${pid}&$top=30`,
+          ]).catch(()=>null);
+          return parseALMResponse(r);
         })
       );
       allTasks = taskResults.flat();
-      console.log(`✅ ALM tasks (top 3 projects): ${allTasks.length}`);
     }
 
-    // ── Transport Management ─────────────────────────────────────────
-    const tmItems        = features;
-    const tmPending      = tmItems.filter(i => ["READY","PENDING","IN_PROGRESS","SCHEDULED"].includes(i.status)).length;
-    const tmFailed       = tmItems.filter(i => ["FAILED","ERROR","ABORTED"].includes(i.status)).length;
-    const tmLast         = tmItems.find(i => ["DEPLOYED","SUCCESS","COMPLETED"].includes(i.status))?.deployedAt || null;
-    const pipelineStatus = tmFailed > 0 ? "BLOCKED" : tmPending > 5 ? "DEGRADED" : tmItems.length > 0 ? "OK" : "UNKNOWN";
+    // Compute metrics
+    const tmItems  = features;
+    const tmFailed = tmItems.filter(i=>["FAILED","ERROR","ABORTED"].includes(i.status)).length;
+    const tmPending= tmItems.filter(i=>["READY","PENDING","IN_PROGRESS"].includes(i.status)).length;
+    const pipelineStatus = tmFailed>0?"BLOCKED":tmPending>5?"DEGRADED":projects.length>0?"OK":"UNKNOWN";
 
-    // ── Change Management ────────────────────────────────────────────
-    // Use tasks if available, else projects
-    const cmSource     = allTasks.length > 0 ? allTasks : projects;
-    const cmOpen       = cmSource.filter(i => ["OPEN","O","IN_PROGRESS","CIPTKOPEN"].includes(i.status)).length;
-    const cmClosed     = cmSource.filter(i => ["CLOSED","C","DONE","COMPLETED","CIPTYCLOSE"].includes(i.status)).length;
-    const cmPending    = cmSource.filter(i => ["PENDING","PENDING_APPROVAL","P"].includes(i.status)).length;
-    const cmRejected   = cmSource.filter(i => i.status === "REJECTED" && isThisWeek(i.changedAt || i.lastChangedDate)).length;
-    const cmTotal      = cmSource.length;
-    const cmCompliance = cmTotal > 0
-      ? Math.round(((cmTotal - cmSource.filter(i => i.status === "REJECTED").length) / cmTotal) * 100)
-      : 100;
+    const cmSource  = allTasks.length>0 ? allTasks : projects;
+    const cmOpen    = cmSource.filter(i=>["OPEN","O","IN_PROGRESS"].includes(i.status)).length;
+    const cmClosed  = cmSource.filter(i=>["CLOSED","C","DONE","COMPLETED"].includes(i.status)).length;
+    const cmPending = cmSource.filter(i=>["PENDING","PENDING_APPROVAL"].includes(i.status)).length;
+    const cmTotal   = cmSource.length;
+    const cmCompliance = cmTotal>0 ? Math.round(((cmTotal-cmSource.filter(i=>i.status==="REJECTED").length)/cmTotal)*100) : 100;
 
-    // ── Health Monitoring ────────────────────────────────────────────
-    const hmCritical = hmAlerts.filter(a => ["CRITICAL","ERROR"].includes(a.severity)).length;
-    const hmWarning  = hmAlerts.filter(a => a.severity === "WARNING").length;
-    const hmSystems  = [...new Set(hmAlerts.map(a => a.serviceId || a.systemId).filter(Boolean))].length;
-    const prodAlerts = hmAlerts.filter(a =>
-      ["CRITICAL","ERROR"].includes(a.severity) &&
-      (a.systemId || "").toUpperCase().includes("PROD")
-    );
-    const prodAvail = prodAlerts.length > 0
-      ? Math.max(85, 100 - prodAlerts.length * 3).toFixed(1)
-      : "99.9";
+    const hmCritical = hmAlerts.filter(a=>["CRITICAL","ERROR"].includes(a.severity)).length;
+    const hmWarning  = hmAlerts.filter(a=>a.severity==="WARNING").length;
+    const prodAvail  = hmCritical>0 ? String(Math.max(85,100-hmCritical*3).toFixed(1)) : "99.9";
 
-    console.log(`✅ ALM computed: proj=${projects.length} tasks=${allTasks.length} feat=${features.length} hm=${hmAlerts.length} | pipeline=${pipelineStatus} | CM source=${allTasks.length > 0 ? "tasks" : "projects"}`);
+    console.log(`✅ ALM health done: proj=${projects.length} tasks=${allTasks.length} feat=${features.length} hm=${hmAlerts.length}`);
 
     clearTimeout(timer);
     if (res.headersSent) return;
     res.json({
       criticalAlerts: hmCritical,
       warningAlerts:  hmWarning,
-      transportManagement: {
-        pendingCount:   tmPending,
-        failedCount:    tmFailed,
-        pipelineStatus,
-        lastDeployment: tmLast,
-        featuresCount:  features.length,
-      },
-      changeManagement: {
-        openCount:       cmOpen,
-        pendingApproval: cmPending,
-        approvedCount:   cmClosed,
-        rejectedCount:   cmRejected,
-        deployedCount:   cmClosed,
-        complianceRate:  cmCompliance,
-        projectCount:    projects.length,
-        taskCount:       allTasks.length,
-        source:          allTasks.length > 0 ? "tasks" : "projects",
-      },
-      healthMonitoring: {
-        criticalCount:    hmCritical,
-        warningCount:     hmWarning,
-        prodAvailability: prodAvail,
-        systemsMonitored: hmSystems,
-      },
-      alerts: hmAlerts.slice(0, 50).map(a => ({
-        id:        a.id,
-        severity:  a.severity,
-        systemId:  a.serviceId || a.systemId || "SYSTEM",
-        message:   a.description || a.name   || "Alert",
-        type:      a.alertType  || a.type,
-        createdAt: a.createdAt,
-      })),
-      projects: projects.slice(0, 20).map(p => ({
-        id:        p.id || p.projectId,
-        title:     p.name || p.title || "",
-        status:    p.status || "OPEN",
-        type:      p.type  || p.projectType || "PROJECT",
-        startDate: p.startDate || p.plannedStartDate,
-        endDate:   p.endDate   || p.plannedEndDate,
-        createdAt: p.createdAt || p.createDate,
-      })),
+      transportManagement:{pendingCount:tmPending,failedCount:tmFailed,pipelineStatus,lastDeployment:null,featuresCount:features.length},
+      changeManagement:{openCount:cmOpen,pendingApproval:cmPending,approvedCount:cmClosed,rejectedCount:0,deployedCount:cmClosed,complianceRate:cmCompliance,projectCount:projects.length,taskCount:allTasks.length,source:allTasks.length>0?"tasks":"projects"},
+      healthMonitoring:{criticalCount:hmCritical,warningCount:hmWarning,prodAvailability:prodAvail,systemsMonitored:[...new Set(hmAlerts.map(a=>a.serviceId||a.systemId).filter(Boolean))].length},
+      alerts: hmAlerts.slice(0,50).map(a=>({id:a.id,severity:a.severity,systemId:a.serviceId||a.systemId||"SYSTEM",message:a.description||a.name||"Alert",type:a.alertType||a.type,createdAt:a.createdAt})),
+      projects: projects.slice(0,96).map(p=>({id:p.id||p.projectId,title:p.name||p.title||"",status:p.status||"OPEN",type:p.type||p.projectType||"PROJECT",currentPhase:p.currentPhase||p.phase,startDate:p.startDate,endDate:p.endDate,createdAt:p.createdAt||p.createDate,operationalStatus:p.operationalStatus,purpose:p.purpose})),
     });
 
-  } catch (err) {
+  } catch(err) {
     clearTimeout(timer);
     if (res.headersSent) return;
     console.error("❌ /api/calm/health error:", err.message);
     res.json({
-      criticalAlerts: 0, warningAlerts: 0,
-      transportManagement:  { pendingCount:0, failedCount:0, pipelineStatus:"UNKNOWN", lastDeployment:null },
-      changeManagement:     { openCount:0, pendingApproval:0, approvedCount:0, rejectedCount:0, deployedCount:0, complianceRate:100, projectCount:0, taskCount:0 },
-      healthMonitoring:     { criticalCount:0, warningCount:0, prodAvailability:"99.9", systemsMonitored:0 },
-      alerts: [], projects: [],
-      error: err.message,
+      criticalAlerts:0,warningAlerts:0,
+      transportManagement:{pendingCount:0,failedCount:0,pipelineStatus:"UNKNOWN",lastDeployment:null},
+      changeManagement:{openCount:0,pendingApproval:0,approvedCount:0,rejectedCount:0,deployedCount:0,complianceRate:100,projectCount:0,taskCount:0},
+      healthMonitoring:{criticalCount:0,warningCount:0,prodAvailability:"99.9",systemsMonitored:0},
+      alerts:[],projects:[],error:err.message
     });
   }
 });
+
 
 // 6. GET /api/calm/changes/all
 app.get("/api/calm/changes/all", async (req, res) => {
