@@ -1166,22 +1166,24 @@ function renderAll(data){
 }
 
 // ════════════════════════════════════════
-// SAP CORE AI — call real backend endpoint
+// SAP CORE AI — render local first, then API
 // ════════════════════════════════════════
 async function runAIPrediction(data){
   const tm=data.transportManagement||{};
   const cm=data.changeManagement||{};
   const hm=data.healthMonitoring||{};
 
-  // Show loading state in AI card
-  document.getElementById('aiInsight').textContent='SAP Core AI is analysing your transport landscape...';
-  document.getElementById('aiFactors').innerHTML='<div class="spinner" style="margin:12px auto"></div>';
-  document.getElementById('aiRecs').innerHTML='<div class="spinner" style="margin:12px auto"></div>';
+  // Step 1: Render LOCAL scores immediately (no API call)
+  const localPrediction = localFallback(data);
+  renderAIPredictionUI(localPrediction);
 
-  let prediction;
+  // Step 2: Try real AI Core API in background with 8s timeout
   try {
+    const controller = new AbortController();
+    const timeout    = setTimeout(()=>controller.abort(), 8000);
     const res = await fetch('/api/ai/predict', {
       method:  'POST',
+      signal:  controller.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         criticalAlerts:     data.criticalAlerts    || 0,
@@ -1197,13 +1199,17 @@ async function runAIPrediction(data){
         recentCRs:          allCRs.slice(0,10),
       }),
     });
-    prediction = await res.json();
+    clearTimeout(timeout);
+    const prediction = await res.json();
+    // Only update if AI Core actually responded (not local fallback)
+    if(prediction && prediction.healthScore !== undefined){
+      renderAIPredictionUI(prediction);
+      console.log('✅ AI prediction updated from SAP Core AI');
+    }
   } catch(e) {
-    console.warn('AI predict API error — using local fallback:', e.message);
-    prediction = localFallback(data);
+    // Timed out or failed — local scores already showing, nothing to do
+    console.warn('AI predict API timeout/error — showing local scores:', e.message);
   }
-
-  renderAIPredictionUI(prediction);
 }
 
 // Local fallback if /api/ai/predict is unreachable from browser
@@ -1816,9 +1822,4 @@ async function generateWeeklyReport(){
   const weekStr=week.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
   document.getElementById('reportWeekLabel').textContent=`Week of ${weekStr}`;
 
-  bsReportData={weekStr,onTrack,atRisk,delayed,cm,tm,hm,health,aiSummary,projects:bsProjects};
-
-  document.getElementById('reportBody').innerHTML=`
-    <div class="report-ai-box">
-      <span style="font-size:16px;flex-shrink:0">🤖</span>
-      <div><strong>SAP Core AI Execut
+  bsRep
