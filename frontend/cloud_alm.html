@@ -4,8 +4,8 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>SAP Cloud ALM — Command Center</title>
-<link href="https://fonts.googleapis.com/css2?family=72:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
 <style>
 /* ── SAP Fiori Design Tokens ─────────────────── */
 :root {
@@ -1845,4 +1845,5 @@ async function generateWeeklyReport(){
   document.getElementById('reportBody').innerHTML=`
     <div class="report-ai-box">
       <span style="font-size:16px;flex-shrink:0">🤖</span>
-      <div><strong>SAP Core AI Executive Summary:</strong> 
+      <div><strong>SAP Core AI Executive Summary:</strong> ${aiSummary}</div>
+  
