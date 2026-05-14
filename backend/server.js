@@ -339,321 +339,96 @@ app.post("/api/transports/:trkorr/import", async (req, res) => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  CLOUD ALM — CROSS-SUBACCOUNT VIA BTP DESTINATION SERVICE
-//
-//  Architecture:
-//    YOUR APP SUBACCOUNT
-//      └─ Destination Service  ──►  CLOUD ALM SUBACCOUNT
-//                                        └─ Cloud ALM APIs
-//
-//  Setup steps in BTP Cockpit:
-//  1. In YOUR subaccount → Destinations → New Destination:
-//       Name:            CLOUD_ALM_DEST        (or set CALM_DESTINATION_NAME)
-//       Type:            HTTP
-//       URL:             https://your-calm-tenant.eu10.alm.cloud.sap
-//       Authentication:  OAuth2ClientCredentials
-//       Token Service URL: https://your-calm-subdomain.authentication.eu10.hana.ondemand.com/oauth/token
-//       Client ID:       <from Cloud ALM service key in ALM subaccount>
-//       Client Secret:   <from Cloud ALM service key in ALM subaccount>
-//       Additional Properties:
-//         HTML5.DynamicDestination = true
-//         WebIDEEnabled            = true
-//
-//  2. The Destination Service fetches the token automatically — your app
-//     just calls the Destination Service API and gets back the resolved URL
-//     + a ready-to-use Bearer token via "authTokens" in the response.
-//
-//  Required env vars (in addition to existing ones):
-//    CALM_DESTINATION_NAME   — name of the destination above (default: CLOUD_ALM_DEST)
-//
-//  No CALM_CLIENT_ID / CALM_CLIENT_SECRET needed in your app env —
-//  those live inside the BTP Destination configuration in the ALM subaccount.
+//  CLOUD ALM TOKEN + HELPERS
 // ═════════════════════════════════════════════════════════════════════════════
+let calmToken       = null;
+let calmTokenExpiry = 0;
 
-const CALM_DESTINATION_NAME = process.env.CALM_DESTINATION_NAME || "Cloud_ALM";
+async function getCloudALMToken() {
+  // Return cached token if still valid (with 30s buffer)
+  if (calmToken && Date.now() < calmTokenExpiry - 30000) return calmToken;
 
-// ─── SAP AI Core — model name only hardcoded, deployment discovered dynamically
-const AI_CORE_MODEL_NAME = process.env.AI_CORE_MODEL_NAME || "gpt-4.1";
-
-// Deployment cache — populated by discoverAICoreDeployment()
-let aiCoreDeploymentCache  = null;
-let aiCoreDeploymentExpiry = 0;
-
-// ─── Dynamically discover RUNNING deployment across all resource groups ───────
-async function discoverAICoreDeployment() {
-  if (aiCoreDeploymentCache && Date.now() < aiCoreDeploymentExpiry) {
-    return aiCoreDeploymentCache;
-  }
-
-  const token   = await getAICoreToken();
-  const baseUrl = getAICoreBaseUrl();
-  if (!baseUrl) throw new Error("AI_CORE_BASE_URL not configured.");
-
-  // Search known resource groups — security-intelligence-hub first (has GPT-4.1)
-  const resourceGroups = [
-    "security-intelligence-hub",
-    "default",
-    process.env.AI_CORE_RESOURCE_GROUP,
-  ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
-
-  // Step 1: Try to list all resource groups and add them
-  try {
-    const rgRes = await axios.get(`${baseUrl}/v2/admin/resourceGroups`, {
-      headers: { Authorization: `Bearer ${token}` },
-      httpsAgent, timeout: 10000,
-    });
-    const fetched = (rgRes.data?.resourceGroups || rgRes.data?.value || [])
-      .map(rg => rg.resourceGroupId || rg.id || rg.name).filter(Boolean);
-    // Add any new ones not already in list
-    fetched.forEach(rg => { if (!resourceGroups.includes(rg)) resourceGroups.push(rg); });
-    console.log(`✅ AI Core resource groups: ${resourceGroups.join(", ")}`);
-  } catch (err) {
-    console.warn(`⚠️ Resource group list failed [${err.response?.status}]`);
-  }
-
-  // Step 2: Search each resource group — prefer GPT/Azure OpenAI models
-  for (const rg of resourceGroups) {
-    try {
-      const res = await axios.get(`${baseUrl}/v2/lm/deployments?status=RUNNING`, {
-        headers: { Authorization: `Bearer ${token}`, "AI-Resource-Group": rg },
-        httpsAgent, timeout: 10000,
-      });
-
-      const list = res.data?.resources || res.data?.value || [];
-      if (!Array.isArray(list) || list.length === 0) continue;
-
-      console.log(`ℹ️  Resource group '${rg}' has ${list.length} RUNNING deployment(s):`);
-      list.forEach(d => console.log(`   - ${d.id} | model: ${d.details?.resources?.backendDetails?.modelName || d.modelName || "unknown"} | status: ${d.status}`));
-
-      // Prefer GPT/Azure OpenAI models — avoid Claude for chat/completions endpoint
-      const gptDep = list.find(d => {
-        const model = (d.details?.resources?.backendDetails?.modelName || d.modelName || "").toLowerCase();
-        return model.includes("gpt") || model.includes("azure") || model.includes("4");
-      });
-
-      const dep = gptDep || list.find(d => {
-        const model = (d.details?.resources?.backendDetails?.modelName || d.modelName || "").toLowerCase();
-        return !model.includes("claude") && !model.includes("anthropic");
-      });
-
-      if (dep) {
-        const id = dep.id || dep.deploymentId;
-        const modelName = dep.details?.resources?.backendDetails?.modelName || dep.modelName || AI_CORE_MODEL_NAME;
-        console.log(`✅ Selected deployment: ${id} | model: ${modelName} | rg: ${rg}`);
-        aiCoreDeploymentCache  = { deploymentId: id, resourceGroup: rg, baseUrl, modelName };
-        aiCoreDeploymentExpiry = Date.now() + 10 * 60 * 1000;
-        return aiCoreDeploymentCache;
-      }
-    } catch (err) {
-      console.warn(`⚠️ Deployments in '${rg}' failed [${err.response?.status}]`);
-    }
-  }
-
-  throw new Error(`No suitable RUNNING deployment found in: ${resourceGroups.join(", ")}`);
-}
-
-// Cache: { url, token, expiry }
-let calmDestCache = null;
-
-// ─── Step 1: Get Destination Service OAuth token (YOUR subaccount) ────────────
-async function getDestinationServiceToken() {
-  // Reuse the existing getBTPToken() — it already fetches a token
-  // scoped to your subaccount's Destination Service
-  return getBTPToken();
-}
-
-// ─── Step 2: Resolve the Cloud_ALM destination ───────────────────────────────
-async function resolveCALMDestination() {
-  if (calmDestCache && Date.now() < calmDestCache.expiry - 300000) {
-    return calmDestCache;
-  }
-
-  const destToken = await getDestinationServiceToken();
-
-  // Request destination with token — use ?$needsAdditionalUserAuthorization=false
-  // to get a full service token with all scopes
-  const res = await axios.get(
-    `${destinationCredentials.uri}/destination-configuration/v1/destinations/${CALM_DESTINATION_NAME}`,
-    {
-      headers: { Authorization: `Bearer ${destToken}` },
-      httpsAgent,
-    }
-  );
-
-  const config     = res.data?.destinationConfiguration || {};
-  const authTokens = res.data?.authTokens || [];
-  const authToken  = authTokens[0]?.value;
-  const tokenType  = authTokens[0]?.type || "Bearer";
-  const expiresIn  = parseInt(authTokens[0]?.expiresIn || "3600");
-  const tokenError = authTokens[0]?.error;
-
-  if (tokenError) {
-    console.error(`❌ Destination token error: ${tokenError}`);
-    throw new Error(`Destination token error: ${tokenError}`);
-  }
-
-  if (!authToken) {
-    throw new Error(
-      `Destination '${CALM_DESTINATION_NAME}' resolved but no auth token. ` +
-      `Check OAuth2ClientCredentials config in BTP Destination.`
-    );
-  }
-
-  // Fix base URL — use regional API URL
-  const destUrl = config.URL || config.url || "";
-  let baseUrl   = destUrl;
-  if (destUrl.includes(".eu10.alm.cloud.sap") && !destUrl.startsWith("https://eu10.alm.cloud.sap")) {
-    baseUrl = "https://eu10.alm.cloud.sap";
-    console.log(`ℹ️  Using regional ALM API URL: ${baseUrl}`);
-  }
-  if (!baseUrl) throw new Error(`Destination '${CALM_DESTINATION_NAME}' has no URL.`);
-
-  console.log(`✅ Cloud ALM destination resolved → ${baseUrl} | token: ${authToken.slice(0,20)}...`);
-
-  calmDestCache = { baseUrl, authToken, tokenType, expiry: Date.now() + expiresIn * 1000 };
-  return calmDestCache;
-}
-
-// ─── Direct ALM token fetch (fallback using service key from VCAP) ────────────
-let directCalmToken       = null;
-let directCalmTokenExpiry = 0;
-
-// ─── X.509 Certificate Token Fetch for Cloud ALM ─────────────────────────────
-// Cloud ALM service key uses credential type x509 (mTLS)
-// Credentials come from VCAP_SERVICES or env vars:
-//   CALM_CLIENT_ID       = clientid from service key uaa section
-//   CALM_CERTIFICATE     = certificate (PEM) from service key uaa.certificate
-//   CALM_PRIVATE_KEY     = privateKey (PEM) from service key uaa.key
-//   CALM_TOKEN_URL       = uaa.certurl + /oauth/token  (NOT uaa.url)
-//   CALM_BASE_URL        = https://eu10.alm.cloud.sap
-async function getDirectCALMToken() {
-  if (directCalmToken && Date.now() < directCalmTokenExpiry - 30000) return directCalmToken;
-
-  let clientId, certificate, privateKey, certUrl, standardUrl;
-
-  // Try VCAP_SERVICES first
+  // Try VCAP_SERVICES first (BTP service binding), then env vars
+  let clientId, clientSecret, tokenUrl;
   try {
     const vcap = JSON.parse(process.env.VCAP_SERVICES || "{}");
-    const calm = vcap["cloud-alm"]?.[0]?.credentials
-              || vcap["cloudalm"]?.[0]?.credentials
-              || vcap["alm"]?.[0]?.credentials;
+    const calm =
+      vcap["cloud-alm"]?.[0]?.credentials ||
+      vcap["cloudalm"]?.[0]?.credentials  ||
+      vcap["alm"]?.[0]?.credentials;
     if (calm) {
-      clientId     = calm.uaa?.clientid    || calm.clientid;
-      certificate  = calm.uaa?.certificate;
-      privateKey   = calm.uaa?.key;
-      certUrl      = calm.uaa?.certurl;    // mTLS endpoint — HAS .cert. in hostname
-      standardUrl  = calm.uaa?.url;        // standard endpoint
-      console.log(`ℹ️  Cloud ALM x509 from VCAP: certurl=${!!certUrl} url=${!!standardUrl}`);
+      clientId     = calm.clientid     || calm.client_id;
+      clientSecret = calm.clientsecret || calm.client_secret;
+      tokenUrl     = calm.url          || calm.token_service_url;
     }
   } catch {}
 
   // Fallback to env vars
-  clientId    = clientId    || process.env.CALM_CLIENT_ID;
-  certificate = certificate || process.env.CALM_CERTIFICATE;
-  privateKey  = privateKey  || process.env.CALM_PRIVATE_KEY;
+  clientId     = clientId     || process.env.CALM_CLIENT_ID;
+  clientSecret = clientSecret || process.env.CALM_CLIENT_SECRET;
+  tokenUrl     = tokenUrl     || process.env.CALM_TOKEN_URL;
 
-  // CALM_TOKEN_URL should be certurl — if it doesn't have .cert. we try adding it
-  const envTokenUrl = process.env.CALM_TOKEN_URL || "";
-  if (envTokenUrl.includes(".cert.")) {
-    certUrl = envTokenUrl;
-  } else if (envTokenUrl) {
-    // Convert standard URL to cert URL automatically
-    certUrl     = envTokenUrl.replace(".authentication.", ".authentication.cert.");
-    standardUrl = envTokenUrl;
+  if (!clientId || !clientSecret || !tokenUrl) {
+    throw new Error(
+      "Cloud ALM credentials not configured. " +
+      "Set CALM_TOKEN_URL, CALM_CLIENT_ID, CALM_CLIENT_SECRET in environment."
+    );
   }
 
-  if (!clientId || !certificate || !privateKey) {
-    console.warn(`⚠️ x509 credentials incomplete: clientId=${!!clientId} cert=${!!certificate} key=${!!privateKey}`);
-    return null;
-  }
-
-  // Clean PEM strings (env vars may have escaped newlines or spaces)
-  const cleanCert = certificate.replace(/\\n/g, "\n").replace(/\s+-----/g, "\n-----").replace(/-----\s+/g, "-----\n");
-  const cleanKey  = privateKey.replace(/\\n/g, "\n").replace(/\s+-----/g, "\n-----").replace(/-----\s+/g, "-----\n");
-
-  // Create mTLS agent with certificate
-  const mtlsAgent = new https.Agent({
-    cert: cleanCert,
-    key:  cleanKey,
-    rejectUnauthorized: false,
-  });
-
-  // Try certurl first (correct for x509), then standard url as fallback
-  const tokenUrls = [certUrl, standardUrl].filter(Boolean).map(u =>
-    u.endsWith("/oauth/token") ? u : `${u}/oauth/token`
+  const res = await axios.post(
+    `${tokenUrl}/oauth/token`,
+    new URLSearchParams({
+      grant_type:    "client_credentials",
+      client_id:     clientId,
+      client_secret: clientSecret,
+    }),
+    { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent }
   );
 
-  for (const tokenUrl of tokenUrls) {
-    try {
-      console.log(`ℹ️  Trying x509 token from: ${tokenUrl}`);
-      const res = await axios.post(
-        tokenUrl,
-        new URLSearchParams({ grant_type: "client_credentials", client_id: clientId }),
-        { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent: mtlsAgent }
-      );
-      directCalmToken       = res.data.access_token;
-      directCalmTokenExpiry = Date.now() + (res.data.expires_in || 3600) * 1000;
-      console.log(`✅ Cloud ALM x509 token fetched via: ${tokenUrl}`);
-      return directCalmToken;
-    } catch (err) {
-      console.warn(`⚠️ x509 token failed [${err.response?.status||'ERR'}] ${tokenUrl}: ${err.message?.slice(0,80)}`);
-    }
-  }
-
-  console.error("❌ All x509 token attempts failed");
-  return null;
+  calmToken       = res.data.access_token;
+  calmTokenExpiry = Date.now() + (res.data.expires_in || 3600) * 1000;
+  console.log("✅ Cloud ALM token fetched");
+  return calmToken;
 }
 
-// ─── ALM GET helper — destination token first, then x509 direct token ─────────
-async function fetchFromALM(path) {
-  const { baseUrl, authToken, tokenType } = await resolveCALMDestination();
-
-  // Try destination token first
+function getCALMBaseUrl() {
   try {
-    const res = await axios.get(`${baseUrl}${path}`, {
-      headers: { Authorization: `${tokenType} ${authToken}`, Accept: "application/json" },
-      httpsAgent,
-    });
-    return res.data;
-  } catch (err) {
-    const status = err.response?.status;
-    // 401/403 = token issue → try x509 direct token
-    if (status === 401 || status === 403) {
-      console.warn(`⚠️ Destination token rejected [${status}] — trying x509 direct token`);
-      const directToken = await getDirectCALMToken().catch(e => {
-        console.warn(`⚠️ x509 token failed: ${e.message}`);
-        return null;
-      });
-      if (directToken) {
-        console.log(`ℹ️  Retrying with x509 token: ${path}`);
-        const res2 = await axios.get(`${baseUrl}${path}`, {
-          headers: { Authorization: `Bearer ${directToken}`, Accept: "application/json" },
-          httpsAgent,
-        });
-        return res2.data;
-      }
-    }
-    throw err;
-  }
+    const vcap = JSON.parse(process.env.VCAP_SERVICES || "{}");
+    const calm =
+      vcap["cloud-alm"]?.[0]?.credentials ||
+      vcap["cloudalm"]?.[0]?.credentials;
+    if (calm?.endpoints?.["calm-service"]) return calm.endpoints["calm-service"];
+    if (calm?.url) return calm.url.replace(/\/oauth\/token.*/, "");
+  } catch {}
+  return process.env.CALM_BASE_URL || "";
 }
 
-// ─── ALM PATCH helper ─────────────────────────────────────────────────────────
+async function fetchFromALM(path) {
+  const token   = await getCloudALMToken();
+  const baseUrl = getCALMBaseUrl();
+  if (!baseUrl) throw new Error("CALM_BASE_URL not configured.");
+
+  const res = await axios.get(`${baseUrl}${path}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    httpsAgent,
+  });
+  return res.data;
+}
+
 async function patchToALM(path, body) {
-  const { baseUrl, authToken, tokenType } = await resolveCALMDestination();
+  const token   = await getCloudALMToken();
+  const baseUrl = getCALMBaseUrl();
+  if (!baseUrl) throw new Error("CALM_BASE_URL not configured.");
+
   const res = await axios.patch(`${baseUrl}${path}`, body, {
     headers: {
-      Authorization:  `${tokenType} ${authToken}`,
+      Authorization:  `Bearer ${token}`,
       Accept:         "application/json",
       "Content-Type": "application/json",
     },
     httpsAgent,
   });
   return res.data;
-}
-
-// ─── Expose base URL for startup log ─────────────────────────────────────────
-function getCALMBaseUrl() {
-  return calmDestCache?.baseUrl || `via destination: ${CALM_DESTINATION_NAME}`;
 }
 
 // ─── Week helper ──────────────────────────────────────────────────────────────
@@ -664,356 +439,53 @@ function isThisWeek(dateStr) {
   return d >= weekAgo;
 }
 
-// ─── X509 + Projects deep debug ──────────────────────────────────────────────
-app.get("/api/calm/x509debug", async (req, res) => {
-  const result = { steps: {} };
-
-  // Step 1: Check env vars
-  const tokenUrl = process.env.CALM_TOKEN_URL || "";
-  result.steps["1_env_vars"] = {
-    CALM_CLIENT_ID:         !!(process.env.CALM_CLIENT_ID),
-    CALM_CERTIFICATE:       !!(process.env.CALM_CERTIFICATE),
-    CALM_PRIVATE_KEY:       !!(process.env.CALM_PRIVATE_KEY),
-    CALM_TOKEN_URL:         tokenUrl || "NOT SET",
-    CALM_TOKEN_URL_hasCert: tokenUrl.includes(".cert."),
-    certUrlWillUse:         tokenUrl.includes(".cert.") ? tokenUrl : tokenUrl.replace(".authentication.", ".authentication.cert."),
-    certLength:             (process.env.CALM_CERTIFICATE || "").length,
-    keyLength:              (process.env.CALM_PRIVATE_KEY  || "").length,
-    certStartsCorrectly:    (process.env.CALM_CERTIFICATE || "").includes("BEGIN CERTIFICATE"),
-    keyStartsCorrectly:     (process.env.CALM_PRIVATE_KEY  || "").includes("BEGIN"),
-  };
-
-  // Step 2: Try x509 token
-  let x509Token = null;
-  try {
-    x509Token = await getDirectCALMToken();
-    result.steps["2_x509_token"] = {
-      ok: !!x509Token,
-      tokenPreview: x509Token ? x509Token.slice(0, 30) + "..." : null,
-    };
-  } catch (e) {
-    result.steps["2_x509_token"] = { ok: false, error: e.message };
-  }
-
-  // Step 3: Try destination token
-  let destToken = null;
-  try {
-    const dest = await resolveCALMDestination();
-    destToken = dest.authToken;
-    result.steps["3_dest_token"] = {
-      ok:      !!destToken,
-      baseUrl: dest.baseUrl,
-      tokenPreview: destToken ? destToken.slice(0, 30) + "..." : null,
-    };
-  } catch (e) {
-    result.steps["3_dest_token"] = { ok: false, error: e.message };
-  }
-
-  // Step 4: Try projects with BOTH tokens and show raw response
-  const baseUrl = "https://eu10.alm.cloud.sap";
-  for (const [label, token] of [["dest_token", destToken], ["x509_token", x509Token]]) {
-    if (!token) { result.steps[`4_projects_${label}`] = { skipped: true }; continue; }
-    try {
-      const r = await axios.get(`${baseUrl}/api/calm-projects/v1/projects?$top=5`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        httpsAgent,
-      });
-      result.steps[`4_projects_${label}`] = {
-        ok:        true,
-        status:    r.status,
-        keys:      Object.keys(r.data || {}),
-        count:     (r.data?.value || r.data?.results || []).length,
-        rawSample: JSON.stringify(r.data).slice(0, 500),
-      };
-    } catch (e) {
-      result.steps[`4_projects_${label}`] = {
-        ok:     false,
-        status: e.response?.status,
-        error:  e.message,
-        body:   JSON.stringify(e.response?.data || {}).slice(0, 300),
-      };
-    }
-  }
-
-  // Step 5: Try tenant-specific URL too
-  const tenantUrl = "https://hcl-america-solutions-inc-cloudalm.eu10.alm.cloud.sap";
-  for (const [label, token] of [["dest", destToken], ["x509", x509Token]]) {
-    if (!token) continue;
-    try {
-      const r = await axios.get(`${tenantUrl}/api/calm-projects/v1/projects?$top=5`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        httpsAgent,
-      });
-      result.steps[`5_tenant_url_${label}`] = {
-        ok: true, count: (r.data?.value || r.data?.results || []).length,
-        rawSample: JSON.stringify(r.data).slice(0, 300),
-      };
-    } catch (e) {
-      result.steps[`5_tenant_url_${label}`] = {
-        ok: false, status: e.response?.status,
-        body: JSON.stringify(e.response?.data || {}).slice(0, 200),
-      };
-    }
-  }
-
-  res.json(result);
-});
-
-
-app.get("/api/calm/discover", async (req, res) => {
-  let resolvedBase = "unknown";
-  try { resolvedBase = (await resolveCALMDestination()).baseUrl; } catch (e) { resolvedBase = e.message; }
-
-  const testPaths = [
-    // Change & Deployment
-    "/api/imp-cdm-srv/v1/features?$top=1",
-    "/api/imp-cdm-srv/v0/features?$top=1",
-    // Projects
-    "/api/imp-pjm-srv/v1/projects?$top=1",
-    "/api/imp-pjm-srv/v0/projects?$top=1",
-    "/api/calm-projects/v1/projects?$top=1",
-    // Tasks (needs projectId — test without)
-    "/api/calm-tasks/v1/tasks",
-    "/api/imp-tkm-srv/v1/tasks",
-    // Health Monitoring
-    "/api/ops-alm-evt-srv/v1/events?$top=1",
-    "/api/ops-ihm-srv/v1/healthStatus?$top=1",
-    "/api/ops-ihm-srv/v1/monitoringData?$top=1",
-    "/api/calm-health/v1/events?$top=1",
-    // Analytics
-    "/api/calm-analytics/v1/providers",
-    "/api/imp-cdm-srv/v1/transportRequests?$top=1",
-  ];
-
-  const results = {};
-  for (const path of testPaths) {
-    try {
-      const data = await fetchFromALM(path);
-      results[path] = { ok: true, keys: Object.keys(data||{}), count: data?.value?.length ?? data?.results?.length ?? 0 };
-    } catch (err) {
-      results[path] = {
-        ok: false,
-        status: err.response?.status || "ERR",
-        body: JSON.stringify(err.response?.data || {}).slice(0, 200),
-      };
-    }
-  }
-
-  const working = Object.entries(results).filter(([,v]) => v.ok).map(([k]) => k);
-  res.json({ resolvedBaseUrl: resolvedBase, summary: working.length > 0 ? `✅ ${working.length} paths working` : "❌ No paths working", working, all: results });
-});
-
-
-// Visit: https://your-app.cfapps.eu10.hana.ondemand.com/api/calm/debug
-// Remove this after fixing the issue
-app.get("/api/calm/debug", async (req, res) => {
-  const result = {
-    timestamp: new Date().toISOString(),
-    steps: {},
-  };
-
-  // Step 1: Check destination credentials loaded
-  result.steps["1_destination_credentials"] = {
-    loaded: !!destinationCredentials,
-    uri:    destinationCredentials?.uri   || "MISSING",
-    url:    destinationCredentials?.url   || "MISSING",
-  };
-
-  // Step 2: Try get BTP token
-  try {
-    const token = await getBTPToken();
-    result.steps["2_btp_token"] = { ok: true, tokenLength: token?.length };
-  } catch (e) {
-    result.steps["2_btp_token"] = { ok: false, error: e.message };
-    return res.json(result);
-  }
-
-  // Step 3: Try resolve CLOUD_ALM_DEST destination
-  try {
-    const dest = await resolveCALMDestination();
-    result.steps["3_calm_destination"] = {
-      ok:       true,
-      baseUrl:  dest.baseUrl,
-      hasToken: !!dest.authToken,
-      tokenType:dest.tokenType,
-    };
-  } catch (e) {
-    result.steps["3_calm_destination"] = {
-      ok:                false,
-      error:             e.message,
-      destinationName:   CALM_DESTINATION_NAME,
-      fix: "Create destination '" + CALM_DESTINATION_NAME + "' in BTP Cockpit → " +
-           "your app subaccount → Connectivity → Destinations. " +
-           "Type: HTTP, Auth: OAuth2ClientCredentials, " +
-           "URL: your Cloud ALM base URL, " +
-           "Token Service URL + Client ID + Secret from ALM subaccount service key.",
-    };
-    return res.json(result);
-  }
-
-  // Step 4: Try actual ALM health API call
-  try {
-    const data = await fetchFromALM("/api/calm-health/v0/events?$top=1");
-    result.steps["4_calm_api_call"] = {
-      ok: true, responseKeys: Object.keys(data || {}), recordCount: data?.value?.length ?? 0,
-    };
-  } catch (e) {
-    // Try alternate path
-    try {
-      const data2 = await fetchFromALM("/api/calm-health/v1/events?$top=1");
-      result.steps["4_calm_api_call"] = { ok: true, path: "v1", recordCount: data2?.value?.length ?? 0 };
-    } catch (e2) {
-      result.steps["4_calm_api_call"] = { ok: false, error: e.message, error_v1: e2.message };
-    }
-  }
-
-  // Step 5: Try change management
-  try {
-    const data = await fetchFromALM("/api/calm-requirements/v0/changeRequests?$top=1");
-    result.steps["5_change_mgmt_api"] = { ok: true, recordCount: data?.value?.length ?? 0 };
-  } catch (e) {
-    try {
-      const data2 = await fetchFromALM("/api/calm-requirements/v1/changeRequests?$top=1");
-      result.steps["5_change_mgmt_api"] = { ok: true, path: "v1", recordCount: data2?.value?.length ?? 0 };
-    } catch (e2) {
-      result.steps["5_change_mgmt_api"] = { ok: false, error: e.message, error_v1: e2.message };
-    }
-  }
-
-  // Step 6: Try transport management
-  try {
-    const data = await fetchFromALM("/api/calm-operations/v0/deploymentOperations?$top=1");
-    result.steps["6_transport_mgmt_api"] = { ok: true, recordCount: data?.value?.length ?? 0 };
-  } catch (e) {
-    try {
-      const data2 = await fetchFromALM("/api/calm-operations/v1/deploymentOperations?$top=1");
-      result.steps["6_transport_mgmt_api"] = { ok: true, path: "v1", recordCount: data2?.value?.length ?? 0 };
-    } catch (e2) {
-      result.steps["6_transport_mgmt_api"] = { ok: false, error: e.message, error_v1: e2.message };
-    }
-  }
-
-  const allOk = Object.values(result.steps).every(s => s.ok !== false);
-  result.summary = allOk
-    ? "✅ All checks passed — ALM integration should work"
-    : "❌ Some checks failed — see steps above for details";
-
-  res.json(result);
-});
-
-
-
-// ─── Helper: try multiple ALM paths until one works ──────────────────────────
-async function tryALMPaths(paths) {
-  for (const path of paths) {
-    try {
-      const data = await fetchFromALM(path);
-      console.log(`✅ ALM path OK: ${path}`);
-      return data;
-    } catch (err) {
-      const status = err.response?.status || "ERR";
-      console.warn(`⚠️ ALM path failed [${status}]: ${path}`);
-      // 400 = bad request (auth/param issue) — log response body for debugging
-      if (status === 400) {
-        const body = JSON.stringify(err.response?.data || {}).slice(0, 200);
-        console.warn(`   400 response body: ${body}`);
-      }
-    }
-  }
-  return null;
-}
+// ═════════════════════════════════════════════════════════════════════════════
+//  CLOUD ALM ROUTES
+// ═════════════════════════════════════════════════════════════════════════════
 
 // 5. GET /api/calm/health
+//    Combined TM + CM + HM health data in one call
 app.get("/api/calm/health", async (req, res) => {
   try {
-    // ── Step 1: Projects ─────────────────────────────────────────────
-    const projectsRaw = await tryALMPaths([
-      "/api/calm-projects/v1/projects?$top=100",
-      "/api/imp-pjm-srv/v1/projects?$top=100",
+    const [tmData, cmData, hmData] = await Promise.allSettled([
+      fetchFromALM("/api/calm/v0/transportManagement/deploymentItems?$top=100&$orderby=createdAt desc"),
+      fetchFromALM("/api/calm/v0/changeManagement/changeRequests?$top=100&$orderby=createdAt desc"),
+      fetchFromALM("/api/calm/v0/healthMonitoring/alerts?$filter=status eq 'OPEN'&$top=200"),
     ]);
-    const projects = projectsRaw?.value || projectsRaw?.results || [];
-    console.log(`✅ ALM projects: ${projects.length}`);
 
-    // ── Step 2: Tasks — test with first project then fetch all ───────
-    let allTasks = [];
-    let tasksWork = false;
-    if (projects.length > 0) {
-      const pid0 = projects[0]?.id || projects[0]?.projectId;
-      if (pid0) {
-        const testRaw = await tryALMPaths([
-          `/api/calm-tasks/v1/tasks?projectId=${pid0}&$top=1`,
-          `/api/imp-tkm-srv/v1/tasks?projectId=${pid0}&$top=1`,
-        ]);
-        tasksWork = !!testRaw;
-        if (tasksWork) {
-          for (const proj of projects.slice(0, 10)) {
-            const pid = proj.id || proj.projectId;
-            if (!pid) continue;
-            try {
-              const r = await tryALMPaths([
-                `/api/calm-tasks/v1/tasks?projectId=${pid}&$top=100`,
-                `/api/imp-tkm-srv/v1/tasks?projectId=${pid}&$top=100`,
-              ]);
-              allTasks = allTasks.concat(r?.value || r?.results || []);
-            } catch {}
-          }
-          console.log(`✅ ALM tasks: ${allTasks.length}`);
-        } else {
-          console.warn("⚠️ Tasks API not available on this tenant — using projects as CM source");
-        }
-      }
-    }
+    // ── Transport Management ──────────────────────────────────────
+    const tmItems   = tmData.status === "fulfilled" ? (tmData.value?.value || []) : [];
+    const tmPending = tmItems.filter(i => ["READY_FOR_DEPLOYMENT","IN_QUEUE"].includes(i.status)).length;
+    const tmFailed  = tmItems.filter(i => ["FAILED","ERROR"].includes(i.status)).length;
+    const tmLast    = tmItems.find(i => i.status === "DEPLOYED")?.deployedAt || null;
+    const pipelineStatus = tmFailed > 0 ? "BLOCKED" : tmPending > 10 ? "DEGRADED" : "OK";
 
-    // ── Step 3: Features/CDM ─────────────────────────────────────────
-    const featRaw  = await tryALMPaths([
-      "/api/imp-cdm-srv/v1/features?$top=100",
-      "/api/imp-cdm-srv/v0/features?$top=100",
-      "/api/calm-cdm/v1/features?$top=100",
-    ]);
-    const features = featRaw?.value || featRaw?.results || [];
-    console.log(`${features.length > 0 ? "✅" : "⚠️"} ALM features: ${features.length}`);
-
-    // ── Step 4: Health events ────────────────────────────────────────
-    const hmRaw    = await tryALMPaths([
-      "/api/ops-alm-evt-srv/v1/events?$top=200",
-      "/api/calm-health/v1/events?$top=200",
-      "/api/ops-ihm-srv/v1/events?$top=200",
-    ]);
-    const hmAlerts = hmRaw?.value || hmRaw?.results || [];
-    console.log(`${hmAlerts.length > 0 ? "✅" : "⚠️"} ALM health events: ${hmAlerts.length}`);
-
-    // ── Transport Management ─────────────────────────────────────────
-    const tmItems        = features; // CDM features = deployment items
-    const tmPending      = tmItems.filter(i => ["READY","PENDING","IN_PROGRESS","SCHEDULED"].includes(i.status)).length;
-    const tmFailed       = tmItems.filter(i => ["FAILED","ERROR","ABORTED"].includes(i.status)).length;
-    const tmLast         = tmItems.find(i => ["DEPLOYED","SUCCESS","COMPLETED"].includes(i.status))?.deployedAt || null;
-    const pipelineStatus = tmFailed > 0 ? "BLOCKED" : tmPending > 5 ? "DEGRADED" : tmItems.length > 0 ? "OK" : "UNKNOWN";
-
-    // ── Change Management ────────────────────────────────────────────
-    // Use tasks if available, else projects
-    const cmSource     = allTasks.length > 0 ? allTasks : projects;
-    const cmOpen       = cmSource.filter(i => ["OPEN","O","IN_PROGRESS","CIPTKOPEN"].includes(i.status)).length;
-    const cmClosed     = cmSource.filter(i => ["CLOSED","C","DONE","COMPLETED","CIPTYCLOSE"].includes(i.status)).length;
-    const cmPending    = cmSource.filter(i => ["PENDING","PENDING_APPROVAL","P"].includes(i.status)).length;
-    const cmRejected   = cmSource.filter(i => i.status === "REJECTED" && isThisWeek(i.changedAt || i.lastChangedDate)).length;
-    const cmTotal      = cmSource.length;
+    // ── Change Management ─────────────────────────────────────────
+    const cmItems      = cmData.status === "fulfilled" ? (cmData.value?.value || []) : [];
+    const cmOpen       = cmItems.filter(i => ["OPEN","IN_PROGRESS"].includes(i.status)).length;
+    const cmPending    = cmItems.filter(i => i.status === "PENDING_APPROVAL").length;
+    const cmApproved   = cmItems.filter(i => i.status === "APPROVED").length;
+    const cmRejected   = cmItems.filter(i => i.status === "REJECTED" && isThisWeek(i.changedAt)).length;
+    const cmDeployed   = cmItems.filter(i => i.status === "DEPLOYED").length;
+    const cmTotal      = cmItems.length;
     const cmCompliance = cmTotal > 0
-      ? Math.round(((cmTotal - cmSource.filter(i => i.status === "REJECTED").length) / cmTotal) * 100)
+      ? Math.round(((cmTotal - cmItems.filter(i => i.status === "REJECTED").length) / cmTotal) * 100)
       : 100;
 
-    // ── Health Monitoring ────────────────────────────────────────────
+    // ── Health Monitoring ─────────────────────────────────────────
+    const hmAlerts   = hmData.status === "fulfilled" ? (hmData.value?.value || []) : [];
     const hmCritical = hmAlerts.filter(a => ["CRITICAL","ERROR"].includes(a.severity)).length;
     const hmWarning  = hmAlerts.filter(a => a.severity === "WARNING").length;
-    const hmSystems  = [...new Set(hmAlerts.map(a => a.serviceId || a.systemId).filter(Boolean))].length;
+    const hmSystems  = [...new Set(hmAlerts.map(a => a.serviceId || a.systemId))].length;
     const prodAlerts = hmAlerts.filter(a =>
-      ["CRITICAL","ERROR"].includes(a.severity) &&
-      (a.systemId || "").toUpperCase().includes("PROD")
+      (a.systemId || "").toUpperCase().includes("PROD") &&
+      ["CRITICAL","ERROR"].includes(a.severity)
     );
-    const prodAvail = prodAlerts.length > 0
+    const prodAvail  = prodAlerts.length > 0
       ? Math.max(85, 100 - prodAlerts.length * 3).toFixed(1)
       : "99.9";
 
-    console.log(`✅ ALM computed: proj=${projects.length} tasks=${allTasks.length} feat=${features.length} hm=${hmAlerts.length} | pipeline=${pipelineStatus} | CM source=${allTasks.length > 0 ? "tasks" : "projects"}`);
+    console.log(`✅ ALM health: ${hmCritical} critical, ${hmWarning} warnings, pipeline: ${pipelineStatus}`);
 
     res.json({
       criticalAlerts: hmCritical,
@@ -1023,18 +495,14 @@ app.get("/api/calm/health", async (req, res) => {
         failedCount:    tmFailed,
         pipelineStatus,
         lastDeployment: tmLast,
-        featuresCount:  features.length,
       },
       changeManagement: {
         openCount:       cmOpen,
         pendingApproval: cmPending,
-        approvedCount:   cmClosed,
+        approvedCount:   cmApproved,
         rejectedCount:   cmRejected,
-        deployedCount:   cmClosed,
+        deployedCount:   cmDeployed,
         complianceRate:  cmCompliance,
-        projectCount:    projects.length,
-        taskCount:       allTasks.length,
-        source:          allTasks.length > 0 ? "tasks" : "projects",
       },
       healthMonitoring: {
         criticalCount:    hmCritical,
@@ -1042,22 +510,14 @@ app.get("/api/calm/health", async (req, res) => {
         prodAvailability: prodAvail,
         systemsMonitored: hmSystems,
       },
+      // Full alert list for banner + table
       alerts: hmAlerts.slice(0, 50).map(a => ({
         id:        a.id,
         severity:  a.severity,
         systemId:  a.serviceId || a.systemId || "SYSTEM",
-        message:   a.description || a.name   || "Alert",
+        message:   a.description || a.name    || "Alert",
         type:      a.alertType  || a.type,
         createdAt: a.createdAt,
-      })),
-      projects: projects.slice(0, 20).map(p => ({
-        id:        p.id || p.projectId,
-        title:     p.name || p.title || "",
-        status:    p.status || "OPEN",
-        type:      p.type  || p.projectType || "PROJECT",
-        startDate: p.startDate || p.plannedStartDate,
-        endDate:   p.endDate   || p.plannedEndDate,
-        createdAt: p.createdAt || p.createDate,
       })),
     });
 
@@ -1076,52 +536,28 @@ app.get("/api/calm/health", async (req, res) => {
   }
 });
 
-// 6. GET /api/calm/changes/all
+// 6. GET /api/calm/changes/all — all change requests (for CR table in Cloud ALM dashboard)
 app.get("/api/calm/changes/all", async (req, res) => {
   try {
-    // Get projects first
-    const projectsRaw = await tryALMPaths([
-      "/api/calm-projects/v1/projects?$top=100",
-      "/api/imp-pjm-srv/v1/projects?$top=100",
-    ]);
-    const projects = projectsRaw?.value || projectsRaw?.results || [];
-
-    // Get tasks for each project
-    let allTasks = [];
-    for (const proj of projects.slice(0, 10)) {
-      const pid = proj.id || proj.projectId;
-      if (!pid) continue;
-      const tasksRaw = await tryALMPaths([
-        `/api/calm-tasks/v1/tasks?projectId=${pid}&$top=100`,
-        `/api/imp-tkm-srv/v1/tasks?projectId=${pid}&$top=100`,
-      ]);
-      const tasks = (tasksRaw?.value || tasksRaw?.results || []).map(t => ({
-        ...t,
-        projectName: proj.name || proj.title || pid,
-      }));
-      allTasks = allTasks.concat(tasks);
-    }
-
-    // If no tasks, return projects as items
-    const source = allTasks.length > 0 ? allTasks : projects;
-
-    const items = source.map(item => ({
-      id:          item.id          || item.projectId || "",
-      title:       item.title       || item.name      || item.subject    || "",
-      status:      item.status      || "OPEN",
-      assigneeId:  item.assigneeId  || item.assignee  || item.responsible || "",
-      priority:    item.priority    || "",
-      description: item.description || item.projectName || "",
-      externalId:  item.externalId  || "",
-      dueDate:     item.dueDate     || item.plannedEndDate || null,
-      createdAt:   item.createdAt   || item.createDate,
-      changedAt:   item.changedAt   || item.lastChangedDate,
+    const data  = await fetchFromALM(
+      "/api/calm/v0/changeManagement/changeRequests?$top=200&$orderby=createdAt desc"
+    );
+    const items = (data?.value || []).map(cr => ({
+      id:          cr.id,
+      title:       cr.title       || cr.name        || "",
+      status:      cr.status                         || "OPEN",
+      assigneeId:  cr.assigneeId  || cr.approver     || "",
+      priority:    cr.priority                       || "",
+      description: cr.description                    || "",
+      externalId:  cr.externalId                     || "",
+      dueDate:     cr.dueDate     || cr.plannedEndDate|| null,
+      createdAt:   cr.createdAt,
+      changedAt:   cr.changedAt   || cr.updatedAt,
     }));
-
-    console.log(`✅ /api/calm/changes/all: ${items.length} items (${projects.length} projects, ${allTasks.length} tasks)`);
+    console.log(`✅ Fetched ${items.length} change requests`);
     res.json({ d: { results: items } });
   } catch (err) {
-    console.error("❌ /api/calm/changes/all:", err.message);
+    console.error("❌ /api/calm/changes/all error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1129,11 +565,13 @@ app.get("/api/calm/changes/all", async (req, res) => {
 // 7. GET /api/calm/changes/:trkorr — single CR linked to a transport number
 app.get("/api/calm/changes/:trkorr", async (req, res) => {
   const { trkorr } = req.params;
+
+  // Skip if called with "all" — handled by route above
   if (trkorr === "all") return res.json({ status: "none", id: null });
 
   try {
     const data  = await fetchFromALM(
-      `/api/calm-requirements/v0/changeRequests` +
+      `/api/calm/v0/changeManagement/changeRequests` +
       `?$filter=externalId eq '${trkorr}' or contains(title,'${trkorr}')` +
       `&$top=1&$orderby=createdAt desc`
     );
@@ -1161,6 +599,7 @@ app.get("/api/calm/changes/:trkorr", async (req, res) => {
 
   } catch (err) {
     console.error(`❌ /api/calm/changes/${trkorr} error:`, err.message);
+    // Return none — don't break the agent when CR is missing
     res.json({ status: "none", id: null, error: err.message });
   }
 });
@@ -1170,7 +609,7 @@ app.patch("/api/calm/changes/:changeId/deploy", async (req, res) => {
   const { changeId } = req.params;
   try {
     await patchToALM(
-      `/api/calm-requirements/v0/changeRequests/${changeId}`,
+      `/api/calm/v0/changeManagement/changeRequests/${changeId}`,
       {
         status:     "DEPLOYED",
         deployedAt: new Date().toISOString(),
@@ -1185,396 +624,27 @@ app.patch("/api/calm/changes/:changeId/deploy", async (req, res) => {
   }
 });
 
-// 9. GET /api/calm/tm/deployments
+// 9. GET /api/calm/tm/deployments — deployment items from ALM TM
 app.get("/api/calm/tm/deployments", async (req, res) => {
   try {
-    const data = await tryALMPaths([
-      "/api/imp-cdm-srv/v1/features?$top=100",
-      "/api/imp-cdm-srv/v0/features?$top=100",
-      "/api/calm-cdm/v1/features?$top=100",
-      "/api/imp-tkm-srv/v1/tasks?$top=100",
-    ]);
-    if (!data) throw new Error("All deployment paths returned 404. Check /api/calm/discover.");
-    const items = (data?.value || data?.results || []).map(d => ({
+    const data  = await fetchFromALM(
+      "/api/calm/v0/transportManagement/deploymentItems" +
+      "?$top=100&$orderby=createdAt desc&$expand=changeItems"
+    );
+    const items = (data?.value || []).map(d => ({
       id:         d.id,
-      title:      d.title      || d.name        || d.featureName || "",
-      status:     d.status     || d.featureStatus || "",
-      target:     d.targetSystemId || d.target  || "",
-      createdAt:  d.createdAt  || d.createDate,
-      deployedAt: d.deployedAt || d.finishedAt,
-      transports: (d.transportRequests || d.transports || [])
-                  .map(c => c.transportRequest || c.externalId || c.id),
+      title:      d.title      || d.name,
+      status:     d.status,
+      target:     d.targetSystemId || d.target,
+      createdAt:  d.createdAt,
+      deployedAt: d.deployedAt,
+      transports: (d.changeItems || []).map(c => c.externalId || c.id),
     }));
-    console.log(`✅ Fetched ${items.length} features/deployments`);
+    console.log(`✅ Fetched ${items.length} deployment items`);
     res.json({ d: { results: items } });
   } catch (err) {
     console.error("❌ /api/calm/tm/deployments error:", err.message);
     res.status(500).json({ error: err.message });
-  }
-});
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  SAP AI CORE INTEGRATION
-//
-//  Required env vars / BTP service binding (aicore service):
-//    AI_CORE_TOKEN_URL     — https://your-subdomain.authentication.eu10.hana.ondemand.com
-//    AI_CORE_CLIENT_ID     — client id from AI Core service key
-//    AI_CORE_CLIENT_SECRET — client secret from AI Core service key
-//    AI_CORE_BASE_URL      — https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com
-//    AI_CORE_RESOURCE_GROUP— default  (or your resource group name)
-//    AI_CORE_DEPLOYMENT_ID — your deployed model's deployment ID (from AI Launchpad)
-//
-//  On BTP these come from VCAP_SERVICES under service "aicore".
-// ═════════════════════════════════════════════════════════════════════════════
-
-let aiCoreToken       = null;
-let aiCoreTokenExpiry = 0;
-
-// ─── AI Core token (cached, auto-renews) ─────────────────────────────────────
-async function getAICoreToken() {
-  if (aiCoreToken && Date.now() < aiCoreTokenExpiry - 30000) return aiCoreToken;
-
-  let clientId, clientSecret, tokenUrl;
-
-  // Try VCAP_SERVICES first (BTP aicore service binding)
-  try {
-    const vcap   = JSON.parse(process.env.VCAP_SERVICES || "{}");
-    const aicore = vcap["aicore"]?.[0]?.credentials
-                || vcap["ai-core"]?.[0]?.credentials
-                || vcap["sap-aicore"]?.[0]?.credentials;
-    if (aicore) {
-      clientId     = aicore.clientid     || aicore.client_id;
-      clientSecret = aicore.clientsecret || aicore.client_secret;
-      tokenUrl     = aicore.url          || aicore.uaa?.url;
-      console.log(`ℹ️  AI Core credentials from VCAP_SERVICES`);
-    }
-  } catch {}
-
-  // Fallback to env vars
-  clientId     = clientId     || process.env.AI_CORE_CLIENT_ID;
-  clientSecret = clientSecret || process.env.AI_CORE_CLIENT_SECRET;
-  tokenUrl     = tokenUrl     || process.env.AI_CORE_TOKEN_URL;
-
-  if (!clientId || !clientSecret || !tokenUrl) {
-    throw new Error(
-      "SAP AI Core credentials not configured. " +
-      `clientId=${!!clientId} clientSecret=${!!clientSecret} tokenUrl=${!!tokenUrl}. ` +
-      "Set AI_CORE_CLIENT_ID, AI_CORE_CLIENT_SECRET, AI_CORE_TOKEN_URL."
-    );
-  }
-
-  // Token URL may or may not include /oauth/token
-  const fullTokenUrl = tokenUrl.endsWith("/oauth/token")
-    ? tokenUrl
-    : `${tokenUrl}/oauth/token`;
-
-  const res = await axios.post(
-    fullTokenUrl,
-    new URLSearchParams({
-      grant_type:    "client_credentials",
-      client_id:     clientId,
-      client_secret: clientSecret,
-    }),
-    { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent }
-  );
-
-  aiCoreToken       = res.data.access_token;
-  aiCoreTokenExpiry = Date.now() + (res.data.expires_in || 3600) * 1000;
-  console.log("✅ SAP AI Core token fetched");
-  return aiCoreToken;
-}
-
-function getAICoreBaseUrl() {
-  try {
-    const vcap   = JSON.parse(process.env.VCAP_SERVICES || "{}");
-    const aicore = vcap["aicore"]?.[0]?.credentials
-                || vcap["ai-core"]?.[0]?.credentials
-                || vcap["sap-aicore"]?.[0]?.credentials;
-    if (aicore?.serviceurls?.AI_API_URL) return aicore.serviceurls.AI_API_URL;
-    if (aicore?.serviceurls?.ai_api_url) return aicore.serviceurls.ai_api_url;
-  } catch {}
-  return process.env.AI_CORE_BASE_URL || "";
-}
-
-// ─── AI Core inference helper ─────────────────────────────────────────────────
-async function callAICore(messages, systemPrompt, maxTokens = 800) {
-  const { deploymentId, resourceGroup, baseUrl, modelName } = await discoverAICoreDeployment();
-  const token = await getAICoreToken();
-  const model = modelName || AI_CORE_MODEL_NAME;
-
-  const endpoints = [
-    `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions?api-version=2024-12-01`,
-    `${baseUrl}/v2/inference/deployments/${deploymentId}/chat/completions`,
-    `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions?api-version=2024-12-01`,
-    `${baseUrl}/v2/lm/deployments/${deploymentId}/chat/completions`,
-  ];
-
-  const payload = {
-    model,
-    max_tokens:  maxTokens,
-    temperature: 0.2,
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...messages,
-    ],
-  };
-
-  for (const endpoint of endpoints) {
-    try {
-      const res = await axios.post(endpoint, payload, {
-        headers: {
-          Authorization:       `Bearer ${token}`,
-          "AI-Resource-Group": resourceGroup,
-          "Content-Type":      "application/json",
-        },
-        httpsAgent, timeout: 30000,
-      });
-      console.log(`✅ AI Core inference: ${deploymentId} (${resourceGroup}) model: ${model}`);
-      return res.data?.choices?.[0]?.message?.content || "";
-    } catch (err) {
-      const status = err.response?.status || "ERR";
-      const body   = JSON.stringify(err.response?.data || {}).slice(0, 200);
-      console.warn(`⚠️ AI Core [${status}] ${endpoint} — ${body}`);
-      if (endpoint === endpoints[endpoints.length - 1]) throw err;
-    }
-  }
-}
-
-// ─── Fallback: local scoring when AI Core unavailable ────────────────────────
-function localRiskScore(input) {
-  const { criticalAlerts=0, warningAlerts=0, failedDeployments=0,
-          pendingDeployments=0, pipelineStatus="OK", prodAvailability=99.9,
-          pendingApprovals=0, rejectedCRs=0, complianceRate=100 } = input;
-
-  const importRisk = Math.min(98, Math.max(2,
-    criticalAlerts * 20 +
-    warningAlerts  *  7 +
-    failedDeployments * 12 +
-    (pipelineStatus === "BLOCKED" ? 25 : pipelineStatus === "DEGRADED" ? 12 : 0) +
-    ((100 - prodAvailability) * 2.5) +
-    pendingApprovals * 3 +
-    rejectedCRs * 8
-  ));
-
-  const healthScore = Math.round(Math.max(0, Math.min(100,
-    100 -
-    criticalAlerts    * 15 -
-    warningAlerts     *  5 -
-    failedDeployments *  8 -
-    (pendingDeployments > 10 ? 8 : 0) -
-    ((100 - complianceRate) * 0.5)
-  )));
-
-  const approvalRate = Math.min(99, Math.max(50, complianceRate));
-
-  const factors = [];
-  if (criticalAlerts > 0)      factors.push({ factor: "Critical health alerts",     impact: "HIGH",   value: criticalAlerts });
-  if (warningAlerts  > 0)      factors.push({ factor: "Warning alerts active",       impact: warningAlerts > 3 ? "HIGH" : "MEDIUM", value: warningAlerts });
-  if (failedDeployments > 0)   factors.push({ factor: "Failed deployments",          impact: "HIGH",   value: failedDeployments });
-  if (pendingDeployments > 5)  factors.push({ factor: "Large deployment backlog",    impact: "MEDIUM", value: pendingDeployments });
-  if (rejectedCRs > 0)         factors.push({ factor: "Rejected change requests",    impact: "MEDIUM", value: rejectedCRs });
-  if (pendingApprovals > 3)    factors.push({ factor: "CRs awaiting approval",       impact: "LOW",    value: pendingApprovals });
-
-  const level = importRisk >= 65 ? "HIGH" : importRisk >= 35 ? "MEDIUM" : "LOW";
-
-  const recommendation =
-    level === "HIGH"
-      ? `Do not proceed with imports. ${criticalAlerts} critical alert(s) active on PROD. ` +
-        `Resolve health issues in SM21/SLG1 before importing any transports.`
-      : level === "MEDIUM"
-      ? `Proceed with caution. Run import simulation in STMS and verify all change requests ` +
-        `are approved. Monitor SM21 closely post-import for at least 2 hours.`
-      : `System is stable. All indicators are within normal range. ` +
-        `Safe to proceed with planned imports. Continue standard 24h post-import monitoring.`;
-
-  return {
-    healthScore,
-    importRisk,
-    importRiskLevel: level,
-    approvalRate,
-    factors,
-    recommendation,
-    trend:          healthScore >= 80 ? "STABLE" : healthScore >= 60 ? "DEGRADING" : "CRITICAL",
-    modelVersion:   "local-fallback-v1",
-    aiPowered:      false,
-  };
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  10. POST /api/ai/predict — main AI Core risk prediction endpoint
-//      Called by cloud_alm.html on page load and every 45s refresh
-// ═════════════════════════════════════════════════════════════════════════════
-app.post("/api/ai/predict", async (req, res) => {
-  const {
-    criticalAlerts    = 0,
-    warningAlerts     = 0,
-    failedDeployments = 0,
-    pendingDeployments= 0,
-    pipelineStatus    = "OK",
-    prodAvailability  = 99.9,
-    pendingApprovals  = 0,
-    rejectedCRs       = 0,
-    complianceRate    = 100,
-    recentAlerts      = [],
-    recentCRs         = [],
-  } = req.body;
-
-  // Always compute local score first (fast, used as fallback)
-  const local = localRiskScore({
-    criticalAlerts, warningAlerts, failedDeployments, pendingDeployments,
-    pipelineStatus, prodAvailability, pendingApprovals, rejectedCRs, complianceRate,
-  });
-
-  // Try SAP AI Core for enriched natural-language analysis
-  try {
-    const systemPrompt = `You are SAP Core AI, an expert system for SAP transport risk assessment and system health analysis.
-Analyse the provided SAP system metrics and return a JSON response ONLY — no markdown, no explanation outside the JSON.
-
-Response schema:
-{
-  "healthScore": <integer 0-100>,
-  "importRisk": <integer 0-100>,
-  "importRiskLevel": "LOW" | "MEDIUM" | "HIGH",
-  "approvalRate": <integer 0-100>,
-  "trend": "IMPROVING" | "STABLE" | "DEGRADING" | "CRITICAL",
-  "recommendation": "<2-3 sentence actionable recommendation>",
-  "factors": [
-    { "factor": "<factor name>", "impact": "HIGH" | "MEDIUM" | "LOW", "value": <number> }
-  ],
-  "insight": "<1 sentence executive summary>",
-  "modelVersion": "sap-core-ai-v2.4",
-  "aiPowered": true
-}`;
-
-    const userMessage = `Current SAP system metrics:
-- Critical health alerts: ${criticalAlerts}
-- Warning alerts: ${warningAlerts}
-- Failed deployments: ${failedDeployments}
-- Pending deployments in queue: ${pendingDeployments}
-- Pipeline status: ${pipelineStatus}
-- PROD system availability: ${prodAvailability}%
-- Change requests pending approval: ${pendingApprovals}
-- Change requests rejected this week: ${rejectedCRs}
-- CR compliance rate: ${complianceRate}%
-- Recent alert types: ${recentAlerts.slice(0,5).map(a => `${a.severity}:${a.systemId}`).join(", ") || "none"}
-- Recent CR statuses: ${recentCRs.slice(0,5).map(c => c.status).join(", ") || "none"}
-
-Provide risk assessment and import recommendation for the SAP operations team.`;
-
-    const raw    = await callAICore([{ role: "user", content: userMessage }], systemPrompt, 600);
-    const clean  = raw.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(clean);
-
-    console.log(`✅ SAP AI Core prediction: healthScore=${parsed.healthScore}, importRisk=${parsed.importRisk}%`);
-    return res.json({ ...parsed, aiPowered: true, modelVersion: "sap-core-ai-v2.4" });
-
-  } catch (aiErr) {
-    // AI Core unavailable — return local score with flag
-    console.warn(`⚠️  SAP AI Core unavailable (${aiErr.message}) — using local fallback`);
-    return res.json({ ...local, aiPowered: false, modelVersion: "local-fallback-v1" });
-  }
-});
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  11. POST /api/ai/predict/transport — per-transport AI risk score
-//      Called when a transport is clicked in TransTrack Pro
-// ═════════════════════════════════════════════════════════════════════════════
-app.post("/api/ai/predict/transport", async (req, res) => {
-  const {
-    trkorr        = "",
-    owner         = "",
-    status        = "",
-    objectCount   = 0,
-    objectTypes   = [],
-    failedObjects = 0,
-    logErrors     = 0,
-    crStatus      = "NONE",
-    prodHealthOk  = true,
-  } = req.body;
-
-  // Local fallback score
-  let score = 20;
-  if (status === "Modifiable")        score += 20;
-  if (status === "Failed")            score += 35;
-  score += Math.min(failedObjects * 12, 36);
-  score += Math.min(logErrors * 8, 24);
-  if (objectCount > 10)               score += 10;
-  if (objectTypes.includes("PROG") || objectTypes.includes("FUGR")) score += 8;
-  if (objectTypes.includes("AUTH"))   score += 10;
-  if (crStatus === "REJECTED")        score += 15;
-  if (!crStatus || crStatus === "NONE") score += 10;
-  if (!prodHealthOk)                  score += 12;
-  const localScore = Math.min(98, Math.max(5, score));
-  const localLevel = localScore >= 65 ? "HIGH" : localScore >= 40 ? "MEDIUM" : "LOW";
-
-  try {
-    const systemPrompt = `You are SAP Core AI specialised in transport risk assessment.
-Return ONLY a JSON object — no markdown, no text outside JSON.
-Schema: { "riskScore": <0-100>, "riskLevel": "LOW"|"MEDIUM"|"HIGH", "recommendation": "<2 sentences>", "aiPowered": true }`;
-
-    const userMessage = `Assess transport risk for:
-Transport: ${trkorr}
-Owner: ${owner}
-Status: ${status}
-Objects: ${objectCount} (types: ${objectTypes.join(", ")||"unknown"})
-Failed objects: ${failedObjects}
-Log errors: ${logErrors}
-ALM CR status: ${crStatus}
-PROD health OK: ${prodHealthOk}`;
-
-    const raw    = await callAICore([{ role: "user", content: userMessage }], systemPrompt, 200);
-    const clean  = raw.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(clean);
-
-    console.log(`✅ AI Core transport prediction: ${trkorr} → ${parsed.riskScore}%`);
-    return res.json({ ...parsed, aiPowered: true });
-
-  } catch (aiErr) {
-    console.warn(`⚠️  AI Core unavailable for transport prediction — using local`);
-    return res.json({
-      riskScore:      localScore,
-      riskLevel:      localLevel,
-      recommendation: localLevel === "HIGH"
-        ? "High risk detected. Resolve object errors and ensure ALM CR is approved before importing."
-        : localLevel === "MEDIUM"
-        ? "Medium risk. Review warnings and run STMS import simulation before proceeding."
-        : "Low risk. Transport appears safe to import. Standard monitoring applies.",
-      aiPowered:      false,
-    });
-  }
-});
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  12. GET /api/ai/status — check if AI Core is configured and reachable
-// ═════════════════════════════════════════════════════════════════════════════
-app.get("/api/ai/status", async (req, res) => {
-  const baseUrl    = getAICoreBaseUrl();
-  const configured = !!(baseUrl && process.env.AI_CORE_CLIENT_ID);
-
-  if (!configured) {
-    return res.json({
-      configured: false, reachable: false, mode: "local-fallback",
-      message: "Set AI_CORE_BASE_URL, AI_CORE_CLIENT_ID, AI_CORE_CLIENT_SECRET, AI_CORE_TOKEN_URL.",
-    });
-  }
-
-  try {
-    const deployment = await discoverAICoreDeployment();
-    res.json({
-      configured:    true,
-      reachable:     true,
-      mode:          "sap-core-ai",
-      baseUrl,
-      deploymentId:  deployment.deploymentId,
-      resourceGroup: deployment.resourceGroup,
-      model:         AI_CORE_MODEL_NAME,
-      message:       `RUNNING deployment found: ${deployment.deploymentId} in ${deployment.resourceGroup}`,
-    });
-  } catch (err) {
-    res.json({
-      configured: true, reachable: false, mode: "local-fallback",
-      message: `AI Core reachable but no RUNNING deployment: ${err.message}`,
-    });
   }
 });
 
@@ -1589,9 +659,6 @@ app.get(/^\/(?!api|debug).*/, (req, res) => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 SAP Destination:       ${DESTINATION_NAME}`);
-  console.log(`☁️  Cloud ALM Destination: ${CALM_DESTINATION_NAME}`);
-  console.log(`🧠 AI Core URL:           ${getAICoreBaseUrl() || "not configured"}`);
-  console.log(`🧠 AI Core Model:         ${AI_CORE_MODEL_NAME}`);
-  console.log(`🧠 AI Core Deployment:    dynamically discovered at runtime`);
+  console.log(`📡 SAP Destination:  ${DESTINATION_NAME}`);
+  console.log(`☁️  Cloud ALM URL:   ${getCALMBaseUrl() || "not configured"}`);
 });
