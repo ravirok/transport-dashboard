@@ -1034,44 +1034,40 @@ function switchTab(tab){
 // LOAD DATA
 // ════════════════════════════════════════
 async function loadAll(){
-  // Show loading state immediately
-  showLoadingState();
+  // Show loading banner
+  const banner = document.createElement('div');
+  banner.id = 'loadingBanner';
+  banner.style.cssText = 'position:fixed;top:70px;right:16px;z-index:300;background:var(--sap-blue);color:#fff;padding:8px 16px;border-radius:var(--r-lg);font-size:12px;font-family:var(--mono);box-shadow:0 4px 12px rgba(0,112,242,.3);display:flex;align-items:center;gap:8px';
+  banner.innerHTML = '<div class="spinner" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:14px;height:14px"></div> Connecting to Cloud ALM...';
+  document.body.appendChild(banner);
 
-  // Fetch all three in parallel with individual timeouts
   const withTimeout = (promise, ms, fallback) =>
     Promise.race([promise, new Promise(r => setTimeout(() => r(fallback), ms))]);
 
-  const [healthData, crData, tmData] = await Promise.all([
-    withTimeout(
-      fetch('/api/calm/health').then(r => r.json()),
-      15000, null
-    ),
-    withTimeout(
-      fetch('/api/calm/changes/all').then(r => r.json()),
-      15000, null
-    ),
-    withTimeout(
-      fetch('/api/calm/tm/deployments').then(r => r.json()),
-      15000, null
-    ),
+  const [healthData, crData] = await Promise.all([
+    withTimeout(fetch('/api/calm/health').then(r=>r.json()), 12000, null),
+    withTimeout(fetch('/api/calm/changes/all').then(r=>r.json()), 12000, null),
   ]);
 
-  if (healthData && !healthData.error) {
-    almHealth  = healthData;
-    allAlerts  = healthData.alerts || [];
+  // Remove banner
+  document.getElementById('loadingBanner')?.remove();
+
+  if(healthData && !healthData.error){
+    almHealth = healthData;
+    allAlerts = healthData.alerts||[];
     renderAll(healthData);
+    renderProgrammeHealth(healthData);
+    banner && banner.remove();
   } else {
-    console.warn('ALM health failed or timed out — using fallback');
-    renderFallback();
+    console.warn('ALM health timed out or failed — keeping fallback');
+    // Update status bar to show timeout
+    document.getElementById('sb1txt').textContent = 'ALM timeout — showing cached data';
+    document.getElementById('sb1').className = 'sb-dot warn';
   }
 
-  if (crData) {
+  if(crData){
     allCRs = crData?.d?.results || crData?.value || [];
     renderCRSummary();
-  }
-
-  if (tmData) {
-    allDeployments = tmData?.d?.results || [];
   }
 }
 
@@ -1831,7 +1827,4 @@ async function generateWeeklyReport(){
       <div><strong>SAP Core AI Executive Summary:</strong> ${aiSummary}</div>
     </div>
     <div class="report-metrics">
-      <div class="report-metric"><div class="report-metric-val" style="color:var(--green)">${onTrack}</div><div class="report-metric-lbl">ON TRACK</div></div>
-      <div class="report-metric"><div class="report-metric-val" style="color:var(--amber)">${atRisk}</div><div class="report-metric-lbl">AT RISK</div></div>
-      <div class="report-metric"><div class="report-metric-val" style="color:var(--red)">${delayed}</div><div class="report-metric-lbl">DELAYED</div></div>
-      <div class="report-metric"><div class="report-metric-val">${bsProjects.length}</div><div class="report-
+      <div class="report-
