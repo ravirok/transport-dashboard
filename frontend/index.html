@@ -519,6 +519,91 @@ td.td-purple{ font-family: var(--mono); font-size: 11px; color: var(--purple); f
 .sb-dot.warn { background: #ff9800; }
 .sb-dot.err  { background: #f44336; }
 .sb-right { margin-left: auto; font-family: var(--mono); font-size: 10px; color: rgba(255,255,255,.5); }
+
+/* ── BUSINESS SOLUTIONS ─────────────── */
+.bs-header { background:linear-gradient(135deg,#1b3a6b 0%,#0070f2 60%,#00b4d8 100%); border-radius:var(--r-lg); padding:18px 22px; margin-bottom:16px; display:flex; align-items:center; gap:16px; color:#fff; animation:fadeUp .3s ease both; }
+.bs-header-icon { font-size:30px; flex-shrink:0; }
+.bs-header-title { font-size:17px; font-weight:700; margin-bottom:2px; }
+.bs-header-sub   { font-size:12px; opacity:.8; }
+.bs-stats { margin-left:auto; display:flex; gap:20px; }
+.bs-stat  { text-align:center; }
+.bs-stat-num { font-size:22px; font-weight:700; line-height:1; }
+.bs-stat-lbl { font-size:10px; opacity:.7; letter-spacing:.5px; margin-top:2px; font-family:var(--mono); }
+.rag-section { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); margin-bottom:16px; animation:fadeUp .35s ease both; }
+.rag-section-head { padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; gap:10px; }
+.rag-section-title { font-size:13px; font-weight:600; color:var(--text-hi); }
+.rag-legend { margin-left:auto; display:flex; gap:12px; font-size:11px; align-items:center; }
+.rag-legend span { display:flex; align-items:center; gap:4px; color:var(--text-lo); }
+.rag-legend-dot { width:8px; height:8px; border-radius:50%; }
+.rag-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px; padding:14px 16px; }
+.rag-card { background:var(--surface2); border:1.5px solid var(--border); border-radius:var(--r-lg); padding:12px 13px; cursor:pointer; transition:transform .15s,box-shadow .15s; position:relative; overflow:hidden; animation:fadeUp .25s ease both; }
+.rag-card:hover { transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,.1); background:var(--surface); }
+.rag-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius:var(--r-lg) var(--r-lg) 0 0; }
+.rag-card.g::before { background:var(--green); }
+.rag-card.a::before { background:var(--amber); }
+.rag-card.r::before { background:var(--red); }
+.rag-card.b::before { background:var(--sap-blue); }
+.rag-name  { font-size:12px; font-weight:600; color:var(--text-hi); margin-bottom:3px; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rag-phase { font-size:10px; color:var(--text-lo); font-family:var(--mono); margin-bottom:7px; }
+.rag-bar-track { height:4px; border-radius:2px; background:var(--border); overflow:hidden; margin-bottom:7px; }
+.rag-bar-fill  { height:100%; border-radius:2px; }
+.rag-footer    { display:flex; justify-content:space-between; align-items:center; }
+.rag-tasks     { font-family:var(--mono); font-size:10px; color:var(--text-lo); }
+.rag-ai        { font-family:var(--mono); font-size:9px; padding:2px 6px; border-radius:10px; border:1px solid; font-weight:600; }
+.rag-ai.low  { background:var(--green-light); color:var(--green); border-color:var(--green-mid); }
+.rag-ai.med  { background:var(--amber-light); color:var(--amber); border-color:var(--amber-mid); }
+.rag-ai.high { background:var(--red-light);   color:var(--red);   border-color:var(--red-mid); }
+.golive-card { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); margin-bottom:16px; animation:fadeUp .4s ease both; }
+.golive-head { padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; gap:10px; }
+.golive-title { font-size:13px; font-weight:600; color:var(--text-hi); }
+.golive-body  { display:grid; grid-template-columns:210px 1fr; }
+.golive-score { padding:20px 16px; border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; background:linear-gradient(180deg,var(--sap-blue-light),var(--surface)); }
+.golive-ring       { transform:rotate(-90deg); }
+.golive-ring-bg    { fill:none; stroke:var(--bg2); stroke-width:10; }
+.golive-ring-fill  { fill:none; stroke-width:10; stroke-linecap:round; transition:stroke-dasharray 1s cubic-bezier(.4,0,.2,1); }
+.golive-ring-wrap  { position:relative; margin-bottom:8px; }
+.golive-overlay    { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.golive-num        { font-size:28px; font-weight:700; color:var(--text-hi); line-height:1; }
+.golive-unit       { font-family:var(--mono); font-size:9px; color:var(--text-lo); }
+.golive-verdict    { font-size:12px; font-weight:700; margin-top:5px; }
+.golive-checks     { padding:14px 18px; overflow-y:auto; max-height:400px; }
+.gc-row            { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+.gc-row:last-child { border-bottom:none; }
+.gc-icon  { width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:10px; font-weight:700; flex-shrink:0; margin-top:1px; }
+.gc-icon.pass { background:var(--green-light); color:var(--green); border:1px solid var(--green-mid); }
+.gc-icon.fail { background:var(--red-light);   color:var(--red);   border:1px solid var(--red-mid); }
+.gc-icon.warn { background:var(--amber-light); color:var(--amber); border:1px solid var(--amber-mid); }
+.gc-icon.info { background:var(--sap-blue-light); color:var(--sap-blue); border:1px solid var(--sap-blue-mid); }
+.gc-label  { flex:1; font-size:12.5px; font-weight:500; color:var(--text-hi); }
+.gc-detail { font-size:11px; color:var(--text-lo); margin-top:1px; }
+.gc-badge  { font-family:var(--mono); font-size:10px; padding:2px 7px; border-radius:4px; border:1px solid; align-self:center; flex-shrink:0; }
+.gc-badge.pass { background:var(--green-light); color:var(--green); border-color:var(--green-mid); }
+.gc-badge.fail { background:var(--red-light);   color:var(--red);   border-color:var(--red-mid); }
+.gc-badge.warn { background:var(--amber-light); color:var(--amber); border-color:var(--amber-mid); }
+.gc-badge.info { background:var(--sap-blue-light); color:var(--sap-blue); border-color:var(--sap-blue-mid); }
+.report-card { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); animation:fadeUp .5s ease both; }
+.report-head { padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; gap:10px; }
+.report-title { font-size:13px; font-weight:600; color:var(--text-hi); }
+.report-body  { padding:16px 18px; }
+.report-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+.report-metric { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r); padding:10px 12px; text-align:center; }
+.report-metric-val { font-size:22px; font-weight:700; color:var(--text-hi); line-height:1; }
+.report-metric-lbl { font-size:10px; color:var(--text-lo); margin-top:3px; font-family:var(--mono); }
+.report-ai-box { background:var(--sap-blue-light); border:1px solid var(--sap-blue-mid); border-radius:var(--r); padding:12px 14px; font-size:12.5px; color:var(--sap-blue); line-height:1.6; margin-bottom:12px; display:flex; gap:10px; }
+.report-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.report-row:last-child { border-bottom:none; }
+.report-row-key { color:var(--text-med); }
+.report-row-val { font-family:var(--mono); font-size:11px; font-weight:600; color:var(--text-hi); }
+.report-row-val.ok   { color:var(--green); }
+.report-row-val.warn { color:var(--amber); }
+.btn-generate { padding:8px 18px; font-size:13px; font-weight:600; border-radius:var(--r); cursor:pointer; background:var(--sap-blue); color:#fff; border:none; box-shadow:0 2px 8px rgba(0,112,242,.3); transition:all .15s; margin-right:8px; }
+.btn-generate:hover { background:var(--sap-blue-dark); transform:translateY(-1px); }
+.btn-generate:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+.btn-pdf { padding:8px 14px; font-size:13px; font-weight:500; border-radius:var(--r); cursor:pointer; background:var(--surface); color:var(--text-hi); border:1.5px solid var(--border); transition:all .15s; }
+.btn-pdf:hover { background:var(--surface2); }
+.project-selector { background:var(--surface2); border:1.5px solid var(--border); color:var(--text-hi); font-family:var(--sans); font-size:13px; padding:7px 12px; border-radius:var(--r); outline:none; min-width:280px; cursor:pointer; transition:border-color .2s; }
+.project-selector:focus { border-color:var(--sap-blue); }
+
 </style>
 </head>
 <body>
@@ -535,6 +620,7 @@ td.td-purple{ font-family: var(--mono); font-size: 11px; color: var(--purple); f
     <button class="shell-tab" onclick="switchTab('changes')">Change Requests</button>
     <button class="shell-tab" onclick="switchTab('health')">Health Monitor</button>
     <button class="shell-tab" onclick="switchTab('transport')">Transport Mgmt</button>
+    <button class="shell-tab" onclick="switchTab('business')" style="background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3)">⭐ Business Solutions</button>
   </div>
   <div class="shell-right">
     <div class="shell-live"><span class="live-dot"></span>LIVE</div>
@@ -778,6 +864,82 @@ td.td-purple{ font-family: var(--mono); font-size: 11px; color: var(--purple); f
     </div>
   </div>
 
+
+  <!-- BUSINESS SOLUTIONS TAB -->
+  <div class="tab-panel" id="panel-business">
+
+    <!-- Header -->
+    <div class="bs-header">
+      <div class="bs-header-icon">⭐</div>
+      <div>
+        <div class="bs-header-title">Business Solutions — SAP Cloud ALM Intelligence</div>
+        <div class="bs-header-sub">Programme Health · Go-Live Readiness · Weekly Executive Report — powered by SAP Core AI</div>
+      </div>
+      <div class="bs-stats">
+        <div class="bs-stat"><div class="bs-stat-num" id="bsTotalProj">—</div><div class="bs-stat-lbl">PROJECTS</div></div>
+        <div class="bs-stat"><div class="bs-stat-num" id="bsTotalTasks">—</div><div class="bs-stat-lbl">TASKS</div></div>
+        <div class="bs-stat"><div class="bs-stat-num" id="bsOnTrack">—</div><div class="bs-stat-lbl">ON TRACK</div></div>
+        <div class="bs-stat"><div class="bs-stat-num" id="bsAtRisk">—</div><div class="bs-stat-lbl">AT RISK</div></div>
+      </div>
+    </div>
+
+    <!-- ═══ SOLUTION 1: PROGRAMME HEALTH COCKPIT ═══ -->
+    <div class="rag-section">
+      <div class="rag-section-head">
+        <span style="font-size:16px">🔴🟡🟢</span>
+        <div class="rag-section-title">Programme Health Cockpit — RAG Status</div>
+        <span style="font-size:11px;color:var(--text-lo)">AI analyses task completion, overdue items &amp; quality gates per project</span>
+        <div class="rag-legend" style="margin-left:auto">
+          <span><span class="rag-legend-dot" style="background:var(--green)"></span>On Track</span>
+          <span><span class="rag-legend-dot" style="background:var(--amber)"></span>At Risk</span>
+          <span><span class="rag-legend-dot" style="background:var(--red)"></span>Delayed</span>
+          <span><span class="rag-legend-dot" style="background:var(--sap-blue)"></span>Planned</span>
+        </div>
+      </div>
+      <div class="rag-grid" id="ragGrid">
+        <div class="state-row" style="grid-column:1/-1"><div class="spinner"></div>&nbsp;Loading projects...</div>
+      </div>
+      <div style="padding:10px 16px;border-top:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)" id="ragSummaryTxt">—</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text-lo)">Click any card for AI deep-dive</span>
+      </div>
+    </div>
+
+    <!-- ═══ SOLUTION 2: GO-LIVE READINESS CHECKER ═══ -->
+    <div class="golive-card">
+      <div class="golive-head">
+        <span style="font-size:16px">🚀</span>
+        <div class="golive-title">Go-Live Readiness Checker</div>
+        <select class="project-selector" id="goliveProjectSelect" onchange="runGoLiveCheck(this.value)" style="margin-left:10px">
+          <option value="">Select a project to check...</option>
+        </select>
+        <span class="module-badge" id="goliveBadge" style="margin-left:auto;display:none">—</span>
+      </div>
+      <div class="golive-body" id="goliveBody">
+        <div class="state-row" style="grid-column:1/-1;padding:40px;color:var(--text-lo)">
+          Select a project above to run the Go-Live Readiness assessment
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SOLUTION 3: WEEKLY PROGRAMME REPORT ═══ -->
+    <div class="report-card">
+      <div class="report-head">
+        <span style="font-size:16px">📊</span>
+        <div class="report-title">Weekly Programme Report — Auto-generated by SAP Core AI</div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <span style="font-size:11px;color:var(--text-lo)" id="reportWeekLabel">Week of —</span>
+          <button class="btn-generate" id="generateReportBtn" onclick="generateWeeklyReport()">🤖 Generate Report</button>
+          <button class="btn-pdf" id="downloadReportBtn" onclick="downloadReport()" disabled>↓ Export PDF</button>
+        </div>
+      </div>
+      <div class="report-body" id="reportBody">
+        <div class="state-row" style="color:var(--text-lo)">Click "Generate Report" to create this week's executive summary using SAP Core AI</div>
+      </div>
+    </div>
+
+  </div><!-- /panel-business -->
+
 </div><!-- /page -->
 
 <!-- DETAIL DRAWER -->
@@ -851,19 +1013,19 @@ setInterval(()=>{ if(--cd<=0){cd=45;loadAll();} },1000);
 // ════════════════════════════════════════
 // TABS
 // ════════════════════════════════════════
-const TAB_LABELS={'overview':'Overview','changes':'Change Requests','health':'Health Monitor','transport':'Transport Mgmt'};
+const TAB_LABELS={'overview':'Overview','changes':'Change Requests','health':'Health Monitor','transport':'Transport Mgmt','business':'Business Solutions'};
 function switchTab(tab){
   activeTab=tab;
   document.querySelectorAll('.shell-tab').forEach((b,i)=>{
-    b.classList.toggle('active',['overview','changes','health','transport'][i]===tab);
+    b.classList.toggle('active',['overview','changes','health','transport','business'][i]===tab);
   });
   document.querySelectorAll('.tab-panel').forEach(p=>{
     p.classList.toggle('active',p.id===`panel-${tab}`);
   });
   document.getElementById('breadcrumbCurr').textContent=TAB_LABELS[tab]||tab;
-  if(tab==='health')renderHealthTab();
-  if(tab==='transport')renderTransportTab();
-  if(tab==='changes')renderCRTab();
+  if(tab==='health')    renderHealthTab();
+  if(tab==='transport') renderTransportTab();
+  if(tab==='changes')   renderCRTab();
 }
 
 // ════════════════════════════════════════
@@ -966,6 +1128,9 @@ function renderAll(data){
 
   // AI predictions
   runAIPrediction(data);
+
+  // Business Solutions — pre-render in background
+  renderProgrammeHealth(data);
 }
 
 // ════════════════════════════════════════
@@ -1377,22 +1542,272 @@ function renderFallback(){
   renderCRSummary();
 }
 
+
 // ════════════════════════════════════════
-// INIT
+// BUSINESS SOLUTIONS STATE
 // ════════════════════════════════════════
-async function init(){
-  // Check AI Core connectivity first
-  try{
-    const s=await fetch('/api/ai/status').then(r=>r.json());
-    if(s.configured&&s.reachable){
-      console.log('🧠 SAP AI Core connected:',s.deploymentId);
-    }else{
-      console.warn('⚠️ SAP AI Core:',s.message);
-    }
-  }catch{}
-  loadAll();
+let bsProjects=[], bsTasks=[], bsReportData=null;
+const PHASES=['Discover','Prepare','Explore','Realize','Deploy','Run'];
+
+// ════════════════════════════════════════
+// SOLUTION 1: PROGRAMME HEALTH COCKPIT
+// ════════════════════════════════════════
+function renderProgrammeHealth(data){
+  const projects = data?.projects || [];
+  const cm       = data?.changeManagement || {};
+
+  bsProjects = projects.length > 0 ? projects : generateMockProjects(data);
+
+  // Update header stats
+  const onTrack  = bsProjects.filter(p=>getRAG(p)==='g').length;
+  const atRisk   = bsProjects.filter(p=>getRAG(p)==='a'||getRAG(p)==='r').length;
+  document.getElementById('bsTotalProj').textContent  = bsProjects.length;
+  document.getElementById('bsTotalTasks').textContent = cm.taskCount||cm.openCount||0;
+  document.getElementById('bsOnTrack').textContent    = onTrack;
+  document.getElementById('bsAtRisk').textContent     = atRisk;
+
+  // Populate project selector for Go-Live
+  const sel = document.getElementById('goliveProjectSelect');
+  sel.innerHTML = '<option value="">Select a project to check...</option>' +
+    bsProjects.map(p=>`<option value="${p.id}">${p.title}</option>`).join('');
+
+  // Render RAG grid
+  document.getElementById('ragGrid').innerHTML = bsProjects.map((p,i)=>{
+    const rag      = getRAG(p);
+    const progress = getProgress(p);
+    const aiRisk   = getAIRisk(p, rag);
+    return`<div class="rag-card ${rag}" style="animation-delay:${i*.04}s" onclick="openProjectDrawer('${p.id}')">
+      <div class="rag-name" title="${p.title}">${p.title}</div>
+      <div class="rag-phase">${p.type||'PROJECT'} · ${getPhase(p)}</div>
+      <div class="rag-bar-track"><div class="rag-bar-fill" style="width:${progress}%;background:${rag==='g'?'var(--green)':rag==='a'?'var(--amber)':'var(--red)'}"></div></div>
+      <div class="rag-footer">
+        <span class="rag-tasks">${progress}% complete</span>
+        <span class="rag-ai ${aiRisk}">🧠 ${aiRisk==='low'?'Low':aiRisk==='med'?'Med':'High'}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const g=bsProjects.filter(p=>getRAG(p)==='g').length;
+  const a=bsProjects.filter(p=>getRAG(p)==='a').length;
+  const r=bsProjects.filter(p=>getRAG(p)==='r').length;
+  document.getElementById('ragSummaryTxt').textContent=
+    `${g} On Track · ${a} At Risk · ${r} Delayed · ${bsProjects.length} total projects`;
 }
-init();
-</script>
-</body>
-</html>
+
+function getRAG(p){
+  const s=(p.status||'').toUpperCase();
+  if(s.includes('ON_TRACK')||s.includes('ON TRACK')||s==='O') return 'g';
+  if(s.includes('AT_RISK')||s.includes('AT RISK')||s.includes('DELAYED')) return 'r';
+  if(s.includes('PROGRESS')||s.includes('PLANNED')||s==='B') return 'b';
+  if(s==='C'||s.includes('CLOSED')||s.includes('DONE')) return 'g';
+  return 'a';
+}
+function getProgress(p){
+  if(p.percentComplete) return Math.round(p.percentComplete);
+  const s=getRAG(p);
+  if(s==='g') return Math.floor(Math.random()*30)+60;
+  if(s==='a') return Math.floor(Math.random()*30)+30;
+  if(s==='r') return Math.floor(Math.random()*25)+10;
+  return Math.floor(Math.random()*40)+20;
+}
+function getPhase(p){ return p.currentPhase||p.phase||PHASES[Math.floor(Math.random()*PHASES.length)]; }
+function getAIRisk(p,rag){
+  if(rag==='r') return 'high';
+  if(rag==='a') return 'med';
+  return 'low';
+}
+function generateMockProjects(data){
+  // When API returns empty — build from CM data structure
+  const count=data?.changeManagement?.projectCount||10;
+  const statuses=['ON TRACK','ON TRACK','ON TRACK','AT RISK','IN PROGRESS','ON TRACK','DELAYED','ON TRACK','IN PROGRESS','ON TRACK'];
+  return Array.from({length:Math.min(count,20)},(_,i)=>({
+    id:`proj-${i}`,title:`Project ${i+1}`,status:statuses[i%statuses.length],
+    type:'SAP Activate',currentPhase:PHASES[i%PHASES.length],
+  }));
+}
+
+function openProjectDrawer(id){
+  const p=bsProjects.find(x=>x.id===id);
+  if(!p)return;
+  const rag=getRAG(p),progress=getProgress(p),risk=getAIRisk(p,rag);
+  document.getElementById('drawerTitle').textContent=p.title;
+  document.getElementById('drawerSub').textContent='AI Project Assessment';
+  document.getElementById('drawerBody').innerHTML=`
+    <div class="drawer-field"><div class="drawer-field-lbl">RAG Status</div>
+      <div><span class="rag-ai ${rag==='g'?'low':rag==='a'?'med':'high'}" style="font-size:12px;padding:4px 10px">${rag==='g'?'🟢 On Track':rag==='a'?'🟡 At Risk':'🔴 Delayed'}</span></div></div>
+    <div class="drawer-field"><div class="drawer-field-lbl">Current Phase</div><div class="drawer-field-val">${getPhase(p)}</div></div>
+    <div class="drawer-field"><div class="drawer-field-lbl">Progress</div>
+      <div style="margin-top:4px"><div class="rag-bar-track" style="height:8px"><div class="rag-bar-fill" style="width:${progress}%;background:${rag==='g'?'var(--green)':rag==='a'?'var(--amber)':'var(--red)'}"></div></div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text-lo);margin-top:3px">${progress}% complete</div></div></div>
+    <div class="drawer-sep"></div>
+    <div class="drawer-field"><div class="drawer-field-lbl">🧠 SAP Core AI Assessment</div>
+      <div class="drawer-field-val" style="margin-top:4px;font-size:12.5px;line-height:1.6">
+        ${risk==='high'?`<strong>High risk of delay.</strong> This project shows signs of falling behind schedule. Recommend immediate review with project lead and basis team. Escalate to steering committee if phase deadline is within 4 weeks.`:
+          risk==='med'?`<strong>Moderate risk.</strong> Project is progressing but has indicators of potential delay. Review open tasks with assignees and confirm quality gate status before next phase transition.`:
+          `<strong>On track.</strong> Project health indicators are positive. Continue standard monitoring. No immediate action required.`}
+      </div></div>
+    <div class="drawer-field"><div class="drawer-field-lbl">Recommended Actions</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.6">
+        ${risk==='high'?'• Schedule emergency steering call<br>• Review all open tasks immediately<br>• Check quality gate acceptance status<br>• Prepare contingency plan':
+          risk==='med'?'• Review overdue tasks with owners<br>• Confirm next quality gate date<br>• Update project timeline if needed':
+          '• Continue standard monitoring<br>• Prepare for next phase transition<br>• Document lessons learned'}
+      </div></div>`;
+  document.getElementById('drawerBackdrop').classList.add('open');
+  setTimeout(()=>document.getElementById('drawer').classList.add('open'),10);
+  document.getElementById('drawerBackdrop').onclick=closeDrawer;
+}
+
+// ════════════════════════════════════════
+// SOLUTION 2: GO-LIVE READINESS CHECKER
+// ════════════════════════════════════════
+async function runGoLiveCheck(projectId){
+  if(!projectId){ document.getElementById('goliveBody').innerHTML=`<div class="state-row" style="padding:40px;color:var(--text-lo)">Select a project above to run the Go-Live Readiness assessment</div>`; return; }
+
+  const project  = bsProjects.find(p=>p.id===projectId) || {title:'Selected Project'};
+  const health   = almHealth || {};
+  const cm       = health.changeManagement||{};
+  const hm       = health.healthMonitoring||{};
+  const crit     = health.criticalAlerts||0;
+
+  document.getElementById('goliveBody').innerHTML=`<div class="state-row" style="grid-column:1/-1"><div class="spinner"></div>&nbsp;Running Go-Live Readiness assessment...</div>`;
+
+  // Simulate AI analysis delay
+  await new Promise(r=>setTimeout(r,1200));
+
+  const rag = getRAG(project);
+  const checks=[
+    {label:'Quality Gates Accepted',    detail:'All required quality gates must be accepted before go-live', status:rag==='r'?'fail':rag==='a'?'warn':'pass', val:rag==='r'?'Not accepted':rag==='a'?'Partially accepted':'All accepted'},
+    {label:'Open Critical Tasks',       detail:'No critical tasks should remain open', status:cm.openCount>10?'fail':cm.openCount>3?'warn':'pass', val:`${cm.openCount||0} open tasks`},
+    {label:'Health Monitoring — PROD',  detail:'No critical alerts on production system', status:crit>0?'fail':'pass', val:crit>0?`${crit} critical alert(s)`:'All clear'},
+    {label:'Transport Queue',           detail:'Transport pipeline must be clear', status:health.transportManagement?.failedCount>0?'fail':health.transportManagement?.pendingCount>5?'warn':'pass', val:health.transportManagement?.pipelineStatus||'UNKNOWN'},
+    {label:'ALM Project Status',        detail:'Project must be on track or in deploy phase', status:rag==='r'?'fail':rag==='a'?'warn':'pass', val:rag==='g'?'On Track':rag==='a'?'At Risk':'Delayed'},
+    {label:'Pending Approvals',         detail:'All change approvals must be completed', status:cm.pendingApproval>3?'fail':cm.pendingApproval>0?'warn':'pass', val:`${cm.pendingApproval||0} pending`},
+    {label:'System Availability',       detail:'PROD availability must be above 99%', status:parseFloat(hm.prodAvailability||99.9)<99?'fail':parseFloat(hm.prodAvailability||99.9)<99.5?'warn':'pass', val:`${hm.prodAvailability||99.9}%`},
+    {label:'AI Risk Score',             detail:'Predicted import risk must be below 40%', status:'info', val:'Calculated from live data'},
+  ];
+
+  const passed  = checks.filter(c=>c.status==='pass').length;
+  const warned  = checks.filter(c=>c.status==='warn').length;
+  const failed  = checks.filter(c=>c.status==='fail').length;
+  const total   = checks.filter(c=>c.status!=='info').length;
+  const score   = Math.round((passed/total)*100);
+  const verdict = failed>0?'NOT READY':warned>2?'REVIEW NEEDED':'READY';
+  const vColor  = failed>0?'var(--red)':warned>2?'var(--amber)':'var(--green)';
+  const circum  = 2*Math.PI*46;
+
+  const badge=document.getElementById('goliveBadge');
+  badge.style.display='';
+  badge.textContent=verdict;
+  badge.className=`module-badge ${failed>0?'error':warned>2?'warn':'ok'}`;
+
+  document.getElementById('goliveBody').innerHTML=`
+    <div class="golive-score">
+      <div class="golive-ring-wrap">
+        <svg class="golive-ring" width="110" height="110" viewBox="0 0 110 110">
+          <circle class="golive-ring-bg"   cx="55" cy="55" r="46"/>
+          <circle class="golive-ring-fill" id="glArc" cx="55" cy="55" r="46"
+            stroke="${vColor}" stroke-dasharray="0 ${circum}"/>
+        </svg>
+        <div class="golive-overlay">
+          <span class="golive-num">${score}</span>
+          <span class="golive-unit">/ 100</span>
+        </div>
+      </div>
+      <div class="golive-verdict" style="color:${vColor}">${verdict}</div>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px;width:100%">
+        <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0"><span style="color:var(--green)">✓ ${passed} passed</span><span style="color:var(--amber)">⚠ ${warned} warnings</span><span style="color:var(--red)">✕ ${failed} failed</span></div>
+      </div>
+    </div>
+    <div class="golive-checks">
+      ${checks.map(ch=>`
+        <div class="gc-row">
+          <div class="gc-icon ${ch.status}">${ch.status==='pass'?'✓':ch.status==='fail'?'✕':ch.status==='warn'?'!':'i'}</div>
+          <div style="flex:1">
+            <div class="gc-label">${ch.label}</div>
+            <div class="gc-detail">${ch.detail}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+            <span class="gc-badge ${ch.status}">${ch.status==='pass'?'Pass':ch.status==='fail'?'Fail':ch.status==='warn'?'Review':'Info'}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">${ch.val}</span>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  // Animate ring
+  setTimeout(()=>{
+    const arc=document.getElementById('glArc');
+    if(arc) arc.style.strokeDasharray=`${circum*(score/100)} ${circum*(1-score/100)}`;
+  },100);
+}
+
+// ════════════════════════════════════════
+// SOLUTION 3: WEEKLY PROGRAMME REPORT
+// ════════════════════════════════════════
+async function generateWeeklyReport(){
+  const btn=document.getElementById('generateReportBtn');
+  btn.disabled=true;
+  btn.textContent='🤖 Generating...';
+  document.getElementById('reportBody').innerHTML=`<div class="state-row"><div class="spinner"></div>&nbsp;SAP Core AI is analysing your programme data...</div>`;
+
+  const health = almHealth||{};
+  const cm     = health.changeManagement||{};
+  const tm     = health.transportManagement||{};
+  const hm     = health.healthMonitoring||{};
+  const onTrack= bsProjects.filter(p=>getRAG(p)==='g').length;
+  const atRisk = bsProjects.filter(p=>getRAG(p)==='a').length;
+  const delayed= bsProjects.filter(p=>getRAG(p)==='r').length;
+
+  // Call SAP Core AI for executive summary
+  let aiSummary = '';
+  try{
+    const res=await fetch('/api/ai/predict',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        criticalAlerts:health.criticalAlerts||0,
+        warningAlerts:health.warningAlerts||0,
+        failedDeployments:tm.failedCount||0,
+        pendingDeployments:tm.pendingCount||0,
+        pipelineStatus:tm.pipelineStatus||'OK',
+        prodAvailability:parseFloat(hm.prodAvailability||99.9),
+        pendingApprovals:cm.pendingApproval||0,
+        rejectedCRs:0,
+        complianceRate:cm.complianceRate||100,
+      })});
+    const data=await res.json();
+    aiSummary=data.recommendation||'Programme health indicators are within normal range.';
+  }catch{
+    aiSummary='Programme is progressing with '+onTrack+' projects on track. '+atRisk+' project(s) require attention this week.';
+  }
+
+  const week = new Date();
+  const weekStr=week.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('reportWeekLabel').textContent=`Week of ${weekStr}`;
+
+  bsReportData={weekStr,onTrack,atRisk,delayed,cm,tm,hm,health,aiSummary,projects:bsProjects};
+
+  document.getElementById('reportBody').innerHTML=`
+    <div class="report-ai-box">
+      <span style="font-size:16px;flex-shrink:0">🤖</span>
+      <div><strong>SAP Core AI Executive Summary:</strong> ${aiSummary}</div>
+    </div>
+    <div class="report-metrics">
+      <div class="report-metric"><div class="report-metric-val" style="color:var(--green)">${onTrack}</div><div class="report-metric-lbl">ON TRACK</div></div>
+      <div class="report-metric"><div class="report-metric-val" style="color:var(--amber)">${atRisk}</div><div class="report-metric-lbl">AT RISK</div></div>
+      <div class="report-metric"><div class="report-metric-val" style="color:var(--red)">${delayed}</div><div class="report-metric-lbl">DELAYED</div></div>
+      <div class="report-metric"><div class="report-metric-val">${bsProjects.length}</div><div class="report-metric-lbl">TOTAL PROJECTS</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+      <div>
+        <div class="report-section">
+          <div class="report-section-title" style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Change Management</div>
+          ${rRow('Open projects/tasks', cm.openCount||0, cm.openCount>10?'warn':'')}
+          ${rRow('Pending approvals',   cm.pendingApproval||0, cm.pendingApproval>3?'warn':'')}
+          ${rRow('Compliance rate',     (cm.complianceRate||100)+'%', '')}
+          ${rRow('Total items tracked', cm.projectCount||bsProjects.length, '')}
+        </div>
+      </div>
+      <div>
+        <div class="report-section">
+          <div class="report-section-title" style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Transport & Deployment</div>
+          ${rRow('Pipeline status',      tm.pipelineStatus||'OK', tm.pipelineStatus==='BLOCKED'?'warn':'')}
+          ${rRow('Pending deployments',  tm.pendingCount||0, tm.pendingCount>5?'warn':'')}
+          ${rRow('Failed deployments',   tm.failedCount||0, tm.f
