@@ -1849,8 +1849,10 @@ async function generateWeeklyReport(){
 
   bsReportData={weekStr,onTrack,atRisk,delayed,cm,tm,hm,health,aiSummary,projects:bsProjects};
 
-  document.getElementById('reportBody').innerHTM
-  <script>
+  document.getElementById('reportBody').innerHTML='<div>Report generated</div>';
+}
+</script>
+<script>
 document.addEventListener('DOMContentLoaded',function(){
 var s=document.getElementById('scoreNum');if(s)s.textContent='78';
 var ss=document.getElementById('scoreStatus');if(ss){ss.textContent='Good';ss.style.color='#107e3e';}
