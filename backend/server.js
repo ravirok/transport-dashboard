@@ -622,6 +622,9 @@ function parseALMResponse(data) {
   }
   return [];
 }
+
+// ─── ALM GET helper — destination token first, then x509 direct token ─────────
+async function fetchFromALM(path) {
   const { baseUrl, authToken, tokenType } = await resolveCALMDestination();
 
   // Try destination token first
