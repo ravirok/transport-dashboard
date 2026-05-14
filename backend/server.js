@@ -946,6 +946,21 @@ async function tryALMPaths(paths) {
 
 // 5. GET /api/calm/health
 app.get("/api/calm/health", async (req, res) => {
+  // Hard 10 second timeout — always responds, never hangs
+  const timer = setTimeout(() => {
+    if (!res.headersSent) {
+      console.warn("⚠️ ALM health timeout — returning empty structure");
+      res.json({
+        criticalAlerts: 0, warningAlerts: 0,
+        transportManagement:  { pendingCount:0, failedCount:0, pipelineStatus:"UNKNOWN", lastDeployment:null },
+        changeManagement:     { openCount:0, pendingApproval:0, approvedCount:0, rejectedCount:0, deployedCount:0, complianceRate:100, projectCount:0, taskCount:0 },
+        healthMonitoring:     { criticalCount:0, warningCount:0, prodAvailability:"99.9", systemsMonitored:0 },
+        alerts: [], projects: [],
+        error: "timeout",
+      });
+    }
+  }, 9000);
+
   try {
     // ── Fetch projects, features and health ALL IN PARALLEL ──────────
     console.log("🔄 ALM health: fetching in parallel...");
@@ -1025,6 +1040,8 @@ app.get("/api/calm/health", async (req, res) => {
 
     console.log(`✅ ALM computed: proj=${projects.length} tasks=${allTasks.length} feat=${features.length} hm=${hmAlerts.length} | pipeline=${pipelineStatus} | CM source=${allTasks.length > 0 ? "tasks" : "projects"}`);
 
+    clearTimeout(timer);
+    if (res.headersSent) return;
     res.json({
       criticalAlerts: hmCritical,
       warningAlerts:  hmWarning,
@@ -1072,15 +1089,15 @@ app.get("/api/calm/health", async (req, res) => {
     });
 
   } catch (err) {
+    clearTimeout(timer);
+    if (res.headersSent) return;
     console.error("❌ /api/calm/health error:", err.message);
-    // Return empty structure — frontend handles gracefully
     res.json({
-      criticalAlerts: 0,
-      warningAlerts:  0,
+      criticalAlerts: 0, warningAlerts: 0,
       transportManagement:  { pendingCount:0, failedCount:0, pipelineStatus:"UNKNOWN", lastDeployment:null },
-      changeManagement:     { openCount:0, pendingApproval:0, approvedCount:0, rejectedCount:0, deployedCount:0, complianceRate:100 },
+      changeManagement:     { openCount:0, pendingApproval:0, approvedCount:0, rejectedCount:0, deployedCount:0, complianceRate:100, projectCount:0, taskCount:0 },
       healthMonitoring:     { criticalCount:0, warningCount:0, prodAvailability:"99.9", systemsMonitored:0 },
-      alerts: [],
+      alerts: [], projects: [],
       error: err.message,
     });
   }
