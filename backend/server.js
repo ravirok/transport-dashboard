@@ -1545,6 +1545,16 @@ app.get("/api/ai/status", async (req, res) => {
 //  SERVE FRONTEND
 // ═════════════════════════════════════════════════════════════════════════════
 app.use(express.static(path.join(__dirname, "../frontend")));
+
+// Explicit route for Cloud ALM dashboard
+app.get("/alm", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/cloud_alm.html"));
+});
+app.get("/cloud_alm.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/cloud_alm.html"));
+});
+
+// Default — serve TransTrack Pro
 app.get(/^\/(?!api|debug).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
