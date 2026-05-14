@@ -1160,11 +1160,9 @@ function renderAll(data){
   renderTMPieChart(tm);
   renderAlertsTable(data.alerts||[]);
 
-  // AI predictions
-  runAIPrediction(data);
-
-  // Business Solutions — pre-render in background
-  renderProgrammeHealth(data);
+  // AI predictions and Business Solutions — deferred, non-blocking
+  setTimeout(()=>runAIPrediction(data), 0);
+  setTimeout(()=>renderProgrammeHealth(data), 0);
 }
 
 // ════════════════════════════════════════
@@ -1567,7 +1565,7 @@ function renderFallback(){
   almHealth=mock; allAlerts=mock.alerts;
   document.getElementById('shellDot').className='shell-dot warn';
   renderAll(mock);
-  renderProgrammeHealth(mock);
+  setTimeout(()=>renderProgrammeHealth(mock), 0);
   allCRs=[
     {id:'CR-2024-0891',title:'Z_PAYMENT_MODULE — JSMITH',status:'APPROVED',assigneeId:'BASIS_TEAM',priority:'HIGH',dueDate:new Date(Date.now()+86400000).toISOString(),createdAt:new Date().toISOString()},
     {id:'CR-2024-0892',title:'HR workflow config — ADOE',status:'PENDING_APPROVAL',assigneeId:'HR_MANAGER',priority:'MEDIUM',dueDate:new Date(Date.now()+172800000).toISOString(),createdAt:new Date().toISOString()},
@@ -1823,6 +1821,4 @@ async function generateWeeklyReport(){
   document.getElementById('reportBody').innerHTML=`
     <div class="report-ai-box">
       <span style="font-size:16px;flex-shrink:0">🤖</span>
-      <div><strong>SAP Core AI Executive Summary:</strong> ${aiSummary}</div>
-    </div>
- 
+      <div><strong>SAP Core AI Execut
