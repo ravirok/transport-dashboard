@@ -1544,6 +1544,17 @@ app.get("/api/ai/status", async (req, res) => {
 // ═════════════════════════════════════════════════════════════════════════════
 //  SERVE FRONTEND
 // ═════════════════════════════════════════════════════════════════════════════
+
+// No-cache headers for HTML files so changes always take effect
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html') || req.path === '/' || req.path === '/alm') {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, "../frontend")));
 
 // Explicit route for Cloud ALM dashboard
