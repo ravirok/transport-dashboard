@@ -87,7 +87,9 @@ body {
 ::-webkit-scrollbar-track { background: var(--bg2); }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
-@keyframes fadeUp   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+@keyframes shimmer { 0%,100%{opacity:.5} 50%{opacity:1} }
+.loading-shimmer { animation: shimmer 1.5s infinite; color: var(--text-lo) !important; }
+
 @keyframes spin     { to{transform:rotate(360deg)} }
 @keyframes pulse    { 0%,100%{opacity:1}50%{opacity:.35} }
 @keyframes modalIn  { from{opacity:0;transform:scale(.96) translateY(10px)} to{opacity:1;transform:none} }
@@ -1032,24 +1034,61 @@ function switchTab(tab){
 // LOAD DATA
 // ════════════════════════════════════════
 async function loadAll(){
-  try{
-    const data=await fetch('/api/calm/health').then(r=>r.json());
-    almHealth=data;
-    allAlerts=data.alerts||[];
-    renderAll(data);
-  }catch(e){
-    console.error('ALM health error:',e.message);
+  // Show loading state immediately
+  showLoadingState();
+
+  // Fetch all three in parallel with individual timeouts
+  const withTimeout = (promise, ms, fallback) =>
+    Promise.race([promise, new Promise(r => setTimeout(() => r(fallback), ms))]);
+
+  const [healthData, crData, tmData] = await Promise.all([
+    withTimeout(
+      fetch('/api/calm/health').then(r => r.json()),
+      15000, null
+    ),
+    withTimeout(
+      fetch('/api/calm/changes/all').then(r => r.json()),
+      15000, null
+    ),
+    withTimeout(
+      fetch('/api/calm/tm/deployments').then(r => r.json()),
+      15000, null
+    ),
+  ]);
+
+  if (healthData && !healthData.error) {
+    almHealth  = healthData;
+    allAlerts  = healthData.alerts || [];
+    renderAll(healthData);
+  } else {
+    console.warn('ALM health failed or timed out — using fallback');
     renderFallback();
   }
-  try{
-    const data=await fetch('/api/calm/changes/all').then(r=>r.json());
-    allCRs=data?.d?.results||data?.value||[];
+
+  if (crData) {
+    allCRs = crData?.d?.results || crData?.value || [];
     renderCRSummary();
-  }catch{}
-  try{
-    const data=await fetch('/api/calm/tm/deployments').then(r=>r.json());
-    allDeployments=data?.d?.results||[];
-  }catch{}
+  }
+
+  if (tmData) {
+    allDeployments = tmData?.d?.results || [];
+  }
+}
+
+function showLoadingState(){
+  // AI card — show spinners
+  document.getElementById('scoreNum').textContent    = '—';
+  document.getElementById('scoreStatus').textContent = 'Loading...';
+  document.getElementById('aiInsight').textContent   = '⏳ SAP Core AI is analysing your landscape...';
+  document.getElementById('aiLastRun').textContent   = 'Fetching data...';
+  // KPI cards
+  ['kpiAlerts','kpiAvail','kpiCR','kpiBlocked','kpiCompliance'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+  // Status bar
+  document.getElementById('sb1txt').textContent = 'Connecting to Cloud ALM...';
+  document.getElementById('sb1').className = 'sb-dot warn';
 }
 
 // ════════════════════════════════════════
@@ -1521,17 +1560,19 @@ function closeDrawer(){
 function renderFallback(){
   const mock={criticalAlerts:1,warningAlerts:3,
     transportManagement:{pendingCount:5,failedCount:1,pipelineStatus:'DEGRADED',lastDeployment:new Date().toISOString()},
-    changeManagement:{openCount:8,pendingApproval:3,approvedCount:14,rejectedCount:1,deployedCount:18,complianceRate:93},
+    changeManagement:{openCount:8,pendingApproval:3,approvedCount:14,rejectedCount:1,deployedCount:18,complianceRate:93,projectCount:0,taskCount:0,source:'projects'},
     healthMonitoring:{criticalCount:1,warningCount:3,prodAvailability:'99.1',systemsMonitored:5},
+    projects:[],
     alerts:[
       {id:'ALT-001',severity:'CRITICAL',systemId:'PROD-S4H',message:'Response time above threshold',type:'PERFORMANCE',createdAt:new Date().toISOString()},
       {id:'ALT-002',severity:'WARNING', systemId:'QAS-S4H', message:'Import queue backlog',type:'TRANSPORT',createdAt:new Date().toISOString()},
       {id:'ALT-003',severity:'WARNING', systemId:'PROD-BTP',message:'Memory usage elevated',type:'RESOURCE',createdAt:new Date().toISOString()},
       {id:'ALT-004',severity:'INFO',    systemId:'DEV-S4H', message:'Maintenance window tonight',type:'MAINTENANCE',createdAt:new Date().toISOString()},
     ]};
-  almHealth=mock;allAlerts=mock.alerts;
+  almHealth=mock; allAlerts=mock.alerts;
   document.getElementById('shellDot').className='shell-dot warn';
   renderAll(mock);
+  renderProgrammeHealth(mock);
   allCRs=[
     {id:'CR-2024-0891',title:'Z_PAYMENT_MODULE — JSMITH',status:'APPROVED',assigneeId:'BASIS_TEAM',priority:'HIGH',dueDate:new Date(Date.now()+86400000).toISOString(),createdAt:new Date().toISOString()},
     {id:'CR-2024-0892',title:'HR workflow config — ADOE',status:'PENDING_APPROVAL',assigneeId:'HR_MANAGER',priority:'MEDIUM',dueDate:new Date(Date.now()+172800000).toISOString(),createdAt:new Date().toISOString()},
@@ -1793,21 +1834,4 @@ async function generateWeeklyReport(){
       <div class="report-metric"><div class="report-metric-val" style="color:var(--green)">${onTrack}</div><div class="report-metric-lbl">ON TRACK</div></div>
       <div class="report-metric"><div class="report-metric-val" style="color:var(--amber)">${atRisk}</div><div class="report-metric-lbl">AT RISK</div></div>
       <div class="report-metric"><div class="report-metric-val" style="color:var(--red)">${delayed}</div><div class="report-metric-lbl">DELAYED</div></div>
-      <div class="report-metric"><div class="report-metric-val">${bsProjects.length}</div><div class="report-metric-lbl">TOTAL PROJECTS</div></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
-      <div>
-        <div class="report-section">
-          <div class="report-section-title" style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Change Management</div>
-          ${rRow('Open projects/tasks', cm.openCount||0, cm.openCount>10?'warn':'')}
-          ${rRow('Pending approvals',   cm.pendingApproval||0, cm.pendingApproval>3?'warn':'')}
-          ${rRow('Compliance rate',     (cm.complianceRate||100)+'%', '')}
-          ${rRow('Total items tracked', cm.projectCount||bsProjects.length, '')}
-        </div>
-      </div>
-      <div>
-        <div class="report-section">
-          <div class="report-section-title" style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Transport & Deployment</div>
-          ${rRow('Pipeline status',      tm.pipelineStatus||'OK', tm.pipelineStatus==='BLOCKED'?'warn':'')}
-          ${rRow('Pending deployments',  tm.pendingCount||0, tm.pendingCount>5?'warn':'')}
-          ${rRow('Failed deployments',   tm.failedCount||0, tm.f
+      <div class="report-metric"><div class="report-metric-val">${bsProjects.length}</div><div class="report-
