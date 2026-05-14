@@ -1155,14 +1155,13 @@ function renderAll(data){
     statRow('Systems monitored', hm.systemsMonitored??'—','teal')+
     miniBar('System health',Math.max(0,100-crit*15-warn*5),'var(--green)');
 
-  // Charts
-  renderAlertPieChart(crit,warn,(data.alerts||[]).filter(a=>a.severity==='INFO').length);
-  renderTMPieChart(tm);
-  renderAlertsTable(data.alerts||[]);
-
-  // AI predictions and Business Solutions — deferred, non-blocking
-  setTimeout(()=>runAIPrediction(data), 0);
-  setTimeout(()=>renderProgrammeHealth(data), 0);
+  // Charts — wrapped in try/catch so errors don't break the dashboard
+  try { renderAlertPieChart(crit,warn,(data.alerts||[]).filter(a=>a.severity==='INFO').length); } catch(e){}
+  try { renderTMPieChart(tm); } catch(e){}
+  try { renderAlertsTable(data.alerts||[]); } catch(e){}
+  // AI predictions — deferred
+  setTimeout(()=>{ try{runAIPrediction(data);}catch(e){} }, 0);
+  setTimeout(()=>{ try{renderProgrammeHealth(data);}catch(e){} }, 0);
 }
 
 // ════════════════════════════════════════
@@ -1819,7 +1818,4 @@ async function generateWeeklyReport(){
   }
 
   const week = new Date();
-  const weekStr=week.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
-  document.getElementById('reportWeekLabel').textContent=`Week of ${weekStr}`;
-
-  bsRep
+  const weekStr=week.toLocaleDateString('en-GB',{day:'2-digit',
