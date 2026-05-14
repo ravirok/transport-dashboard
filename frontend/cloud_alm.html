@@ -1093,6 +1093,7 @@ function showLoadingState(){
 // RENDER ALL
 // ════════════════════════════════════════
 function renderAll(data){
+  try {
   const tm=data.transportManagement||{};
   const cm=data.changeManagement||{};
   const hm=data.healthMonitoring||{};
@@ -1100,71 +1101,65 @@ function renderAll(data){
   const warn=data.warningAlerts||0;
   const total=(data.alerts||[]).length;
 
+  const $=id=>document.getElementById(id);
+  const set=(id,val)=>{const e=$(id);if(e)e.textContent=val;};
+  const cls=(id,c)=>{const e=$(id);if(e)e.className=c;};
+
   // Shell dot
-  const sd=document.getElementById('shellDot');
-  sd.className=crit>0?'shell-dot err':warn>0?'shell-dot warn':'shell-dot ok';
+  cls('shellDot', crit>0?'shell-dot err':warn>0?'shell-dot warn':'shell-dot ok');
 
   // Critical banner
   const critAlerts=(data.alerts||[]).filter(a=>a.severity==='CRITICAL'||a.severity==='ERROR');
   if(critAlerts.length>0){
-    document.getElementById('critBanner').className='crit-banner show';
-    document.getElementById('critChips').innerHTML=critAlerts.slice(0,4).map(a=>
-      `<span class="crit-chip">⚡ ${a.systemId||'SYSTEM'}: ${a.message||a.type||'Critical alert'}</span>`).join('');
+    cls('critBanner','crit-banner show');
+    const chips=$('critChips');
+    if(chips) chips.innerHTML=critAlerts.slice(0,4).map(a=>
+      `<span class="crit-chip">⚡ ${a.systemId||'SYSTEM'}: ${a.message||a.type||'Alert'}</span>`).join('');
   }
 
   // KPIs
-  animCount(document.getElementById('kpiAlerts'),   total);
-  document.getElementById('kpiAvail').textContent  =(hm.prodAvailability||'99.9')+'%';
-  animCount(document.getElementById('kpiCR'),       (cm.openCount||0)+(cm.pendingApproval||0));
-  animCount(document.getElementById('kpiBlocked'),  (cm.rejectedCount||0)+(tm.failedCount||0));
-  document.getElementById('kpiCompliance').textContent=(cm.complianceRate||100)+'%';
+  animCount($('kpiAlerts'), total);
+  set('kpiAvail', (hm.prodAvailability||'99.9')+'%');
+  animCount($('kpiCR'),      (cm.openCount||0)+(cm.pendingApproval||0));
+  animCount($('kpiBlocked'), (cm.rejectedCount||0)+(tm.failedCount||0));
+  set('kpiCompliance', (cm.complianceRate||100)+'%');
 
   // Status bar
-  document.getElementById('sb1').className=`sb-dot ${crit>0?'err':warn>0?'warn':'ok'}`;
-  document.getElementById('sb1txt').textContent=crit>0?`${crit} Critical`:warn>0?`${warn} Warnings`:'Systems OK';
-  document.getElementById('sb2').className=`sb-dot ${total>0?'warn':'ok'}`;
-  document.getElementById('sb2txt').textContent=`Alerts: ${total}`;
-  document.getElementById('sb3').className=`sb-dot ${(cm.pendingApproval||0)>0?'warn':'ok'}`;
-  document.getElementById('sb3txt').textContent=`CRs: ${(cm.openCount||0)+(cm.pendingApproval||0)} open`;
   const pipe=tm.pipelineStatus||'OK';
-  document.getElementById('sb4').className=`sb-dot ${pipe==='BLOCKED'?'err':pipe==='DEGRADED'?'warn':'ok'}`;
-  document.getElementById('sb4txt').textContent=`Pipeline: ${pipe}`;
+  cls('sb1', `sb-dot ${crit>0?'err':warn>0?'warn':'ok'}`);
+  set('sb1txt', crit>0?`${crit} Critical`:warn>0?`${warn} Warnings`:'Systems OK');
+  cls('sb2', `sb-dot ${total>0?'warn':'ok'}`);
+  set('sb2txt', `Alerts: ${total}`);
+  cls('sb3', `sb-dot ${(cm.pendingApproval||0)>0?'warn':'ok'}`);
+  set('sb3txt', `CRs: ${(cm.openCount||0)+(cm.pendingApproval||0)} open`);
+  cls('sb4', `sb-dot ${pipe==='BLOCKED'?'err':pipe==='DEGRADED'?'warn':'ok'}`);
+  set('sb4txt', `Pipeline: ${pipe}`);
 
   // Module cards
   const pipeCls=pipe==='BLOCKED'?'error':pipe==='DEGRADED'?'warn':'ok';
-  document.getElementById('tmBadge').textContent=pipe;
-  document.getElementById('tmBadge').className=`module-badge ${pipeCls}`;
-  document.getElementById('tmContent').innerHTML=
-    statRow('Pipeline status',pipe,pipeCls)+
-    statRow('Pending deployments',tm.pendingCount??'—',tm.pendingCount>5?'warn':'blue')+
-    statRow('Failed deployments', tm.failedCount??'—', tm.failedCount>0?'error':'ok')+
-    statRow('Last deployment',     fmt(tm.lastDeployment)||'—','')+
-    miniBar('Pipeline health',Math.max(0,100-(tm.failedCount||0)*15),'var(--sap-blue)');
+  set('tmBadge', pipe); cls('tmBadge', `module-badge ${pipeCls}`);
+  const tmC=$('tmContent');
+  if(tmC) tmC.innerHTML=statRow('Pipeline status',pipe,pipeCls)+statRow('Pending deployments',tm.pendingCount??'—',tm.pendingCount>5?'warn':'blue')+statRow('Failed deployments',tm.failedCount??'—',tm.failedCount>0?'error':'ok')+statRow('Last deployment',fmt(tm.lastDeployment)||'—','')+miniBar('Pipeline health',Math.max(0,100-(tm.failedCount||0)*15),'var(--sap-blue)');
 
-  document.getElementById('cmBadge').textContent=(cm.openCount||0)+' open';
-  document.getElementById('cmContent').innerHTML=
-    statRow('Open changes',     cm.openCount??'—',     'blue')+
-    statRow('Pending approval', cm.pendingApproval??'—', cm.pendingApproval>0?'warn':'ok')+
-    statRow('Rejected this week',cm.rejectedCount??'—', cm.rejectedCount>0?'error':'ok')+
-    statRow('Compliance rate',  (cm.complianceRate||100)+'%','ok')+
-    miniBar('Compliance',(cm.complianceRate||100),'var(--purple)');
+  set('cmBadge', (cm.openCount||0)+' open');
+  const cmC=$('cmContent');
+  if(cmC) cmC.innerHTML=statRow('Open changes',cm.openCount??'—','blue')+statRow('Pending approval',cm.pendingApproval??'—',cm.pendingApproval>0?'warn':'ok')+statRow('Rejected this week',cm.rejectedCount??'—',cm.rejectedCount>0?'error':'ok')+statRow('Compliance rate',(cm.complianceRate||100)+'%','ok')+miniBar('Compliance',(cm.complianceRate||100),'var(--purple)');
 
-  document.getElementById('hmBadge').textContent=crit>0?`${crit} critical`:warn>0?`${warn} warnings`:'OK';
-  document.getElementById('hmBadge').className=`module-badge ${crit>0?'error':warn>0?'warn':'ok'}`;
-  document.getElementById('hmContent').innerHTML=
-    statRow('PROD availability',(hm.prodAvailability||99.9)+'%','ok')+
-    statRow('Critical alerts',   crit, crit>0?'error':'ok')+
-    statRow('Warning alerts',    warn, warn>0?'warn':'ok')+
-    statRow('Systems monitored', hm.systemsMonitored??'—','teal')+
-    miniBar('System health',Math.max(0,100-crit*15-warn*5),'var(--green)');
+  set('hmBadge', crit>0?`${crit} critical`:warn>0?`${warn} warnings`:'OK');
+  cls('hmBadge', `module-badge ${crit>0?'error':warn>0?'warn':'ok'}`);
+  const hmC=$('hmContent');
+  if(hmC) hmC.innerHTML=statRow('PROD availability',(hm.prodAvailability||99.9)+'%','ok')+statRow('Critical alerts',crit,crit>0?'error':'ok')+statRow('Warning alerts',warn,warn>0?'warn':'ok')+statRow('Systems monitored',hm.systemsMonitored??'—','teal')+miniBar('System health',Math.max(0,100-crit*15-warn*5),'var(--green)');
 
-  // Charts — wrapped in try/catch so errors don't break the dashboard
-  try { renderAlertPieChart(crit,warn,(data.alerts||[]).filter(a=>a.severity==='INFO').length); } catch(e){}
-  try { renderTMPieChart(tm); } catch(e){}
-  try { renderAlertsTable(data.alerts||[]); } catch(e){}
-  // AI predictions — deferred
-  setTimeout(()=>{ try{runAIPrediction(data);}catch(e){} }, 0);
-  setTimeout(()=>{ try{renderProgrammeHealth(data);}catch(e){} }, 0);
+  // Charts
+  try{renderAlertPieChart(crit,warn,(data.alerts||[]).filter(a=>a.severity==='INFO').length);}catch(e){}
+  try{renderTMPieChart(tm);}catch(e){}
+  try{renderAlertsTable(data.alerts||[]);}catch(e){}
+
+  // Deferred
+  setTimeout(()=>{try{runAIPrediction(data);}catch(e){console.warn('AI:',e.message);}},0);
+  setTimeout(()=>{try{renderProgrammeHealth(data);}catch(e){console.warn('BS:',e.message);}},0);
+
+  } catch(e){ console.error('renderAll crashed:', e); }
 }
 
 // ════════════════════════════════════════
@@ -1559,29 +1554,40 @@ function closeDrawer(){
 // FALLBACK (mock data when ALM unreachable)
 // ════════════════════════════════════════
 function renderFallback(){
-  const mock={criticalAlerts:1,warningAlerts:3,
-    transportManagement:{pendingCount:5,failedCount:1,pipelineStatus:'DEGRADED',lastDeployment:new Date().toISOString()},
-    changeManagement:{openCount:8,pendingApproval:3,approvedCount:14,rejectedCount:1,deployedCount:18,complianceRate:93,projectCount:0,taskCount:0,source:'projects'},
-    healthMonitoring:{criticalCount:1,warningCount:3,prodAvailability:'99.1',systemsMonitored:5},
-    projects:[],
-    alerts:[
-      {id:'ALT-001',severity:'CRITICAL',systemId:'PROD-S4H',message:'Response time above threshold',type:'PERFORMANCE',createdAt:new Date().toISOString()},
-      {id:'ALT-002',severity:'WARNING', systemId:'QAS-S4H', message:'Import queue backlog',type:'TRANSPORT',createdAt:new Date().toISOString()},
-      {id:'ALT-003',severity:'WARNING', systemId:'PROD-BTP',message:'Memory usage elevated',type:'RESOURCE',createdAt:new Date().toISOString()},
-      {id:'ALT-004',severity:'INFO',    systemId:'DEV-S4H', message:'Maintenance window tonight',type:'MAINTENANCE',createdAt:new Date().toISOString()},
-    ]};
-  almHealth=mock; allAlerts=mock.alerts;
-  document.getElementById('shellDot').className='shell-dot warn';
-  renderAll(mock);
-  setTimeout(()=>renderProgrammeHealth(mock), 0);
+  // Set KPI values directly — no chart calls that could fail
+  const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+  setEl('kpiAlerts',     '4');
+  setEl('kpiAvail',      '99.1%');
+  setEl('kpiCR',         '11');
+  setEl('kpiBlocked',    '2');
+  setEl('kpiCompliance', '93%');
+
+  // Status bar
+  setEl('sb1txt', 'Connecting to Cloud ALM...');
+  setEl('sb2txt', 'Alerts: —');
+  setEl('sb3txt', 'CRs: —');
+  setEl('sb4txt', 'Pipeline: —');
+
+  // AI card — show local scores immediately
+  const mockData = {
+    criticalAlerts:1, warningAlerts:3,
+    transportManagement:{pendingCount:5,failedCount:1,pipelineStatus:'DEGRADED'},
+    changeManagement:{openCount:8,pendingApproval:3,complianceRate:93,projectCount:0},
+    healthMonitoring:{prodAvailability:'99.1'},
+    projects:[], alerts:[]
+  };
+  almHealth = mockData;
+  allAlerts = mockData.alerts;
+
+  // Render AI prediction locally (no API call)
+  try { renderAIPredictionUI(localFallback(mockData)); } catch(e){}
+
+  // Set up fallback CRs for change requests tab
   allCRs=[
-    {id:'CR-2024-0891',title:'Z_PAYMENT_MODULE — JSMITH',status:'APPROVED',assigneeId:'BASIS_TEAM',priority:'HIGH',dueDate:new Date(Date.now()+86400000).toISOString(),createdAt:new Date().toISOString()},
-    {id:'CR-2024-0892',title:'HR workflow config — ADOE',status:'PENDING_APPROVAL',assigneeId:'HR_MANAGER',priority:'MEDIUM',dueDate:new Date(Date.now()+172800000).toISOString(),createdAt:new Date().toISOString()},
-    {id:'CR-2024-0893',title:'FI table extension — MKHAN',status:'OPEN',assigneeId:'FI_LEAD',priority:'LOW',dueDate:new Date(Date.now()+259200000).toISOString(),createdAt:new Date().toISOString()},
-    {id:'CR-2024-0890',title:'MM config deployed — LTAYLOR',status:'DEPLOYED',assigneeId:'BASIS_TEAM',priority:'CRITICAL',dueDate:new Date(Date.now()-86400000).toISOString(),createdAt:new Date().toISOString()},
-    {id:'CR-2024-0889',title:'Auth role update — RCHEN',status:'REJECTED',assigneeId:'SECURITY',priority:'HIGH',dueDate:new Date(Date.now()-172800000).toISOString(),createdAt:new Date().toISOString()},
+    {id:'CR-2024-0891',title:'Z_PAYMENT_MODULE — JSMITH',status:'APPROVED',assigneeId:'BASIS_TEAM',priority:'HIGH',dueDate:new Date(Date.now()+86400000).toISOString()},
+    {id:'CR-2024-0892',title:'HR workflow config',status:'PENDING_APPROVAL',assigneeId:'HR_MANAGER',priority:'MEDIUM',dueDate:new Date(Date.now()+172800000).toISOString()},
+    {id:'CR-2024-0893',title:'FI table extension',status:'OPEN',assigneeId:'FI_LEAD',priority:'LOW',dueDate:new Date(Date.now()+259200000).toISOString()},
   ];
-  renderCRSummary();
 }
 
 
@@ -1812,4 +1818,31 @@ async function generateWeeklyReport(){
   // Call SAP Core AI for executive summary
   let aiSummary = '';
   try{
-    const res=await fetch('/api/ai/predict',{method:'POST',headers:{'Content-Type':'appl
+    const res=await fetch('/api/ai/predict',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        criticalAlerts:health.criticalAlerts||0,
+        warningAlerts:health.warningAlerts||0,
+        failedDeployments:tm.failedCount||0,
+        pendingDeployments:tm.pendingCount||0,
+        pipelineStatus:tm.pipelineStatus||'OK',
+        prodAvailability:parseFloat(hm.prodAvailability||99.9),
+        pendingApprovals:cm.pendingApproval||0,
+        rejectedCRs:0,
+        complianceRate:cm.complianceRate||100,
+      })});
+    const data=await res.json();
+    aiSummary=data.recommendation||'Programme health indicators are within normal range.';
+  }catch{
+    aiSummary='Programme is progressing with '+onTrack+' projects on track. '+atRisk+' project(s) require attention this week.';
+  }
+
+  const week = new Date();
+  const weekStr=week.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('reportWeekLabel').textContent=`Week of ${weekStr}`;
+
+  bsReportData={weekStr,onTrack,atRisk,delayed,cm,tm,hm,health,aiSummary,projects:bsProjects};
+
+  document.getElementById('reportBody').innerHTML=`
+    <div class="report-ai-box">
+      <span style="font-size:16px;flex-shrink:0">🤖</span>
+      <div><strong>SAP Core AI Executive Summary:</strong> 
