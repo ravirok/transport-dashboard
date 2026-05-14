@@ -529,7 +529,7 @@ let directCalmTokenExpiry = 0;
 async function getDirectCALMToken() {
   if (directCalmToken && Date.now() < directCalmTokenExpiry - 30000) return directCalmToken;
 
-  let clientId, certificate, privateKey, tokenUrl;
+  let clientId, certificate, privateKey, certUrl, standardUrl;
 
   // Try VCAP_SERVICES first
   try {
@@ -538,12 +538,12 @@ async function getDirectCALMToken() {
               || vcap["cloudalm"]?.[0]?.credentials
               || vcap["alm"]?.[0]?.credentials;
     if (calm) {
-      clientId    = calm.uaa?.clientid  || calm.clientid;
-      certificate = calm.uaa?.certificate;
-      privateKey  = calm.uaa?.key;
-      // x509 uses certurl not url for token endpoint
-      tokenUrl    = calm.uaa?.certurl   || calm.uaa?.url;
-      console.log(`ℹ️  Cloud ALM x509 credentials from VCAP`);
+      clientId     = calm.uaa?.clientid    || calm.clientid;
+      certificate  = calm.uaa?.certificate;
+      privateKey   = calm.uaa?.key;
+      certUrl      = calm.uaa?.certurl;    // mTLS endpoint — HAS .cert. in hostname
+      standardUrl  = calm.uaa?.url;        // standard endpoint
+      console.log(`ℹ️  Cloud ALM x509 from VCAP: certurl=${!!certUrl} url=${!!standardUrl}`);
     }
   } catch {}
 
@@ -551,42 +551,57 @@ async function getDirectCALMToken() {
   clientId    = clientId    || process.env.CALM_CLIENT_ID;
   certificate = certificate || process.env.CALM_CERTIFICATE;
   privateKey  = privateKey  || process.env.CALM_PRIVATE_KEY;
-  tokenUrl    = tokenUrl    || process.env.CALM_TOKEN_URL;
 
-  if (!clientId || !certificate || !privateKey || !tokenUrl) {
-    console.warn("⚠️ Cloud ALM x509 credentials not fully configured — skipping direct token");
+  // CALM_TOKEN_URL should be certurl — if it doesn't have .cert. we try adding it
+  const envTokenUrl = process.env.CALM_TOKEN_URL || "";
+  if (envTokenUrl.includes(".cert.")) {
+    certUrl = envTokenUrl;
+  } else if (envTokenUrl) {
+    // Convert standard URL to cert URL automatically
+    certUrl     = envTokenUrl.replace(".authentication.", ".authentication.cert.");
+    standardUrl = envTokenUrl;
+  }
+
+  if (!clientId || !certificate || !privateKey) {
+    console.warn(`⚠️ x509 credentials incomplete: clientId=${!!clientId} cert=${!!certificate} key=${!!privateKey}`);
     return null;
   }
 
-  // Clean up PEM strings (env vars may have escaped newlines)
-  const cleanCert = certificate.replace(/\\n/g, "\n");
-  const cleanKey  = privateKey.replace(/\\n/g, "\n");
+  // Clean PEM strings (env vars may have escaped newlines or spaces)
+  const cleanCert = certificate.replace(/\\n/g, "\n").replace(/\s+-----/g, "\n-----").replace(/-----\s+/g, "-----\n");
+  const cleanKey  = privateKey.replace(/\\n/g, "\n").replace(/\s+-----/g, "\n-----").replace(/-----\s+/g, "-----\n");
 
-  const fullUrl = tokenUrl.endsWith("/oauth/token") ? tokenUrl : `${tokenUrl}/oauth/token`;
-
-  // mTLS: present client certificate + private key in HTTPS agent
+  // Create mTLS agent with certificate
   const mtlsAgent = new https.Agent({
-    cert:               cleanCert,
-    key:                cleanKey,
+    cert: cleanCert,
+    key:  cleanKey,
     rejectUnauthorized: false,
   });
 
-  const res = await axios.post(
-    fullUrl,
-    new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id:  clientId,
-    }),
-    {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      httpsAgent: mtlsAgent,
-    }
+  // Try certurl first (correct for x509), then standard url as fallback
+  const tokenUrls = [certUrl, standardUrl].filter(Boolean).map(u =>
+    u.endsWith("/oauth/token") ? u : `${u}/oauth/token`
   );
 
-  directCalmToken       = res.data.access_token;
-  directCalmTokenExpiry = Date.now() + (res.data.expires_in || 3600) * 1000;
-  console.log("✅ Cloud ALM x509 token fetched successfully");
-  return directCalmToken;
+  for (const tokenUrl of tokenUrls) {
+    try {
+      console.log(`ℹ️  Trying x509 token from: ${tokenUrl}`);
+      const res = await axios.post(
+        tokenUrl,
+        new URLSearchParams({ grant_type: "client_credentials", client_id: clientId }),
+        { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent: mtlsAgent }
+      );
+      directCalmToken       = res.data.access_token;
+      directCalmTokenExpiry = Date.now() + (res.data.expires_in || 3600) * 1000;
+      console.log(`✅ Cloud ALM x509 token fetched via: ${tokenUrl}`);
+      return directCalmToken;
+    } catch (err) {
+      console.warn(`⚠️ x509 token failed [${err.response?.status||'ERR'}] ${tokenUrl}: ${err.message?.slice(0,80)}`);
+    }
+  }
+
+  console.error("❌ All x509 token attempts failed");
+  return null;
 }
 
 // ─── ALM GET helper — destination token first, then x509 direct token ─────────
@@ -649,21 +664,99 @@ function isThisWeek(dateStr) {
   return d >= weekAgo;
 }
 
-// ─── Projects debug — see raw response from projects API ─────────────────────
-app.get("/api/calm/projects", async (req, res) => {
+// ─── X509 + Projects deep debug ──────────────────────────────────────────────
+app.get("/api/calm/x509debug", async (req, res) => {
+  const result = { steps: {} };
+
+  // Step 1: Check env vars
+  const tokenUrl = process.env.CALM_TOKEN_URL || "";
+  result.steps["1_env_vars"] = {
+    CALM_CLIENT_ID:         !!(process.env.CALM_CLIENT_ID),
+    CALM_CERTIFICATE:       !!(process.env.CALM_CERTIFICATE),
+    CALM_PRIVATE_KEY:       !!(process.env.CALM_PRIVATE_KEY),
+    CALM_TOKEN_URL:         tokenUrl || "NOT SET",
+    CALM_TOKEN_URL_hasCert: tokenUrl.includes(".cert."),
+    certUrlWillUse:         tokenUrl.includes(".cert.") ? tokenUrl : tokenUrl.replace(".authentication.", ".authentication.cert."),
+    certLength:             (process.env.CALM_CERTIFICATE || "").length,
+    keyLength:              (process.env.CALM_PRIVATE_KEY  || "").length,
+    certStartsCorrectly:    (process.env.CALM_CERTIFICATE || "").includes("BEGIN CERTIFICATE"),
+    keyStartsCorrectly:     (process.env.CALM_PRIVATE_KEY  || "").includes("BEGIN"),
+  };
+
+  // Step 2: Try x509 token
+  let x509Token = null;
   try {
-    const data = await tryALMPaths([
-      "/api/calm-projects/v1/projects?$top=50",
-      "/api/imp-pjm-srv/v1/projects?$top=50",
-    ]);
-    res.json({
-      raw:   data,
-      count: (data?.value || data?.results || []).length,
-      keys:  Object.keys(data || {}),
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    x509Token = await getDirectCALMToken();
+    result.steps["2_x509_token"] = {
+      ok: !!x509Token,
+      tokenPreview: x509Token ? x509Token.slice(0, 30) + "..." : null,
+    };
+  } catch (e) {
+    result.steps["2_x509_token"] = { ok: false, error: e.message };
   }
+
+  // Step 3: Try destination token
+  let destToken = null;
+  try {
+    const dest = await resolveCALMDestination();
+    destToken = dest.authToken;
+    result.steps["3_dest_token"] = {
+      ok:      !!destToken,
+      baseUrl: dest.baseUrl,
+      tokenPreview: destToken ? destToken.slice(0, 30) + "..." : null,
+    };
+  } catch (e) {
+    result.steps["3_dest_token"] = { ok: false, error: e.message };
+  }
+
+  // Step 4: Try projects with BOTH tokens and show raw response
+  const baseUrl = "https://eu10.alm.cloud.sap";
+  for (const [label, token] of [["dest_token", destToken], ["x509_token", x509Token]]) {
+    if (!token) { result.steps[`4_projects_${label}`] = { skipped: true }; continue; }
+    try {
+      const r = await axios.get(`${baseUrl}/api/calm-projects/v1/projects?$top=5`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        httpsAgent,
+      });
+      result.steps[`4_projects_${label}`] = {
+        ok:        true,
+        status:    r.status,
+        keys:      Object.keys(r.data || {}),
+        count:     (r.data?.value || r.data?.results || []).length,
+        rawSample: JSON.stringify(r.data).slice(0, 500),
+      };
+    } catch (e) {
+      result.steps[`4_projects_${label}`] = {
+        ok:     false,
+        status: e.response?.status,
+        error:  e.message,
+        body:   JSON.stringify(e.response?.data || {}).slice(0, 300),
+      };
+    }
+  }
+
+  // Step 5: Try tenant-specific URL too
+  const tenantUrl = "https://hcl-america-solutions-inc-cloudalm.eu10.alm.cloud.sap";
+  for (const [label, token] of [["dest", destToken], ["x509", x509Token]]) {
+    if (!token) continue;
+    try {
+      const r = await axios.get(`${tenantUrl}/api/calm-projects/v1/projects?$top=5`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        httpsAgent,
+      });
+      result.steps[`5_tenant_url_${label}`] = {
+        ok: true, count: (r.data?.value || r.data?.results || []).length,
+        rawSample: JSON.stringify(r.data).slice(0, 300),
+      };
+    } catch (e) {
+      result.steps[`5_tenant_url_${label}`] = {
+        ok: false, status: e.response?.status,
+        body: JSON.stringify(e.response?.data || {}).slice(0, 200),
+      };
+    }
+  }
+
+  res.json(result);
 });
 
 
@@ -833,73 +926,94 @@ async function tryALMPaths(paths) {
 // 5. GET /api/calm/health
 app.get("/api/calm/health", async (req, res) => {
   try {
-    // Step 1: Fetch projects first (confirmed working)
+    // ── Step 1: Projects ─────────────────────────────────────────────
     const projectsRaw = await tryALMPaths([
       "/api/calm-projects/v1/projects?$top=100",
       "/api/imp-pjm-srv/v1/projects?$top=100",
     ]);
     const projects = projectsRaw?.value || projectsRaw?.results || [];
-    console.log(`✅ ALM projects fetched: ${projects.length}`);
+    console.log(`✅ ALM projects: ${projects.length}`);
 
-    // Step 2: Fetch tasks for first few projects (tasks need projectId)
+    // ── Step 2: Tasks — test with first project then fetch all ───────
     let allTasks = [];
-    for (const proj of projects.slice(0, 5)) {
-      const pid = proj.id || proj.projectId;
-      if (!pid) continue;
-      const tasksRaw = await tryALMPaths([
-        `/api/calm-tasks/v1/tasks?projectId=${pid}&$top=50`,
-        `/api/imp-tkm-srv/v1/tasks?projectId=${pid}&$top=50`,
-      ]);
-      const tasks = tasksRaw?.value || tasksRaw?.results || [];
-      allTasks = allTasks.concat(tasks);
+    let tasksWork = false;
+    if (projects.length > 0) {
+      const pid0 = projects[0]?.id || projects[0]?.projectId;
+      if (pid0) {
+        const testRaw = await tryALMPaths([
+          `/api/calm-tasks/v1/tasks?projectId=${pid0}&$top=1`,
+          `/api/imp-tkm-srv/v1/tasks?projectId=${pid0}&$top=1`,
+        ]);
+        tasksWork = !!testRaw;
+        if (tasksWork) {
+          for (const proj of projects.slice(0, 10)) {
+            const pid = proj.id || proj.projectId;
+            if (!pid) continue;
+            try {
+              const r = await tryALMPaths([
+                `/api/calm-tasks/v1/tasks?projectId=${pid}&$top=100`,
+                `/api/imp-tkm-srv/v1/tasks?projectId=${pid}&$top=100`,
+              ]);
+              allTasks = allTasks.concat(r?.value || r?.results || []);
+            } catch {}
+          }
+          console.log(`✅ ALM tasks: ${allTasks.length}`);
+        } else {
+          console.warn("⚠️ Tasks API not available on this tenant — using projects as CM source");
+        }
+      }
     }
-    console.log(`✅ ALM tasks fetched: ${allTasks.length}`);
 
-    // Step 3: Features / deployments (404 on most tenants without CDM)
-    const tmRaw = await tryALMPaths([
+    // ── Step 3: Features/CDM ─────────────────────────────────────────
+    const featRaw  = await tryALMPaths([
       "/api/imp-cdm-srv/v1/features?$top=100",
       "/api/imp-cdm-srv/v0/features?$top=100",
+      "/api/calm-cdm/v1/features?$top=100",
     ]);
-    const tmItems = tmRaw?.value || tmRaw?.results || [];
+    const features = featRaw?.value || featRaw?.results || [];
+    console.log(`${features.length > 0 ? "✅" : "⚠️"} ALM features: ${features.length}`);
 
-    // Step 4: Health monitoring events
-    const hmRaw = await tryALMPaths([
+    // ── Step 4: Health events ────────────────────────────────────────
+    const hmRaw    = await tryALMPaths([
       "/api/ops-alm-evt-srv/v1/events?$top=200",
       "/api/calm-health/v1/events?$top=200",
-      "/api/ops-ihm-srv/v1/healthStatus?$top=200",
+      "/api/ops-ihm-srv/v1/events?$top=200",
     ]);
     const hmAlerts = hmRaw?.value || hmRaw?.results || [];
+    console.log(`${hmAlerts.length > 0 ? "✅" : "⚠️"} ALM health events: ${hmAlerts.length}`);
 
-    // ── Transport Management (from features if available, else projects) ──
-    const tmPending      = tmItems.filter(i => ["READY_FOR_DEPLOYMENT","IN_QUEUE","PENDING"].includes(i.status)).length;
-    const tmFailed       = tmItems.filter(i => ["FAILED","ERROR"].includes(i.status)).length;
-    const tmLast         = tmItems.find(i => i.status === "DEPLOYED")?.deployedAt || null;
-    const pipelineStatus = tmFailed > 0 ? "BLOCKED" : tmPending > 10 ? "DEGRADED" : "OK";
+    // ── Transport Management ─────────────────────────────────────────
+    const tmItems        = features; // CDM features = deployment items
+    const tmPending      = tmItems.filter(i => ["READY","PENDING","IN_PROGRESS","SCHEDULED"].includes(i.status)).length;
+    const tmFailed       = tmItems.filter(i => ["FAILED","ERROR","ABORTED"].includes(i.status)).length;
+    const tmLast         = tmItems.find(i => ["DEPLOYED","SUCCESS","COMPLETED"].includes(i.status))?.deployedAt || null;
+    const pipelineStatus = tmFailed > 0 ? "BLOCKED" : tmPending > 5 ? "DEGRADED" : tmItems.length > 0 ? "OK" : "UNKNOWN";
 
-    // ── Change Management (from projects + tasks) ─────────────────────
-    const cmItems    = projects;
-    const taskOpen   = allTasks.filter(t => ["OPEN","CIPTKOPEN","IN_PROGRESS"].includes(t.status)).length;
-    const taskClosed = allTasks.filter(t => ["CLOSED","CIPTYCLOSE","DONE"].includes(t.status)).length;
-    const cmOpen     = projects.filter(p => p.status === "O" || p.status === "OPEN").length;
-    const cmClosed   = projects.filter(p => p.status === "C" || p.status === "CLOSED").length;
-    const cmTotal    = projects.length;
+    // ── Change Management ────────────────────────────────────────────
+    // Use tasks if available, else projects
+    const cmSource     = allTasks.length > 0 ? allTasks : projects;
+    const cmOpen       = cmSource.filter(i => ["OPEN","O","IN_PROGRESS","CIPTKOPEN"].includes(i.status)).length;
+    const cmClosed     = cmSource.filter(i => ["CLOSED","C","DONE","COMPLETED","CIPTYCLOSE"].includes(i.status)).length;
+    const cmPending    = cmSource.filter(i => ["PENDING","PENDING_APPROVAL","P"].includes(i.status)).length;
+    const cmRejected   = cmSource.filter(i => i.status === "REJECTED" && isThisWeek(i.changedAt || i.lastChangedDate)).length;
+    const cmTotal      = cmSource.length;
     const cmCompliance = cmTotal > 0
-      ? Math.round((cmClosed / cmTotal) * 100)
+      ? Math.round(((cmTotal - cmSource.filter(i => i.status === "REJECTED").length) / cmTotal) * 100)
       : 100;
 
-    // ── Health Monitoring ─────────────────────────────────────────────
+    // ── Health Monitoring ────────────────────────────────────────────
     const hmCritical = hmAlerts.filter(a => ["CRITICAL","ERROR"].includes(a.severity)).length;
     const hmWarning  = hmAlerts.filter(a => a.severity === "WARNING").length;
-    const hmSystems  = [...new Set(hmAlerts.map(a => a.serviceId || a.systemId))].length;
+    const hmSystems  = [...new Set(hmAlerts.map(a => a.serviceId || a.systemId).filter(Boolean))].length;
     const prodAlerts = hmAlerts.filter(a =>
-      (a.systemId || "").toUpperCase().includes("PROD") &&
-      ["CRITICAL","ERROR"].includes(a.severity)
+      ["CRITICAL","ERROR"].includes(a.severity) &&
+      (a.systemId || "").toUpperCase().includes("PROD")
     );
     const prodAvail = prodAlerts.length > 0
       ? Math.max(85, 100 - prodAlerts.length * 3).toFixed(1)
       : "99.9";
 
-    console.log(`✅ ALM health: projects=${projects.length} tasks=${allTasks.length} TM=${tmItems.length} HM=${hmAlerts.length} | pipeline=${pipelineStatus}`);
+    console.log(`✅ ALM computed: proj=${projects.length} tasks=${allTasks.length} feat=${features.length} hm=${hmAlerts.length} | pipeline=${pipelineStatus} | CM source=${allTasks.length > 0 ? "tasks" : "projects"}`);
 
     res.json({
       criticalAlerts: hmCritical,
@@ -909,17 +1023,18 @@ app.get("/api/calm/health", async (req, res) => {
         failedCount:    tmFailed,
         pipelineStatus,
         lastDeployment: tmLast,
+        featuresCount:  features.length,
       },
       changeManagement: {
-        openCount:       cmOpen + taskOpen,
-        pendingApproval: allTasks.filter(t => t.status === "PENDING_APPROVAL").length,
-        approvedCount:   allTasks.filter(t => ["APPROVED","DONE","CLOSED"].includes(t.status)).length,
-        rejectedCount:   0,
+        openCount:       cmOpen,
+        pendingApproval: cmPending,
+        approvedCount:   cmClosed,
+        rejectedCount:   cmRejected,
         deployedCount:   cmClosed,
         complianceRate:  cmCompliance,
-        // Extra context
         projectCount:    projects.length,
         taskCount:       allTasks.length,
+        source:          allTasks.length > 0 ? "tasks" : "projects",
       },
       healthMonitoring: {
         criticalCount:    hmCritical,
@@ -935,12 +1050,11 @@ app.get("/api/calm/health", async (req, res) => {
         type:      a.alertType  || a.type,
         createdAt: a.createdAt,
       })),
-      // Pass projects for the CR table fallback
       projects: projects.slice(0, 20).map(p => ({
         id:        p.id || p.projectId,
         title:     p.name || p.title || "",
         status:    p.status || "OPEN",
-        type:      p.type || p.projectType || "PROJECT",
+        type:      p.type  || p.projectType || "PROJECT",
         startDate: p.startDate || p.plannedStartDate,
         endDate:   p.endDate   || p.plannedEndDate,
         createdAt: p.createdAt || p.createDate,
