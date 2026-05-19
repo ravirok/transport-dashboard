@@ -134,17 +134,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .sb-right{margin-left:auto;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.4)}
 .drawer-backdrop{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.3)}
 .drawer-backdrop.open{display:block}
-.drawer{position:fixed;right:0;top:44px;bottom:0;z-index:401;width:480px;background:var(--surface);border-left:1px solid var(--border);box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column}
-.drawer.open{transform:none}
-.drawer-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--surface2);flex-shrink:0}
-.drawer-title{font-size:14px;font-weight:600;color:var(--text-hi)}
-.drawer-close{margin-left:auto;background:none;border:1px solid var(--border);color:var(--text-lo);cursor:pointer;width:28px;height:28px;border-radius:var(--r);font-size:13px;display:flex;align-items:center;justify-content:center}
-.drawer-body{padding:16px 18px;overflow-y:auto;flex:1}
-.drawer-field{margin-bottom:12px}
-.drawer-field-lbl{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-lo);margin-bottom:3px}
-.drawer-field-val{font-size:13px;color:var(--text-hi);line-height:1.5}
-.drawer-sep{height:1px;background:var(--border);margin:12px 0}
-/* Business Solutions */
+/* drawer CSS moved *//* Business Solutions */
 .bs-header{background:linear-gradient(135deg,#1b3a6b,#0070f2,#00b4d8);border-radius:var(--r-lg);padding:18px 22px;margin-bottom:16px;display:flex;align-items:center;gap:16px;color:#fff}
 .bs-stats{margin-left:auto;display:flex;gap:20px}
 .bs-stat{text-align:center}
@@ -831,33 +821,27 @@ function renderCRTab(){
 }
 
 function openCRDrawer(idx){
+  idx=parseInt(idx)||0;
   var items=allCRs.length>0?allCRs:allProjects;
   var cr=items[idx]||{};
-  var risk=calcRisk(cr);
-  var status=cr.status||cr.operationalStatus||'OPEN';
-  set('drawerTitle',cr.title||cr.name||'Project Details');
-  set('drawerSub',cr.id||cr.projectId||'');
-  setHTML('drawerBody',
-    '<div class="drawer-field"><div class="drawer-field-lbl">Status</div><div><span class="chip '+(risk.level==='high'?'chip-err':risk.level==='med'?'chip-warn':'chip-ok')+'">'+status+'</span></div></div>'
-    +'<div class="drawer-field"><div class="drawer-field-lbl">🧠 AI Risk Score</div><div><span class="chip rag-ai '+risk.level+'" style="font-size:12px;padding:4px 12px">🧠 '+risk.score+'% risk</span></div></div>'
-    +'<div class="drawer-sep"></div>'
-    +'<div class="drawer-field"><div class="drawer-field-lbl">Type</div><div class="drawer-field-val">'+(cr.type||cr.purpose||'—')+'</div></div>'
-    +'<div class="drawer-field"><div class="drawer-field-lbl">Phase</div><div class="drawer-field-val">'+(cr.currentPhase||cr.phase||'—')+'</div></div>'
-    +'<div class="drawer-field"><div class="drawer-field-lbl">Operational Status</div><div class="drawer-field-val">'+(cr.operationalStatus||'—')+'</div></div>'
-    +'<div class="drawer-field"><div class="drawer-field-lbl">Start Date</div><div class="drawer-field-val">'+fmt(cr.startDate||cr.plannedStartDate)+'</div></div>'
-    +'<div class="drawer-field"><div class="drawer-field-lbl">End Date</div><div class="drawer-field-val">'+fmt(cr.endDate||cr.plannedEndDate)+'</div></div>'
-    +'<div class="drawer-sep"></div>'
-    +'<div class="drawer-field"><div class="drawer-field-lbl">🧠 SAP Core AI Insight</div>'
-    +'<div class="drawer-field-val" style="margin-top:4px;font-size:12.5px;line-height:1.6">'
-    +(risk.level==='high'?'High risk detected. This project requires immediate attention. Review with project lead and escalate to steering committee.'
-    :risk.level==='med'?'Moderate risk. Review open tasks and confirm quality gate status before next phase transition.'
-    :'Project health indicators are positive. Continue standard monitoring. No immediate action required.')
-    +'</div></div>'
-  );
-  document.getElementById('drawerBackdrop').classList.add('open');
-  setTimeout(function(){document.getElementById('drawer').classList.add('open');},10);
-  document.getElementById('drawerBackdrop').onclick=closeDrawer;
+  // Map CR to project-like object for the AI drawer
+  var p={
+    id:cr.id||cr.projectId,title:cr.title||cr.name,
+    type:cr.type||cr.purpose||'PROJECT',
+    status:cr.status||cr.operationalStatus||'OPEN',
+    operationalStatus:cr.operationalStatus||cr.status,
+    currentPhase:cr.currentPhase||cr.phase,
+    startDate:cr.startDate||cr.plannedStartDate,
+    endDate:cr.dueDate||cr.endDate||cr.plannedEndDate
+  };
+  // Temporarily add to bsProjects so openProjectDrawer can find it
+  var tempIdx=bsProjects.length;
+  bsProjects.push(p);
+  openProjectDrawer(tempIdx);
+  // Clean up after drawer opens
+  setTimeout(function(){bsProjects.pop();},5000);
 }
+
 
 function calcRisk(cr){
   var s=10;
@@ -957,6 +941,7 @@ var AI_STEPS=[
 ];
 
 function openProjectDrawer(idx){
+  idx=parseInt(idx)||0;
   var p=bsProjects[idx]||{};
   var rag=getRAG(p),risk=calcRisk(p),prog=getProgress(p);
   var ragLabel=rag==='g'?'🟢 On Track':rag==='a'?'🟡 At Risk':'🔴 Delayed';
