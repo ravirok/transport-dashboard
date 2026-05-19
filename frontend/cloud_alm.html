@@ -1285,8 +1285,7 @@ function renderCalendar(){
   renderCalEventsList();
 }
 
-function renderCalEvent
-sList(){
+function renderCalEventsList(){
   var list=document.getElementById('calEventsList');
   var monthEvents=calEvents.filter(function(e){
     var ed=new Date(e.date);
