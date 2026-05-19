@@ -290,6 +290,53 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .ai-det-key{color:rgba(255,255,255,.4)}
 .ai-det-val{font-family:var(--mono);font-size:11px;font-weight:500;color:rgba(255,255,255,.8)}
 
+
+/* ── RELEASE CALENDAR ──────────────────────────── */
+.cal-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-top:16px}
+.cal-head{padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px}
+.cal-title{font-size:13px;font-weight:600;color:var(--text-hi)}
+.cal-legend{display:flex;gap:14px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap}
+.cal-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-lo)}
+.cal-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cal-grid-wrap{padding:14px 16px}
+.cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px}
+.cal-dow{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);text-align:center;padding:4px 0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-day{min-height:72px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:5px;cursor:pointer;transition:background .1s;position:relative}
+.cal-day:hover{background:var(--blue-l);border-color:var(--blue-m)}
+.cal-day.today{border-color:var(--blue);background:var(--blue-l)}
+.cal-day.other-month{opacity:.35}
+.cal-day.has-blackout{background:#ffeaea;border-color:var(--red-m)}
+.cal-day.has-golive{background:#f1fdf6;border-color:var(--green-m)}
+.cal-day-num{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text-hi);margin-bottom:3px}
+.cal-day.today .cal-day-num{color:var(--blue);font-weight:700}
+.cal-day-events{display:flex;flex-direction:column;gap:2px}
+.cal-event-pill{font-size:9px;padding:2px 5px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;cursor:pointer}
+.cal-event-pill.blackout{background:var(--red-l);color:var(--red);border:1px solid var(--red-m)}
+.cal-event-pill.golive{background:var(--green-l);color:var(--green);border:1px solid var(--green-m)}
+.cal-event-pill.import{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)}
+.cal-event-pill.maintenance{background:var(--amber-l);color:var(--amber);border:1px solid var(--amber-m)}
+.cal-event-pill.milestone{background:var(--purple-l);color:var(--purple);border:1px solid var(--purple-m)}
+.cal-events-wrap{padding:12px 16px;border-top:1px solid var(--border)}
+.cal-events-title{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-lo);margin-bottom:10px}
+.cal-event-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);margin-bottom:6px;background:var(--surface2);font-size:12px}
+.cal-event-row:last-child{margin-bottom:0}
+.cal-event-date{font-family:var(--mono);font-size:10px;color:var(--text-lo);min-width:60px}
+.cal-event-name{flex:1;font-weight:500;color:var(--text-hi)}
+.cal-event-del{background:none;border:none;color:var(--text-lo);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;transition:all .15s}
+.cal-event-del:hover{background:var(--red-l);color:var(--red)}
+/* Modal */
+.cal-modal-backdrop{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.4);backdrop-filter:blur(2px)}
+.cal-modal-backdrop.open{display:block}
+.cal-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-60%);z-index:601;width:420px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);box-shadow:0 20px 60px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:all .25s cubic-bezier(.16,1,.3,1)}
+.cal-modal.open{opacity:1;pointer-events:all;transform:translate(-50%,-50%)}
+.cal-modal-head{padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;border-radius:var(--r-lg) var(--r-lg) 0 0}
+.cal-modal-body{padding:16px 18px}
+.cal-form-row{margin-bottom:12px}
+.cal-form-lbl{display:block;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);margin-bottom:5px}
+.cal-input{width:100%;background:var(--surface2);border:1.5px solid var(--border);color:var(--text-hi);font-family:var(--sans);font-size:13px;padding:8px 10px;border-radius:var(--r);outline:none;transition:border-color .2s}
+.cal-input:focus{border-color:var(--blue)}
+
 </style>
 </head>
 <body>
@@ -484,6 +531,68 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
       </div>
       <div class="report-body" id="reportBody"><div style="color:var(--text-lo);font-size:12px">Click Generate Report to create this week's AI summary</div></div>
     </div>
+
+    <!-- ═══ SOLUTION 4: RELEASE CALENDAR ═══ -->
+    <div class="cal-card">
+      <div class="cal-head">
+        <span style="font-size:16px">📅</span>
+        <div class="cal-title">Release Calendar — Go-Live Windows &amp; Blackout Dates</div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <button class="btn-sec" onclick="calNavigate(-1)">‹ Prev</button>
+          <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text-hi);min-width:120px;text-align:center" id="calMonthLabel">—</span>
+          <button class="btn-sec" onclick="calNavigate(1)">Next ›</button>
+          <button class="btn-primary" onclick="addCalEvent()" style="padding:6px 14px;font-size:12px">+ Add Event</button>
+        </div>
+      </div>
+      <div class="cal-legend">
+        <span class="cal-legend-item"><span class="cal-dot" style="background:#bb0000"></span>Blackout</span>
+        <span class="cal-legend-item"><span class="cal-dot" style="background:#107e3e"></span>Go-Live</span>
+        <span class="cal-legend-item"><span class="cal-dot" style="background:#0070f2"></span>Import</span>
+        <span class="cal-legend-item"><span class="cal-dot" style="background:#e76500"></span>Maintenance</span>
+        <span class="cal-legend-item"><span class="cal-dot" style="background:#6a28aa"></span>Milestone</span>
+      </div>
+      <div class="cal-grid-wrap">
+        <div class="cal-dow-row">
+          <div class="cal-dow">Sun</div><div class="cal-dow">Mon</div><div class="cal-dow">Tue</div>
+          <div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div><div class="cal-dow">Sat</div>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+      <div class="cal-events-wrap">
+        <div class="cal-events-title">Upcoming Events This Month</div>
+        <div id="calEventsList"><div style="color:var(--text-lo);font-size:12px;padding:12px">No events this month — click + Add Event to create one</div></div>
+      </div>
+    </div>
+    <!-- Add Event Modal -->
+    <div class="cal-modal-backdrop" id="calModalBackdrop" onclick="closeCalModal()"></div>
+    <div class="cal-modal" id="calModal">
+      <div class="cal-modal-head">
+        <span style="font-size:15px;font-weight:700;color:var(--text-hi)">Add Calendar Event</span>
+        <button onclick="closeCalModal()" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--text-lo);cursor:pointer;width:26px;height:26px;border-radius:var(--r);font-size:12px">✕</button>
+      </div>
+      <div class="cal-modal-body">
+        <div class="cal-form-row"><label class="cal-form-lbl">Event Type</label>
+          <select id="calEventType" class="cal-input">
+            <option value="blackout">🔴 Blackout — No Deploy</option>
+            <option value="golive">🟢 Go-Live Window</option>
+            <option value="import">🔵 Planned Import</option>
+            <option value="maintenance">🟠 Maintenance Window</option>
+            <option value="milestone">🟣 Project Milestone</option>
+          </select>
+        </div>
+        <div class="cal-form-row"><label class="cal-form-lbl">Title</label><input id="calEventTitle" class="cal-input" type="text" placeholder="e.g. Month-end close — No transports"/></div>
+        <div class="cal-form-row"><label class="cal-form-lbl">Date</label><input id="calEventDate" class="cal-input" type="date"/></div>
+        <div class="cal-form-row"><label class="cal-form-lbl">End Date (optional)</label><input id="calEventEndDate" class="cal-input" type="date"/></div>
+        <div class="cal-form-row"><label class="cal-form-lbl">Project (optional)</label>
+          <select id="calEventProject" class="cal-input"><option value="">— All projects —</option></select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn-primary" style="flex:1" onclick="saveCalEvent()">Save Event</button>
+          <button class="btn-sec" onclick="closeCalModal()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 <!-- DRAWER -->
@@ -644,7 +753,7 @@ function switchTab(tab){
   if(tab==='health'&&almHealth)renderHealthTab();
   if(tab==='transport'&&almHealth)renderTransportTab();
   if(tab==='changes')renderCRTab();
-  if(tab==='business')renderProgrammeHealth();
+  if(tab==='business'){renderProgrammeHealth();if(!calEvents.length){initCalendarDefaults();}renderCalendar();}
 }
 
 // ── LOAD DATA ──────────────────────────────────────────────────────────────
@@ -661,7 +770,7 @@ function loadAll(){
       allProjects=hd.projects||[];
       console.log('ALM data loaded: projects='+allProjects.length+' CM openCount='+hd.changeManagement.openCount);
       renderAll(hd);
-      setTimeout(function(){renderProgrammeHealth();},0);
+      setTimeout(function(){renderProgrammeHealth();if(!calEvents.length){initCalendarDefaults();renderCalendar();}},0);
     } else {
       console.warn('ALM health failed - keeping displayed data');
       set('sb1txt','ALM timeout');
@@ -1095,17 +1204,86 @@ function downloadReport(){
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='CloudALM_Report_'+d.weekStr.replace(/\s+/g,'_')+'.txt';a.click();
 }
 
-// ── INIT ───────────────────────────────────────────────────────────────────
-(function start(){
-  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',start);return;}
-  console.log('Cloud ALM v3 starting...');
-  // Set initial values immediately
-  set('kpiAlerts','—');set('kpiAvail','—');set('kpiCR','—');set('kpiBlocked','—');set('kpiCompliance','—');
-  set('sb1txt','Connecting to Cloud ALM...');
-  // Fetch real data
-  setTimeout(loadAll,100);
-})();
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" async></script>
-</body>
-</html>
+// ── RELEASE CALENDAR ────────────────────────────────────────────────────────
+var calCurrentYear=new Date().getFullYear();
+var calCurrentMonth=new Date().getMonth();
+var calEvents=[];
+
+var CAL_COLORS={blackout:'#bb0000',golive:'#107e3e',import:'#0070f2',maintenance:'#e76500',milestone:'#6a28aa'};
+
+// Seed with smart default events based on real calendar
+function initCalendarDefaults(){
+  var y=calCurrentYear,m=calCurrentMonth;
+  var defaults=[
+    {type:'blackout',   title:'Month-End Close — No Transports',  date:new Date(y,m,28), endDate:new Date(y,m+1,2)},
+    {type:'maintenance',title:'SAP BTP Maintenance Window',        date:new Date(y,m,15), endDate:null},
+    {type:'golive',     title:'Q2 Go-Live Window — S/4HANA',       date:new Date(y,m,10), endDate:new Date(y,m,12)},
+    {type:'import',     title:'Planned Transport — Wave 1',         date:new Date(y,m,8),  endDate:null},
+    {type:'milestone',  title:'Phase Gate Review — Realize',        date:new Date(y,m,20), endDate:null},
+    {type:'blackout',   title:'Payroll Run — No System Changes',    date:new Date(y,m,25), endDate:new Date(y,m,26)},
+    {type:'import',     title:'Emergency Patch Import',             date:new Date(y,m,5),  endDate:null},
+    {type:'golive',     title:'UAT Sign-off Window',                date:new Date(y,m,18), endDate:new Date(y,m,19)},
+  ];
+  calEvents=defaults;
+}
+
+function calNavigate(dir){
+  calCurrentMonth+=dir;
+  if(calCurrentMonth>11){calCurrentMonth=0;calCurrentYear++;}
+  if(calCurrentMonth<0){calCurrentMonth=11;calCurrentYear--;}
+  renderCalendar();
+}
+
+function renderCalendar(){
+  var monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent=monthNames[calCurrentMonth]+' '+calCurrentYear;
+
+  var grid=document.getElementById('calGrid');
+  var firstDay=new Date(calCurrentYear,calCurrentMonth,1).getDay();
+  var daysInMonth=new Date(calCurrentYear,calCurrentMonth+1,0).getDate();
+  var daysInPrev=new Date(calCurrentYear,calCurrentMonth,0).getDate();
+  var today=new Date();
+  var html='';
+
+  // Prev month overflow
+  for(var i=firstDay-1;i>=0;i--){
+    html+='<div class="cal-day other-month"><div class="cal-day-num">'+(daysInPrev-i)+'</div></div>';
+  }
+
+  // Current month days
+  for(var d=1;d<=daysInMonth;d++){
+    var thisDate=new Date(calCurrentYear,calCurrentMonth,d);
+    var isToday=today.getDate()===d&&today.getMonth()===calCurrentMonth&&today.getFullYear()===calCurrentYear;
+    var dayEvents=calEvents.filter(function(e){
+      var ed=new Date(e.date);var eed=e.endDate?new Date(e.endDate):ed;
+      return thisDate>=new Date(ed.getFullYear(),ed.getMonth(),ed.getDate())&&
+             thisDate<=new Date(eed.getFullYear(),eed.getMonth(),eed.getDate());
+    });
+    var hasBlackout=dayEvents.some(function(e){return e.type==='blackout';});
+    var hasGolive=dayEvents.some(function(e){return e.type==='golive';});
+    var cls='cal-day'+(isToday?' today':'')+(hasBlackout?' has-blackout':hasGolive?' has-golive':'');
+    html+='<div class="'+cls+'" onclick="calDayClick('+d+')">';
+    html+='<div class="cal-day-num">'+d+'</div>';
+    html+='<div class="cal-day-events">';
+    dayEvents.slice(0,2).forEach(function(e){
+      html+='<div class="cal-event-pill '+e.type+'" title="'+e.title+'">'+e.title+'</div>';
+    });
+    if(dayEvents.length>2)html+='<div style="font-size:9px;color:var(--text-lo)">+' +(dayEvents.length-2)+' more</div>';
+    html+='</div></div>';
+  }
+
+  // Next month fill
+  var total=firstDay+daysInMonth;
+  var remaining=(7-total%7)%7;
+  for(var n=1;n<=remaining;n++){
+    html+='<div class="cal-day other-month"><div class="cal-day-num">'+n+'</div></div>';
+  }
+  grid.innerHTML=html;
+  renderCalEventsList();
+}
+
+function renderCalEventsList(){
+  var list=document.getElementById('calEventsList');
+  var monthEvents=calEvents.filter(function(e){
+    var ed=new Date(e.date);
+    return ed.getMonth()===calCu
