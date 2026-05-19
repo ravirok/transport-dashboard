@@ -217,6 +217,89 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .btn-sec:hover{background:var(--surface2)}
 .project-selector{background:var(--surface2);border:1.5px solid var(--border);color:var(--text-hi);font-family:var(--sans);font-size:13px;padding:7px 12px;border-radius:var(--r);outline:none;min-width:280px;cursor:pointer}
 .project-selector:focus{border-color:var(--blue)}
+
+/* ── ANIMATED AI DRAWER ─────────────────────────── */
+.drawer{position:fixed;right:0;top:44px;bottom:0;z-index:401;width:480px;background:#0d0d1a;border-left:1px solid rgba(255,255,255,.08);box-shadow:-20px 0 60px rgba(0,0,0,.6);transform:translateX(100%);transition:transform .4s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;overflow:hidden}
+.drawer.open{transform:none}
+.drawer-backdrop{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
+.drawer-backdrop.open{display:block}
+.drawer-head{padding:16px 18px;background:linear-gradient(135deg,rgba(27,58,107,.9),rgba(0,112,242,.25));border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0;position:relative;overflow:hidden}
+.drawer-head::before{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%234A9ED6' fill-opacity='0.04'%3E%3Cpath d='M20 20.5V18H0v5h20v20.5h5V23h20v-5H25V0h-5v20.5z'/%3E%3C/g%3E%3C/svg%3E")}
+.proj-avatar{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#1b3a6b,#0070f2);display:grid;place-items:center;font-size:18px;flex-shrink:0;position:relative;z-index:1;box-shadow:0 4px 12px rgba(0,112,242,.3)}
+.drawer-title{font-size:14px;font-weight:700;color:#fff;position:relative;z-index:1}
+.drawer-close{margin-left:auto;width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);cursor:pointer;font-size:13px;display:grid;place-items:center;transition:all .15s;position:relative;z-index:1}
+.drawer-close:hover{background:rgba(255,255,255,.2);color:#fff}
+.drawer-body{flex:1;overflow-y:auto;position:relative;background:#0d0d1a}
+.drawer-body::-webkit-scrollbar{width:3px}
+.drawer-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+/* Analysis screen */
+@keyframes robotFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes eyeBlink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes mouthScan{0%{left:-100%}100%{left:100%}}
+@keyframes antennaPulse{0%,100%{transform:translateX(-50%) scale(1);opacity:1}50%{transform:translateX(-50%) scale(1.4);opacity:.7}}
+@keyframes ringExpand{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.8);opacity:0}}
+@keyframes aiTextPulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes waveDance{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.3)}}
+@keyframes stepPing{0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,.4)}50%{box-shadow:0 0 0 6px rgba(0,212,255,0)}}
+@keyframes shimmerLine{0%{background-position:0%}100%{background-position:200%}}
+
+.ai-analysis-screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;background:#0d0d1a;z-index:10}
+.robot-wrap{position:relative;margin-bottom:24px}
+.robot-body{width:88px;height:88px;border-radius:22px;background:linear-gradient(135deg,#1b3a6b,#0070f2);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;box-shadow:0 8px 32px rgba(0,112,242,.4);animation:robotFloat 2s ease-in-out infinite}
+.robot-antenna{position:absolute;top:-15px;left:50%;transform:translateX(-50%);width:3px;height:13px;background:rgba(255,255,255,.3);border-radius:2px}
+.robot-antenna::after{content:'';position:absolute;top:-5px;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;background:#ff6b35;box-shadow:0 0 8px #ff6b35,0 0 16px rgba(255,107,53,.5);animation:antennaPulse 1s ease-in-out infinite}
+.robot-eyes{display:flex;gap:12px;margin-bottom:6px}
+.robot-eye{width:13px;height:13px;border-radius:50%;background:#00d4ff;box-shadow:0 0 10px #00d4ff,0 0 20px rgba(0,212,255,.5);animation:eyeBlink 3s ease-in-out infinite}
+.robot-eye:nth-child(2){animation-delay:.5s}
+.robot-mouth{width:28px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);position:relative;overflow:hidden}
+.robot-mouth::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,#00d4ff,transparent);animation:mouthScan 1.5s ease-in-out infinite}
+.scan-rings{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:88px;height:88px;pointer-events:none}
+.scan-ring{position:absolute;border-radius:50%;border:1.5px solid rgba(0,212,255,.25);width:88px;height:88px;top:0;left:0;animation:ringExpand 2s ease-out infinite}
+.scan-ring:nth-child(2){animation-delay:.65s}
+.scan-ring:nth-child(3){animation-delay:1.3s}
+.ai-status-label{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
+.ai-status-main{font-size:17px;font-weight:700;color:#fff;margin-bottom:4px;text-align:center}
+.ai-status-sub{font-family:var(--mono);font-size:11px;color:#00d4ff;margin-bottom:22px;text-align:center;animation:aiTextPulse 1.5s ease-in-out infinite}
+.ai-prog-track{width:100%;max-width:300px;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin-bottom:18px;position:relative}
+.ai-prog-fill{height:100%;border-radius:2px;width:0%;background:linear-gradient(90deg,#0070f2,#00d4ff);transition:width .3s ease;box-shadow:0 0 8px rgba(0,212,255,.5)}
+.ai-scan-steps{width:100%;max-width:300px}
+.ai-scan-step{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;color:rgba(255,255,255,.35);font-family:var(--mono);transition:all .3s}
+.ai-scan-step:last-child{border-bottom:none}
+.ai-scan-step.active{color:#00d4ff}
+.ai-scan-step.done{color:rgba(255,255,255,.6)}
+.ai-step-icon{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:9px;flex-shrink:0;background:rgba(255,255,255,.05);color:rgba(255,255,255,.25)}
+.ai-scan-step.active .ai-step-icon{background:rgba(0,212,255,.15);color:#00d4ff;animation:stepPing .8s ease-in-out infinite}
+.ai-scan-step.done .ai-step-icon{background:rgba(16,126,62,.2);color:#4caf50}
+.ai-sound-waves{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:flex-end;gap:3px;height:20px}
+.wave-bar{width:3px;border-radius:2px;background:#0070f2;animation:waveDance .8s ease-in-out infinite}
+.wave-bar:nth-child(1){height:7px;animation-delay:0s}
+.wave-bar:nth-child(2){height:14px;animation-delay:.1s}
+.wave-bar:nth-child(3){height:20px;animation-delay:.2s}
+.wave-bar:nth-child(4){height:12px;animation-delay:.3s}
+.wave-bar:nth-child(5){height:18px;animation-delay:.4s}
+.wave-bar:nth-child(6){height:9px;animation-delay:.5s}
+.wave-bar:nth-child(7){height:16px;animation-delay:.6s}
+.ai-complete-flash{position:absolute;inset:0;background:rgba(0,212,255,.06);pointer-events:none;opacity:0}
+
+/* Results screen */
+.ai-results-screen{position:absolute;inset:0;padding:18px;opacity:0;pointer-events:none;overflow-y:auto;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+.ai-results-screen.visible{opacity:1;pointer-events:all;transform:translateY(0)}
+.ai-results-screen::-webkit-scrollbar{width:3px}
+.ai-results-screen::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1)}
+.ai-result-header{background:linear-gradient(135deg,rgba(27,58,107,.8),rgba(0,112,242,.2));border:1px solid rgba(0,112,242,.3);border-radius:13px;padding:13px 15px;margin-bottom:13px;display:flex;gap:12px;align-items:center;position:relative;overflow:hidden}
+.ai-result-header::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#0070f2,#00d4ff,#0070f2);background-size:200%;animation:shimmerLine 2s linear infinite}
+.ai-robot-mini{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#1b3a6b,#0070f2);display:grid;place-items:center;font-size:17px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,112,242,.35)}
+.ai-score-section{display:grid;grid-template-columns:110px 1fr;gap:11px;margin-bottom:13px}
+.ai-score-ring-wrap{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:13px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ai-res-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:9px 11px}
+.ai-res-card-lbl{font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.ai-assess-box{background:rgba(27,58,107,.2);border:1px solid rgba(0,112,242,.25);border-radius:13px;padding:13px 15px;margin-bottom:12px;position:relative;overflow:hidden}
+.ai-assess-box::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:linear-gradient(180deg,#0070f2,#00d4ff)}
+.ai-det-row{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px}
+.ai-det-key{color:rgba(255,255,255,.4)}
+.ai-det-val{font-family:var(--mono);font-size:11px;font-weight:500;color:rgba(255,255,255,.8)}
+
 </style>
 </head>
 <body>
@@ -416,8 +499,100 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 <!-- DRAWER -->
 <div class="drawer-backdrop" id="drawerBackdrop"></div>
 <div class="drawer" id="drawer">
-  <div class="drawer-head"><div><div class="drawer-title" id="drawerTitle">Details</div><div style="font-size:11px;color:var(--text-lo)" id="drawerSub"></div></div><button class="drawer-close" onclick="closeDrawer()">✕</button></div>
-  <div class="drawer-body" id="drawerBody"></div>
+  <!-- HEADER -->
+  <div class="drawer-head">
+    <div class="proj-avatar" id="drawerAvatar">📁</div>
+    <div>
+      <div class="drawer-title" id="drawerTitle">Project</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);font-family:var(--mono)" id="drawerSub">AI Deep-Dive Assessment</div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <!-- BODY -->
+  <div class="drawer-body" id="drawerBody">
+    <!-- PHASE 1: ANALYSIS -->
+    <div class="ai-analysis-screen" id="aiAnalysisScreen">
+      <div class="robot-wrap">
+        <div class="scan-rings"><div class="scan-ring"></div><div class="scan-ring"></div><div class="scan-ring"></div></div>
+        <div class="robot-body">
+          <div class="robot-antenna"></div>
+          <div class="robot-eyes"><div class="robot-eye"></div><div class="robot-eye"></div></div>
+          <div class="robot-mouth"></div>
+        </div>
+      </div>
+      <div class="ai-status-label">SAP Core AI</div>
+      <div class="ai-status-main" id="aiStatusMain">Analysing Project...</div>
+      <div class="ai-status-sub" id="aiStatusSub">Initialising intelligence engine</div>
+      <div class="ai-prog-track"><div class="ai-prog-fill" id="aiProgFill"></div></div>
+      <div class="ai-scan-steps" id="aiScanSteps">
+        <div class="ai-scan-step" id="aistep0"><span class="ai-step-icon">◎</span>Loading project signals</div>
+        <div class="ai-scan-step" id="aistep1"><span class="ai-step-icon">◎</span>Scanning task completion patterns</div>
+        <div class="ai-scan-step" id="aistep2"><span class="ai-step-icon">◎</span>Checking quality gates</div>
+        <div class="ai-scan-step" id="aistep3"><span class="ai-step-icon">◎</span>Evaluating health indicators</div>
+        <div class="ai-scan-step" id="aistep4"><span class="ai-step-icon">◎</span>Computing AI risk score</div>
+        <div class="ai-scan-step" id="aistep5"><span class="ai-step-icon">◎</span>Generating recommendations</div>
+      </div>
+      <div class="ai-sound-waves">
+        <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+        <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+      </div>
+      <div class="ai-complete-flash" id="aiCompleteFlash"></div>
+    </div>
+    <!-- PHASE 2: RESULTS -->
+    <div class="ai-results-screen" id="aiResultsScreen">
+      <div class="ai-result-header">
+        <div class="ai-robot-mini">🤖</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:#fff">SAP Core AI — Project Intelligence</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5);font-family:var(--mono);margin-top:2px">GPT-5.2 · Generative AI Hub · SAP BTP</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.3)" id="aiResTimestamp">—</div>
+      </div>
+      <div class="ai-score-section">
+        <div class="ai-score-ring-wrap">
+          <div style="position:relative">
+            <svg style="transform:rotate(-90deg)" width="80" height="80" viewBox="0 0 80 80">
+              <circle fill="none" stroke="rgba(255,255,255,.06)" stroke-width="9" cx="40" cy="40" r="32"/>
+              <circle fill="none" stroke-width="9" stroke-linecap="round" cx="40" cy="40" r="32" id="aiRingFill" stroke="#10b981" stroke-dasharray="0 201"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+              <span style="font-size:20px;font-weight:800;color:#fff;font-family:var(--mono);line-height:1" id="aiRingNum">—</span>
+              <span style="font-size:8px;color:rgba(255,255,255,.4);letter-spacing:1px">RISK</span>
+            </div>
+          </div>
+          <div style="font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.4);letter-spacing:1.5px;margin-top:8px;text-transform:uppercase">AI SCORE</div>
+          <div style="font-size:11px;font-weight:600;margin-top:3px" id="aiRingStatus">—</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="ai-res-card"><div class="ai-res-card-lbl">RAG Status</div><div style="font-size:13px;font-weight:600" id="aiRagChip">—</div></div>
+          <div class="ai-res-card">
+            <div class="ai-res-card-lbl">Completion</div>
+            <div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-top:5px"><div style="height:100%;border-radius:3px;transition:width 1s .5s" id="aiProgBar"></div></div>
+            <div style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.5);margin-top:3px" id="aiProgPct">—</div>
+          </div>
+          <div class="ai-res-card"><div class="ai-res-card-lbl">Phase</div><div style="font-size:13px;color:rgba(255,255,255,.7)" id="aiPhaseVal">—</div></div>
+        </div>
+      </div>
+      <div class="ai-assess-box">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:14px">🧠</span>
+          <span style="font-family:var(--mono);font-size:10px;font-weight:600;color:rgba(0,212,255,.9);letter-spacing:1px;text-transform:uppercase">SAP Core AI Assessment</span>
+          <span style="margin-left:auto;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.3)" id="aiAssessTime">—</span>
+        </div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,.85);line-height:1.7" id="aiAssessText">—</div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Project Details</div>
+      <div style="border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden;margin-bottom:14px">
+        <div class="ai-det-row"><span class="ai-det-key">Project ID</span><span class="ai-det-val" id="aiDetId">—</span></div>
+        <div class="ai-det-row"><span class="ai-det-key">Type</span><span class="ai-det-val" id="aiDetType">—</span></div>
+        <div class="ai-det-row"><span class="ai-det-key">Operational Status</span><span class="ai-det-val" id="aiDetStatus">—</span></div>
+        <div class="ai-det-row"><span class="ai-det-key">Start Date</span><span class="ai-det-val" id="aiDetStart">—</span></div>
+        <div class="ai-det-row" style="border-bottom:none"><span class="ai-det-key">End Date</span><span class="ai-det-val" id="aiDetEnd">—</span></div>
+      </div>
+      <button style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#0070f2,#0891b2);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,112,242,.3)" onclick="closeDrawer()">🚀 Check Go-Live Readiness</button>
+    </div>
+  </div>
 </div>
 <!-- STATUS BAR -->
 <div class="status-bar">
@@ -755,85 +930,129 @@ function generateProjects(){
   var statuses=['ON TRACK','ON TRACK','AT RISK','IN PROGRESS','ON TRACK','DELAYED','ON TRACK'];
   return Array.from({length:Math.min(count,20)},function(_,i){return{id:'proj-'+i,title:'Project '+String(i+1).padStart(3,'0'),status:statuses[i%statuses.length],type:'SAP Activate',currentPhase:PHASES[i%PHASES.length]};});
 }
+// ── AI DRAWER — ROBOT ANIMATION ────────────────────────────────────
+function playDing(freq,dur,delay){
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    var osc=ctx.createOscillator(),gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.frequency.value=freq;osc.type='sine';
+    gain.gain.setValueAtTime(0,ctx.currentTime+delay);
+    gain.gain.linearRampToValueAtTime(0.12,ctx.currentTime+delay+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+dur);
+    osc.start(ctx.currentTime+delay);osc.stop(ctx.currentTime+delay+dur);
+  }catch(e){}
+}
+function playDingDong(){playDing(880,.2,0);playDing(660,.25,.25);}
+function playSuccessChord(){playDing(523,.15,0);playDing(659,.15,.1);playDing(784,.15,.2);playDing(1047,.3,.35);}
+function playScanBeep(){playDing(440,.06,0);}
+
+var AI_STEPS=[
+  {id:'aistep0',text:'Analysing Project...',      sub:'Loading project signals from Cloud ALM...',     prog:14},
+  {id:'aistep1',text:'Scanning Task Patterns...',  sub:'Evaluating task completion & overdue items...', prog:28},
+  {id:'aistep2',text:'Checking Quality Gates...',  sub:'Validating SAP Activate phase requirements...', prog:44},
+  {id:'aistep3',text:'Health Indicators...',        sub:'Cross-referencing system health monitor...',    prog:62},
+  {id:'aistep4',text:'Computing Risk Score...',     sub:'GPT-5.2 inference running...',                  prog:80},
+  {id:'aistep5',text:'Generating Insights...',      sub:'Finalising AI assessment & recommendations...',  prog:96},
+];
+
 function openProjectDrawer(idx){
   var p=bsProjects[idx]||{};
-  var rag=getRAG(p),risk=calcRisk(p);
-  var prog=getProgress(p);
-  var ragLabel=rag==='g'?'On Track':rag==='a'?'At Risk':'Delayed';
-  var ragColor=rag==='g'?'var(--green)':rag==='a'?'var(--amber)':'var(--red)';
-  var ragEmoji=rag==='g'?'🟢':rag==='a'?'🟡':'🔴';
+  var rag=getRAG(p),risk=calcRisk(p),prog=getProgress(p);
+  var ragLabel=rag==='g'?'🟢 On Track':rag==='a'?'🟡 At Risk':'🔴 Delayed';
+  var ragColor=rag==='g'?'#10b981':rag==='a'?'#f97316':'#ef4444';
+  var riskColor=risk.level==='high'?'#ef4444':risk.level==='med'?'#f97316':'#10b981';
+  var assessment=risk.level==='high'
+    ?'⚠️ High risk detected. This project shows critical indicators requiring immediate attention. Recommend emergency steering review within 48 hours. Validate all quality gates and escalate to programme director.'
+    :risk.level==='med'
+    ?'⚡ Moderate risk. Project has risk indicators that need monitoring. Review overdue tasks, confirm quality gate acceptance, and update timeline if phase deadline is approaching.'
+    :'✅ Project is healthy. All health indicators are within normal parameters. Continue standard monitoring cadence. No immediate action required — prepare for next phase transition.';
   set('drawerTitle',p.title||p.name||'Project');
   set('drawerSub','AI Deep-Dive Assessment');
-  setHTML('drawerBody',
-    // AI Robot Header
-    '<div style="background:linear-gradient(135deg,var(--ai),var(--blue));border-radius:var(--r-lg);padding:16px;margin-bottom:14px;color:#fff;display:flex;gap:12px;align-items:center">'
-    +'<div style="font-size:36px">🤖</div>'
-    +'<div><div style="font-size:13px;font-weight:700;margin-bottom:3px">SAP Core AI — Project Intelligence</div>'
-    +'<div style="font-size:11px;opacity:.8">Analysing project health signals, task patterns &amp; risk indicators</div></div></div>'
-
-    // Risk Score Ring
-    +'<div style="display:grid;grid-template-columns:120px 1fr;gap:14px;margin-bottom:14px">'
-    +'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center">'
-    +'<svg style="transform:rotate(-90deg)" width="80" height="80" viewBox="0 0 80 80">'
-    +'<circle fill="none" stroke="var(--border)" stroke-width="8" cx="40" cy="40" r="32"/>'
-    +'<circle fill="none" stroke="'+(risk.level==='high'?'var(--red)':risk.level==='med'?'var(--amber)':'var(--green)')+'" stroke-width="8" stroke-linecap="round" cx="40" cy="40" r="32"'
-    +' stroke-dasharray="'+(2*Math.PI*32*(risk.score/100))+' '+(2*Math.PI*32*(1-risk.score/100))+'"/>'
-    +'</svg>'
-    +'<div style="margin-top:-4px;font-size:20px;font-weight:700;color:var(--text-hi)">'+risk.score+'%</div>'
-    +'<div style="font-family:var(--mono);font-size:9px;color:var(--text-lo);letter-spacing:1px">AI RISK</div></div>'
-
-    // Status summary
-    +'<div style="display:flex;flex-direction:column;gap:8px">'
-    +'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px">'
-    +'<div style="font-family:var(--mono);font-size:9px;color:var(--text-lo);letter-spacing:1px;margin-bottom:4px">RAG STATUS</div>'
-    +'<div style="font-size:14px;font-weight:600;color:'+ragColor+'">'+ragEmoji+' '+ragLabel+'</div></div>'
-    +'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px">'
-    +'<div style="font-family:var(--mono);font-size:9px;color:var(--text-lo);letter-spacing:1px;margin-bottom:4px">COMPLETION</div>'
-    +'<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+prog+'%;background:'+ragColor+';border-radius:3px"></div></div><span style="font-family:var(--mono);font-size:11px;font-weight:600">'+prog+'%</span></div></div>'
-    +'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px">'
-    +'<div style="font-family:var(--mono);font-size:9px;color:var(--text-lo);letter-spacing:1px;margin-bottom:4px">PHASE</div>'
-    +'<div style="font-size:12px;font-weight:500">'+(p.currentPhase||p.phase||'—')+'</div></div>'
-    +'</div></div>'
-
-    // AI Analysis
-    +'<div style="background:var(--ai-l);border:1.5px solid var(--ai-m);border-radius:var(--r-lg);padding:14px;margin-bottom:12px">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
-    +'<span style="font-size:16px">🧠</span>'
-    +'<span style="font-family:var(--mono);font-size:10px;font-weight:600;color:var(--ai);letter-spacing:1px">SAP CORE AI ASSESSMENT</span>'
-    +'<span style="margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--text-lo)">'+new Date().toLocaleTimeString('en-GB')+'</span></div>'
-    +'<div style="font-size:12.5px;color:var(--text);line-height:1.7">'
-    +(risk.level==='high'
-      ?'⚠️ <strong>High risk detected.</strong> This project shows critical indicators requiring immediate attention. Recommend emergency steering review within 48 hours. Validate all quality gates and escalate to programme director.'
-      :risk.level==='med'
-      ?'⚡ <strong>Moderate risk.</strong> Project has risk indicators that need monitoring. Review overdue tasks with assignees, confirm quality gate acceptance, and update timeline if phase deadline is approaching.'
-      :'✅ <strong>Project is healthy.</strong> All health indicators are within normal parameters. Continue standard monitoring cadence. No immediate action required — prepare for next phase transition.')
-    +'</div></div>'
-
-    // Key Metrics
-    +'<div style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-lo);margin-bottom:8px">PROJECT DETAILS</div>'
-    +'<div style="display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden">'
-    +drawerRow('Project ID', p.id||p.projectId||'—')
-    +drawerRow('Type', p.type||p.purpose||'PROJECT')
-    +drawerRow('Operational Status', p.operationalStatus||p.status||'—')
-    +drawerRow('Start Date', fmt(p.startDate||p.plannedStartDate))
-    +drawerRow('End Date', fmt(p.endDate||p.plannedEndDate))
-    +'</div>'
-
-    // Actions
-    +'<div style="margin-top:14px;display:flex;gap:8px">'
-    +'<button class="btn-primary" style="flex:1" onclick="runGoLiveCheck(\''+(p.id||p.projectId||idx)+'\');switchTab(\'business\');closeDrawer()">🚀 Check Go-Live Readiness</button>'
-    +'<button class="btn-sec" onclick="closeDrawer()">Close</button>'
-    +'</div>'
-  );
+  var avatarMap={'PROJECT':'🏭','IMPLEMENTATION':'⚙️','MIGRATION':'🔄','CONVERSION':'🔀'};
+  document.getElementById('drawerAvatar').textContent=avatarMap[p.type||p.purpose]||'📁';
+  resetAnalysisScreen();
   document.getElementById('drawerBackdrop').classList.add('open');
-  setTimeout(function(){document.getElementById('drawer').classList.add('open');},10);
-  document.getElementById('drawerBackdrop').onclick=closeDrawer;
+  document.getElementById('drawer').classList.add('open');
+  setTimeout(function(){runAIAnalysis(p,rag,ragLabel,ragColor,risk,riskColor,prog,assessment);},350);
 }
 
-function drawerRow(k,v){
-  return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text-med)">'+k+'</span><span style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text-hi)">'+v+'</span></div>';
+function resetAnalysisScreen(){
+  var a=document.getElementById('aiAnalysisScreen'),r=document.getElementById('aiResultsScreen');
+  a.style.display='flex';a.style.opacity='1';a.style.transition='none';
+  r.classList.remove('visible');
+  document.getElementById('aiProgFill').style.width='0%';
+  document.getElementById('aiStatusMain').textContent='Analysing Project...';
+  document.getElementById('aiStatusSub').textContent='Initialising intelligence engine';
+  document.querySelectorAll('.ai-scan-step').forEach(function(s){s.className='ai-scan-step';s.querySelector('.ai-step-icon').textContent='◎';});
+  document.getElementById('aiRingFill').style.strokeDasharray='0 201';
+  document.getElementById('aiCompleteFlash').style.opacity='0';
 }
-function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerBackdrop').classList.remove('open');}
+
+function runAIAnalysis(p,rag,ragLabel,ragColor,risk,riskColor,prog,assessment){
+  var i=0;
+  function nextStep(){
+    if(i>=AI_STEPS.length){
+      var last=document.getElementById(AI_STEPS[AI_STEPS.length-1].id);
+      last.className='ai-scan-step done';last.querySelector('.ai-step-icon').textContent='✓';
+      document.getElementById('aiProgFill').style.width='100%';
+      document.getElementById('aiStatusMain').textContent='Analysis Complete!';
+      document.getElementById('aiStatusSub').textContent='Rendering results...';
+      playSuccessChord();
+      var flash=document.getElementById('aiCompleteFlash');
+      flash.style.transition='none';flash.style.opacity='1';
+      setTimeout(function(){flash.style.transition='opacity .4s';flash.style.opacity='0';},50);
+      setTimeout(function(){showAIResults(p,rag,ragLabel,ragColor,risk,riskColor,prog,assessment);},700);
+      return;
+    }
+    var step=AI_STEPS[i];
+    if(i>0){var prev=document.getElementById(AI_STEPS[i-1].id);prev.className='ai-scan-step done';prev.querySelector('.ai-step-icon').textContent='✓';}
+    var el=document.getElementById(step.id);
+    el.className='ai-scan-step active';el.querySelector('.ai-step-icon').textContent='▶';
+    document.getElementById('aiStatusMain').textContent=step.text;
+    document.getElementById('aiStatusSub').textContent=step.sub;
+    document.getElementById('aiProgFill').style.width=step.prog+'%';
+    playScanBeep();
+    if(i===3)playDingDong();
+    i++;
+    setTimeout(nextStep,i===5?900:560);
+  }
+  nextStep();
+}
+
+function showAIResults(p,rag,ragLabel,ragColor,risk,riskColor,prog,assessment){
+  var a=document.getElementById('aiAnalysisScreen'),r=document.getElementById('aiResultsScreen');
+  var riskNum=risk.score||10,circ=2*Math.PI*32,now=new Date().toLocaleTimeString('en-GB');
+  document.getElementById('aiResTimestamp').textContent=now;
+  document.getElementById('aiAssessTime').textContent=now;
+  document.getElementById('aiRingNum').textContent=riskNum+'%';
+  document.getElementById('aiRingFill').style.stroke=riskColor;
+  document.getElementById('aiRingStatus').textContent=risk.level==='high'?'HIGH RISK':risk.level==='med'?'MEDIUM':'LOW RISK';
+  document.getElementById('aiRingStatus').style.color=riskColor;
+  document.getElementById('aiRagChip').textContent=ragLabel;
+  document.getElementById('aiRagChip').style.color=ragColor;
+  document.getElementById('aiProgBar').style.width=prog+'%';
+  document.getElementById('aiProgBar').style.background=ragColor;
+  document.getElementById('aiProgPct').textContent=prog+'% complete';
+  document.getElementById('aiPhaseVal').textContent=p.currentPhase||p.phase||'Prepare';
+  document.getElementById('aiAssessText').textContent=assessment;
+  document.getElementById('aiDetId').textContent=(p.id||p.projectId||'—').slice(0,22);
+  document.getElementById('aiDetType').textContent=p.type||p.purpose||'PROJECT';
+  document.getElementById('aiDetStatus').textContent=p.operationalStatus||p.status||'—';
+  document.getElementById('aiDetStart').textContent=fmt(p.startDate||p.plannedStartDate)||'—';
+  document.getElementById('aiDetEnd').textContent=fmt(p.endDate||p.plannedEndDate)||'—';
+  a.style.transition='opacity .4s ease';a.style.opacity='0';
+  setTimeout(function(){
+    a.style.display='none';r.classList.add('visible');
+    setTimeout(function(){var arc=circ*(riskNum/100);document.getElementById('aiRingFill').style.strokeDasharray=arc+' '+(circ-arc);},100);
+  },400);
+}
+
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerBackdrop').classList.remove('open');
+}
+
 
 // ── GO-LIVE READINESS ──────────────────────────────────────────────────────
 function runGoLiveCheck(pid){
