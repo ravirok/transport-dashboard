@@ -1286,3 +1286,34 @@ function renderCalendar(){
 }
 
 function renderCalEvent
+sList(){
+  var list=document.getElementById('calEventsList');
+  var monthEvents=calEvents.filter(function(e){
+    var ed=new Date(e.date);
+    return ed.getMonth()===calCurrentMonth&&ed.getFullYear()===calCurrentYear;
+  }).sort(function(a,b){return new Date(a.date)-new Date(b.date);});
+  if(!monthEvents.length){list.innerHTML='<div style="color:var(--text-lo);font-size:12px;padding:8px 0">No events — click + Add Event</div>';return;}
+  list.innerHTML=monthEvents.map(function(e){
+    var d=new Date(e.date);
+    var ds=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    var es=e.endDate?(' – '+new Date(e.endDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})):'';
+    return'<div class="cal-event-row"><span class="cal-event-pill '+e.type+'" style="font-size:10px">'+typeLabel(e.type)+'</span><span class="cal-event-date">'+ds+es+'</span><span class="cal-event-name">'+e.title+'</span><button class="cal-event-del" onclick="deleteCalEvent('+calEvents.indexOf(e)+')" title="Delete">✕</button></div>';
+  }).join('');
+}
+function typeLabel(t){return{blackout:'🔴 Blackout',golive:'🟢 Go-Live',import:'🔵 Import',maintenance:'🟠 Maint.',milestone:'🟣 Milestone'}[t]||t;}
+function calDayClick(d){var clicked=new Date(calCurrentYear,calCurrentMonth,d);document.getElementById('calEventDate').value=clicked.toISOString().slice(0,10);addCalEvent();}
+function addCalEvent(){var sel=document.getElementById('calEventProject');sel.innerHTML='<option value="">— All projects —</option>'+bsProjects.slice(0,20).map(function(p){return'<option value="'+(p.id||p.title)+'">'+(p.title||p.name||'Project')+'</option>';}).join('');document.getElementById('calModalBackdrop').classList.add('open');document.getElementById('calModal').classList.add('open');}
+function closeCalModal(){document.getElementById('calModalBackdrop').classList.remove('open');document.getElementById('calModal').classList.remove('open');}
+function saveCalEvent(){var type=document.getElementById('calEventType').value;var title=document.getElementById('calEventTitle').value.trim();var date=document.getElementById('calEventDate').value;var endDate=document.getElementById('calEventEndDate').value;var project=document.getElementById('calEventProject').value;if(!title||!date){alert('Please fill in Title and Date');return;}calEvents.push({type:type,title:title+(project?' ('+project+')':''),date:new Date(date),endDate:endDate?new Date(endDate):null});closeCalModal();renderCalendar();document.getElementById('calEventTitle').value='';document.getElementById('calEventDate').value='';document.getElementById('calEventEndDate').value='';}
+function deleteCalEvent(idx){calEvents.splice(idx,1);renderCalendar();}
+(function start(){
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',start);return;}
+  console.log('Cloud ALM v3.1 starting...');
+  set('kpiAlerts','—');set('kpiAvail','—');set('kpiCR','—');set('kpiBlocked','—');set('kpiCompliance','—');
+  set('sb1txt','Connecting to Cloud ALM...');
+  setTimeout(loadAll,100);
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" async></script>
+</body>
+</html>
