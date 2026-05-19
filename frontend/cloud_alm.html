@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>SAP Cloud ALM — Command Center v3</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<title>SAP Cloud ALM — Command Center v3.1</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 :root{
@@ -1282,8 +1285,4 @@ function renderCalendar(){
   renderCalEventsList();
 }
 
-function renderCalEventsList(){
-  var list=document.getElementById('calEventsList');
-  var monthEvents=calEvents.filter(function(e){
-    var ed=new Date(e.date);
-    return ed.getMonth()===calCu
+function renderCalEvent
