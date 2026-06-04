@@ -1669,24 +1669,32 @@ async function getCICDToken() {
 
   const fullUrl = tokenUrl.endsWith("/oauth/token") ? tokenUrl : `${tokenUrl}/oauth/token`;
 
-  // XSUAA apiaccess requires grant_type=client_credentials
-  // Some XSUAA instances need the API URL scope — add it if CICD_API_URL is known
-  const apiUrl    = getCICDBaseUrl();
-  const params    = new URLSearchParams({
+  // XSUAA apiaccess for CI/CD requires client_credentials grant
+  // Some instances need explicit scope — try without first, then with
+  const params = new URLSearchParams({
     grant_type:    "client_credentials",
     client_id:     clientId,
     client_secret: clientSecret,
   });
-  // Add scope if needed (some CI/CD XSUAA instances require it)
-  if (apiUrl) params.append("response_type", "token");
 
-  const res = await axios.post(fullUrl, params, {
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    httpsAgent,
-  });
+  let tokenRes;
+  try {
+    tokenRes = await axios.post(fullUrl, params, {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      httpsAgent,
+    });
+  } catch (firstErr) {
+    // Retry with explicit scope if first attempt fails
+    console.warn("CI/CD token without scope failed, retrying with scope...");
+    params.append("scope", "cicd-service!b38.global");
+    tokenRes = await axios.post(fullUrl, params, {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      httpsAgent,
+    });
+  }
 
-  cicdToken       = res.data.access_token;
-  cicdTokenExpiry = Date.now() + (res.data.expires_in || 3600) * 1000;
+  cicdToken       = tokenRes.data.access_token;
+  cicdTokenExpiry = Date.now() + (tokenRes.data.expires_in || 3600) * 1000;
   console.log("✅ SAP BTP CI/CD token fetched (XSUAA apiaccess)");
   return cicdToken;
 }
@@ -1698,7 +1706,8 @@ function getCICDBaseUrl() {
       return key.apiurl || key.api_url || key.serviceurls?.CICD_API_URL || null;
     } catch {}
   }
-  // Hardcoded from your CI/CD dashboard URL
+  // Your tenant-specific CI/CD API URL
+  // Same as UI URL — API endpoints are /api/v1/... on this host
   return process.env.CICD_API_URL ||
          "https://hcl-integrationsuite-qxeoz78m.eu10.cicd.cloud.sap";
 }
@@ -1991,7 +2000,7 @@ async function callCloudTmViaDestination(path, params = {}) {
   // Try destination first (recommended for cross-subaccount)
   if (destinationCredentials) {
     try {
-      return await fetchViaDestination(CLOUD_TM_DEST_NAME, `/v2${path}`, params);
+      return await fetchViaDestination(CLOUD_TM_DEST_NAME, `/v1${path}`, params);
     } catch (destErr) {
       console.warn(`⚠️  Cloud TM via destination failed: ${destErr.message} — trying direct credentials`);
     }
@@ -2165,14 +2174,25 @@ async function getCloudTmToken() {
   }
 
   const fullUrl = tokenUrl.endsWith("/oauth/token") ? tokenUrl : `${tokenUrl}/oauth/token`;
-  const res = await axios.post(
-    fullUrl,
-    new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
-    { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent }
-  );
 
-  cloudTmToken       = res.data.access_token;
-  cloudTmTokenExpiry = Date.now() + (res.data.expires_in || 3600) * 1000;
+  let tmRes;
+  try {
+    tmRes = await axios.post(
+      fullUrl,
+      new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent }
+    );
+  } catch (firstErr) {
+    console.warn("Cloud TM token failed, retrying with scope...");
+    tmRes = await axios.post(
+      fullUrl,
+      new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret, scope: "alm-ts-backend!b1896.GlobalAdmin" }),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent }
+    );
+  }
+
+  cloudTmToken       = tmRes.data.access_token;
+  cloudTmTokenExpiry = Date.now() + (tmRes.data.expires_in || 3600) * 1000;
   console.log("✅ SAP Cloud TM token fetched");
   return cloudTmToken;
 }
@@ -2184,7 +2204,9 @@ function getCloudTmBaseUrl() {
       return key.uri || key.serviceurls?.TMS_API_URL || null;
     } catch {}
   }
-  return process.env.CLOUD_TM_URL || null;
+  // Your tenant-specific Cloud TM URL (found from /v1/transportRequests response)
+  return process.env.CLOUD_TM_URL ||
+         "https://hcl-integrationsuite-qxeoz78m.ts.cfapps.eu10.hana.ondemand.com";
 }
 
 // Helper: call Cloud TM — tries destination first, falls back to direct creds
@@ -2196,7 +2218,7 @@ async function callCloudTm(path, params = {}) {
   // Try destination service first (cross-subaccount)
   if (destinationCredentials) {
     try {
-      return await fetchViaDestination(CLOUD_TM_DEST_NAME, `/v2${path}`,params);
+      return await fetchViaDestination(CLOUD_TM_DEST_NAME, `/v1${path}`,params);
     } catch (e) {
       console.warn(`⚠️  Cloud TM destination failed (${e.message}) — trying direct`);
     }
@@ -2205,7 +2227,7 @@ async function callCloudTm(path, params = {}) {
   if (!baseUrl) throw new Error("Cloud TM base URL not found.");
   const token = await getCloudTmToken();
   const qs    = Object.keys(params).length ? "?" + new URLSearchParams(params).toString() : "";
-  const url   = `${baseUrl}/v2${path}${qs}`;
+  const url   = `${baseUrl}/v1${path}${qs}`;
   console.log(`🔄 Cloud TM direct: ${url}`);
   const res   = await axios.get(url, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
@@ -2344,7 +2366,7 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
     ]);
 
     const nodes    = (nodesData.nodes    || nodesData.value    || nodesData    || []);
-    const requests = (requestsData.transportRequests || requestsData.value || requestsData || [])
+    const requests = (requestsData.transports || requestsData.transportRequests || requestsData.value || requestsData || [])
                       .map(mapTmRequest);
 
     // Fetch queues for each node in parallel
@@ -2398,16 +2420,17 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
 // ── MAP Cloud TM request object to consistent shape ───────────────────────────
 function mapTmRequest(r) {
   return {
-    id:          r.transportRequestId || r.id                    || "—",
-    name:        r.transportRequestName || r.name                || "—",
-    description: r.transportRequestDescription || r.description  || "—",
-    status:      r.status                                        || "Initial",
-    owner:       r.createdBy || r.owner                          || "—",
-    createdAt:   r.createdAt || r.creationDate                   || null,
-    importedAt:  r.importedAt || r.lastImportDate                || null,
-    targetNode:  r.targetNode || r.nodeName                      || "—",
-    contentType: r.contentType || r.type                         || "MTA",
-    description2:r.description                                   || "",
+    id:          r.id                                           || "—",
+    name:        r.description                                  || r.id || "—",
+    description: r.description                                  || "—",
+    status:      r.state                                        || r.status || "Initial",
+    owner:       r.owner                                        || "—",
+    createdAt:   r.createdAt                                    || null,
+    importedAt:  r.importedAt                                   || null,
+    targetNode:  r.origin                                       || r.targetNode || "—",
+    contentType: r.preferredContentType || r.contentType        || "MTA",
+    size:        r.size                                         || null,
+    uploadToOrigin: r.uploadToOrigin                            || false,
   };
 }
 
@@ -2423,6 +2446,28 @@ function inferEnv(name) {
 
 // ── MOCK DATA (shown when Cloud TM not yet configured) ────────────────────────
 function mockTmNodes() {
+  return [
+    { id:"node-dev",  name:"HCL-BTP-DEV",  env:"DEV",  type:"MTA", queueCount:6  },
+    { id:"node-qas",  name:"HCL-BTP-QAS",  env:"QAS",  type:"MTA", queueCount:3  },
+    { id:"node-prod", name:"HCL-BTP-PROD", env:"PROD", type:"MTA", queueCount:1  },
+  ];
+}
+function mockTmQueues() {
+  return [
+    { node:"HCL-BTP-DEV",  nodeId:"node-dev",  env:"DEV",  entries:[
+        { id:"TQ-0042", name:"transport-dashboard-v3.1.2", status:"Initial",  owner:"RBASIS",  createdAt:new Date().toISOString(), targetNode:"HCL-BTP-DEV",  contentType:"MTA" },
+        { id:"TQ-0041", name:"cloud-alm-backend-v2.4",    status:"Imported", owner:"RDEV01",  createdAt:new Date().toISOString(), targetNode:"HCL-BTP-DEV",  contentType:"MTA" },
+    ]},
+    { node:"HCL-BTP-QAS",  nodeId:"node-qas",  env:"QAS",  entries:[
+        { id:"TQ-0040", name:"integration-monitor-v1.1",  status:"Initial",  owner:"RINTERF", createdAt:new Date().toISOString(), targetNode:"HCL-BTP-QAS",  contentType:"MTA" },
+    ]},
+    { node:"HCL-BTP-PROD", nodeId:"node-prod", env:"PROD", entries:[
+        { id:"TQ-0038", name:"cloud-alm-backend-v2.3",    status:"Imported", owner:"RBASIS",  createdAt:new Date().toISOString(), targetNode:"HCL-BTP-PROD", contentType:"MTA" },
+    ]},
+  ];
+}
+function mockTmRequests() {
+  var now = new Date();
   return [
     { id:"TQ-0042", name:"transport-dashboard-v3.1.2",   status:"Initial",  owner:"RBASIS",  createdAt:now.toISOString(), targetNode:"HCL-BTP-DEV",  contentType:"MTA", description:"Release candidate — CTMS & CI/CD tab" },
     { id:"TQ-0041", name:"cloud-alm-backend-v2.4",       status:"Imported", owner:"RDEV01",  createdAt:new Date(now-3600000).toISOString(), targetNode:"HCL-BTP-DEV", contentType:"MTA", description:"AI Core GPT-5.2 integration" },
