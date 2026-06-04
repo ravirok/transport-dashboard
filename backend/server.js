@@ -1861,7 +1861,51 @@ app.get("/api/cicd/runs", async (req, res) => {
   }
 });
 
-// GET /api/cicd/debug — see raw response from CI/CD API (troubleshooting)
+// GET /api/cloudtm/debug — see raw token and API response
+app.get("/api/cloudtm/debug", async (req, res) => {
+  const result = { step1_destService: false, step2_config: null, step3_token: false, step4_apiResponse: null, step5_error: null };
+
+  // Step 1: Check destination service
+  if (!destinationCredentials) {
+    result.step5_error = "Destination service not bound";
+    return res.json(result);
+  }
+  result.step1_destService = true;
+
+  // Step 2: Get destination config
+  try {
+    const config = await getDestinationConfig(CLOUD_TM_DEST_NAME);
+    const conf   = config.destinationConfiguration || {};
+    result.step2_config = {
+      name:     conf.Name || CLOUD_TM_DEST_NAME,
+      url:      conf.URL  || conf.url,
+      authType: conf.Authentication,
+      tokenUrl: conf.tokenServiceURL || conf.TokenServiceURL,
+      hasTokens: (config.authTokens || []).length > 0,
+      tokenError: config.authTokens?.[0]?.error || null,
+    };
+    // Step 3: Check token
+    const tok = (config.authTokens || [])[0];
+    if (tok && tok.value && !tok.error) {
+      result.step3_token = true;
+      // Step 4: Try calling Cloud TM API
+      try {
+        const apiRes = await fetchViaDestination(CLOUD_TM_DEST_NAME, "/v1/nodes");
+        result.step4_apiResponse = apiRes;
+      } catch (apiErr) {
+        result.step5_error = "API call failed: " + (apiErr.response?.data ? JSON.stringify(apiErr.response.data) : apiErr.message);
+      }
+    } else {
+      result.step5_error = "No token — error: " + (tok?.error || "unknown");
+    }
+  } catch (err) {
+    result.step5_error = "Destination fetch failed: " + err.message;
+  }
+
+  res.json(result);
+});
+
+
 app.get("/api/cicd/debug", async (req, res) => {
   try {
     const raw = await fetchViaDestination(CICD_DEST_NAME, "/api/v1/jobs");
