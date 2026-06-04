@@ -973,63 +973,37 @@ td.td-target { font-family:var(--mono); font-size:11px; color:var(--teal); font-
     </div>
   </div>
 
-  <!-- Active Pipeline Run -->
+  <!-- CI/CD Combined Card — Job Cards + Runs + Link to real dashboard -->
   <div class="cicd-card" style="margin-bottom:14px">
     <div class="cicd-card-head">
       <div class="cicd-card-icon" style="background:var(--sap-blue-light)">⚙️</div>
       <div>
-        <div class="cicd-card-title">SAP BTP CI/CD — Active Pipeline Run</div>
-        <div class="cicd-card-sub">Transport-risk-dashboard · Branch: main · Triggered by push</div>
+        <div class="cicd-card-title">SAP BTP CI/CD — Pipeline Dashboard</div>
+        <div class="cicd-card-sub" id="cicdSubtitle">hcl-integrationsuite-qxeoz78m · 3 jobs · Cloud Foundry Environment 3.0</div>
       </div>
-      <div class="live-indicator" style="margin-left:auto"><span class="live-dot-g"></span>RUNNING</div>
-      <div style="font-family:var(--mono);font-size:11px;color:var(--text-lo);margin-left:12px" id="pipelineTimer">00:02:14</div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <div class="live-indicator"><span class="live-dot-g"></span>LIVE</div>
+        <a href="https://hcl-integrationsuite-qxeoz78m.eu10.cicd.cloud.sap" target="_blank" style="font-family:var(--mono);font-size:10px;padding:5px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);color:var(--text-lo);text-decoration:none;transition:all .15s" onmouseover="this.style.color='var(--sap-blue)';this.style.borderColor='var(--sap-blue)'" onmouseout="this.style.color='var(--text-lo)';this.style.borderColor='var(--border)'">↗ Open CI/CD</a>
+      </div>
     </div>
-    <div class="pipeline-stages" id="pipelineStages">
-      <!-- rendered by JS -->
+    <!-- 3 Job Cards -->
+    <div id="cicdJobCards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px 16px;border-bottom:1px solid var(--border)"></div>
+    <!-- Runs Table -->
+    <div class="tbl-toolbar" style="padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border)">
+      <div class="tbl-title">Recent Pipeline Runs</div>
+      <span class="tbl-count" id="runsBadge">Loading...</span>
     </div>
-    <div style="padding:0 16px 12px">
-      <div class="log-console" id="logConsole"></div>
+    <div style="overflow-x:auto">
+      <table class="run-table">
+        <thead><tr>
+          <th>#</th><th>Pipeline</th><th>Status</th><th>Branch</th>
+          <th>Duration</th><th>Trigger</th><th>Time</th>
+        </tr></thead>
+        <tbody id="runsBody"></tbody>
+      </table>
     </div>
   </div>
 
-  <!-- 2-column: Job Runs + CTMS Transports -->
-  <div class="cicd-grid" style="margin-bottom:14px">
-
-    <!-- Recent Job Runs -->
-    <div class="cicd-card">
-      <div class="cicd-card-head">
-        <div class="cicd-card-icon" style="background:var(--sap-blue-light)">📋</div>
-        <div>
-          <div class="cicd-card-title">Recent Pipeline Runs</div>
-          <div class="cicd-card-sub">SAP BTP Continuous Integration &amp; Delivery</div>
-        </div>
-        <span class="cicd-card-badge" style="background:var(--sap-blue-light);color:var(--sap-blue);border-color:var(--sap-blue-mid)" id="runsBadge">Loading...</span>
-      </div>
-      <div style="overflow-x:auto">
-        <table class="run-table">
-          <thead><tr>
-            <th>#</th><th>Pipeline</th><th>Status</th><th>Branch</th>
-            <th>Duration</th><th>Trigger</th><th>Time</th>
-          </tr></thead>
-          <tbody id="runsBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- CTMS Transports -->
-    <div class="cicd-card">
-      <div class="cicd-card-head">
-        <div class="cicd-card-icon" style="background:var(--calm-purple-light)">🔄</div>
-        <div>
-          <div class="cicd-card-title">SAP CTMS — Transport Queue</div>
-          <div class="cicd-card-sub">Custom CTMS + SAP Transport Management</div>
-        </div>
-        <span class="cicd-card-badge" style="background:var(--calm-purple-light);color:var(--calm-purple);border-color:var(--calm-purple-mid)" id="ctmsBadge">18 pending</span>
-      </div>
-      <div id="ctmsList" style="max-height:320px;overflow-y:auto"></div>
-    </div>
-
-  </div>
 
   <!-- 2-column: Deployment Timeline + System Status -->
   <div class="cicd-grid">
@@ -1633,20 +1607,46 @@ function renderPipelineStages() {
 function renderRuns() {
   var tbody=document.getElementById('runsBody'); if(!tbody) return;
   var running=PIPELINE_RUNS.filter(r=>r.status==='running').length;
-  var badge=document.getElementById('runsBadge'); if(badge) badge.textContent=running+' running';
-  tbody.innerHTML=PIPELINE_RUNS.map(r=>{
+  var badge=document.getElementById('runsBadge');
+  if(badge) badge.textContent=running>0?running+' running':PIPELINE_RUNS.length+' total';
+
+  // Render 3 job cards
+  var jobCards=document.getElementById('cicdJobCards');
+  if(jobCards){
+    var jobs=[
+      {name:'Transport-risk-dashborad',branch:'main',state:'ON',lastRun:PIPELINE_RUNS.find(r=>r.name==='Transport-risk-dashborad')},
+      {name:'ai-transport-risk-demo',  branch:'main',state:'ON',lastRun:PIPELINE_RUNS.find(r=>r.name==='ai-transport-risk-demo')},
+      {name:'fiori-saple-app',          branch:'main',state:'ON',lastRun:PIPELINE_RUNS.find(r=>r.name==='fiori-saple-app')},
+    ];
+    jobCards.innerHTML=jobs.map(function(j){
+      var lr=j.lastRun||{};
+      var sc=lr.status==='success'?'var(--green)':lr.status==='running'?'var(--sap-blue)':lr.status==='failed'?'var(--red)':'var(--text-lo)';
+      var sl=lr.status==='success'?'SUCCESS':lr.status==='running'?'RUNNING':lr.status==='failed'?'FAILED':'—';
+      return'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer" '
+        +'onclick="window.open(\'https://hcl-integrationsuite-qxeoz78m.eu10.cicd.cloud.sap\',\'_blank\')">'
+        +'<div style="font-size:12px;font-weight:700;color:var(--text-hi);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+j.name+'">'+j.name+'</div>'
+        +'<div style="font-family:var(--mono);font-size:10px;color:var(--text-lo);margin-bottom:8px">Branch: '+j.branch+' · '+j.state+'</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center">'
+        +'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:10px;background:'+sc+'18;color:'+sc+';border:1px solid '+sc+'44">'+sl+'</span>'
+        +'<span style="font-family:var(--mono);font-size:9px;color:var(--text-lo)">'+(lr.time||'—')+'</span>'
+        +'</div></div>';
+    }).join('');
+  }
+
+  // Render runs table
+  tbody.innerHTML=PIPELINE_RUNS.map(function(r){
     var sc=r.status==='success'?'rs-success':r.status==='running'?'rs-running':r.status==='failed'?'rs-failed':'rs-pending';
     var sl=r.status==='success'?'SUCCESS':r.status==='running'?'RUNNING':r.status==='failed'?'FAILED':'PENDING';
     var da=r.status==='running'?' anim':'';
-    return `<tr>
-      <td><span class="run-commit">${r.id}</span></td>
-      <td style="font-size:12px;font-weight:600;color:var(--text-hi)">${r.name}</td>
-      <td><span class="run-status ${sc}"><span class="rs-dot${da}"></span>${sl}</span></td>
-      <td><span class="run-branch">${r.branch}</span></td>
-      <td><span class="run-duration">${r.dur}</span></td>
-      <td><span class="run-trigger">${r.trigger}</span></td>
-      <td style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">${r.time}</td>
-    </tr>`;
+    return'<tr onclick="window.open(\'https://hcl-integrationsuite-qxeoz78m.eu10.cicd.cloud.sap\',\'_blank\')" style="cursor:pointer">'
+      +'<td><span class="run-commit">'+r.id+'</span></td>'
+      +'<td style="font-size:12px;font-weight:600;color:var(--text-hi)">'+r.name+'</td>'
+      +'<td><span class="run-status '+sc+'"><span class="rs-dot'+da+'"></span>'+sl+'</span></td>'
+      +'<td><span class="run-branch">'+r.branch+'</span></td>'
+      +'<td><span class="run-duration">'+r.dur+'</span></td>'
+      +'<td><span class="run-trigger">'+r.trigger+'</span></td>'
+      +'<td style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">'+r.time+'</td>'
+      +'</tr>';
   }).join('');
 }
 
@@ -1870,7 +1870,7 @@ function renderCloudTmRequests(requests) {
     }).join('') +
     '</tbody></table></div>';
 }
-
+  
 function timeAgoJS(date) {
   var diff = Date.now() - date.getTime();
   var mins = Math.floor(diff / 60000);
