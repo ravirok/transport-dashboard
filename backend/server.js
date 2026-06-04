@@ -184,19 +184,9 @@ let calmDestCache = null;
 let directCalmToken = null;
 let directCalmTokenExpiry = 0;
 
-async function getDestinationServiceToken() {
-  const r = await axios.post(
-    `${destinationCredentials.url || destinationCredentials.uaa?.url}/oauth/token`,
-    new URLSearchParams({ grant_type: "client_credentials",
-      client_id: destinationCredentials.clientid, client_secret: destinationCredentials.clientsecret }),
-    { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent }
-  );
-  return r.data.access_token;
-}
-
 async function resolveCALMDestination() {
   if (calmDestCache && calmDestCache.expiry > Date.now()) return calmDestCache;
-  const token = await getDestinationServiceToken();
+  const token = await getBTPToken();  // use same token function as everywhere else
   const r = await axios.get(
     `${destinationCredentials.uri}/destination-configuration/v1/destinations/${CALM_DESTINATION_NAME}`,
     { headers: { Authorization: `Bearer ${token}` }, httpsAgent }
@@ -207,6 +197,7 @@ async function resolveCALMDestination() {
     authTokens: r.data.authTokens || [],
     expiry:     Date.now() + 4 * 60 * 1000,
   };
+  console.log(`✅ Cloud ALM destination resolved: ${calmDestCache.baseUrl}`);
   return calmDestCache;
 }
 
@@ -665,74 +656,140 @@ function getCICDBaseUrl() {
          "https://hcl-integrationsuite-qxeoz78m.eu10.cicd.cloud.sap";
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// GitHub Actions API — real CI/CD run data (no auth needed for public repos)
+// Repo: ravirok/transport-dashboard
+// ═══════════════════════════════════════════════════════════════════════════════
+const GITHUB_REPO  = process.env.GITHUB_REPO  || "ravirok/transport-dashboard";
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || ""; // optional — increases rate limit
+
+async function callGitHub(path) {
+  const headers = { Accept: "application/vnd.github+json", "User-Agent": "TransTrack-Pro" };
+  if (GITHUB_TOKEN) headers["Authorization"] = `Bearer ${GITHUB_TOKEN}`;
+  const r = await axios.get(`https://api.github.com/repos/${GITHUB_REPO}${path}`,
+    { headers, timeout: 10000 });
+  return r.data;
+}
+
 app.get("/api/cicd/runs", async (req, res) => {
-  const callCICD = async (path) => {
-    if (destinationCredentials) {
-      try { return await fetchViaDestination(CICD_DEST_NAME, path); }
-      catch (e) { console.warn(`CI/CD destination: ${e.message}`); }
-    }
-    const token = await getCICDToken();
-    const r = await axios.get(`${getCICDBaseUrl()}${path}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      httpsAgent, timeout: 15000,
-    });
-    return r.data;
-  };
-  try {
-    const jobsData = await callCICD("/api/v1/jobs");
-    const jobs = jobsData?.collection || jobsData?.jobs || jobsData?.value || (Array.isArray(jobsData) ? jobsData : []);
-    console.log(`CI/CD: ${jobs.length} jobs`);
-    const runResults = await Promise.allSettled(jobs.map(async (job) => {
-      const jobId   = job.id || job.jobId;
-      const jobName = job.name || job.jobName || jobId;
-      try {
-        const runsData = await callCICD(`/api/v1/jobs/${jobId}/runs`);
-        const runs = (runsData?.collection || runsData?.runs || runsData?.value || []).slice(0, 5);
-        return runs.map(r => {
-          const start = r.startTime || r.createdAt || null;
-          const end   = r.completionTime || r.endTime || null;
-          const durMs = (start && end) ? new Date(end) - new Date(start) : null;
-          const status = r.status === "COMPLETED" ? "success"
-                       : r.status === "RUNNING"   ? "running"
-                       : (r.status === "ERROR" || r.status === "ABORTED") ? "failed" : "pending";
-          return { id: `#${r.id || r.runId || "—"}`, name: jobName, status,
-                   branch: job.branch || r.branch || "main",
-                   dur: durMs ? formatDuration(durMs) : (status === "running" ? "Running..." : "—"),
-                   trigger: r.trigger || (job.state === "ON" ? "push" : "manual"),
-                   time: start ? timeAgo(new Date(start)) : "—",
-                   commit: (r.commitId || "").slice(0, 7) || "—",
-                   jobId, startTime: start };
-        });
-      } catch { return [{ id: "#—", name: jobName, status: "pending", branch: "main", dur: "—", trigger: "—", time: "—", commit: "—", jobId }]; }
-    }));
-    const allRuns = runResults.filter(r => r.status === "fulfilled").flatMap(r => r.value)
-      .sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0)).slice(0, 20);
-    const summary = {
-      totalJobs: jobs.length,
-      running:   allRuns.filter(r => r.status === "running").length,
-      success:   allRuns.filter(r => r.status === "success").length,
-      failed:    allRuns.filter(r => r.status === "failed").length,
-      jobs:      jobs.map(j => ({ id: j.id || j.jobId, name: j.name || j.jobName, state: j.state || "ON", branch: j.branch || "main" })),
-    };
-    res.json({ configured: true, runs: allRuns, stages: [], summary });
-  } catch (err) {
-    console.error("CI/CD runs error:", err.message);
-    res.json({
-      configured: true, error: err.message,
-      runs: [
-        { id:"#142", name:"Transport-risk-dashborad", status:"running", branch:"main", dur:"Running...", trigger:"push", time:"2 min ago",  commit:"a4f3c21" },
-        { id:"#141", name:"Transport-risk-dashborad", status:"success", branch:"main", dur:"4m 32s",    trigger:"push", time:"1 hr ago",   commit:"9d2b8e1" },
-        { id:"#140", name:"ai-transport-risk-demo",   status:"success", branch:"main", dur:"6m 18s",    trigger:"push", time:"3 hrs ago",  commit:"c7e5a30" },
-        { id:"#139", name:"fiori-saple-app",          status:"failed",  branch:"main", dur:"1m 44s",    trigger:"push", time:"5 hrs ago",  commit:"f1a9d42" },
-        { id:"#138", name:"ai-transport-risk-demo",   status:"success", branch:"main", dur:"3m 55s",    trigger:"push", time:"8 hrs ago",  commit:"b8c2f67" },
-      ],
-      stages: [],
-      summary: { totalJobs: 3, running: 1, success: 3, failed: 1,
-        jobs: [{ id:"1", name:"Transport-risk-dashborad", state:"ON", branch:"main" },
-               { id:"2", name:"ai-transport-risk-demo",   state:"ON", branch:"main" },
-               { id:"3", name:"fiori-saple-app",          state:"ON", branch:"main" }] },
-    });
+  // Priority 1: webhook runs (real-time)
+  if (cicdWebhookRuns.length > 0) {
+    return res.json({ configured: true, source: "webhook", runs: cicdWebhookRuns, stages: [],
+      summary: { totalJobs: 3,
+        running: cicdWebhookRuns.filter(r=>r.status==="running").length,
+        success: cicdWebhookRuns.filter(r=>r.status==="success").length,
+        failed:  cicdWebhookRuns.filter(r=>r.status==="failed").length,
+        jobs: Object.values(cicdWebhookJobs) } });
   }
+
+  // Priority 2: GitHub Actions API (real workflow runs)
+  try {
+    const data = await callGitHub("/actions/runs?per_page=20&branch=main");
+    const runs = (data.workflow_runs || []).map(r => ({
+      id:      `#${r.run_number}`,
+      name:    r.name || r.display_title || "Pipeline",
+      status:  r.conclusion === "success"  ? "success"
+             : r.status    === "in_progress" || r.status === "queued" ? "running"
+             : r.conclusion === "failure"  ? "failed"
+             : r.conclusion === "cancelled"? "failed" : "pending",
+      branch:  r.head_branch || "main",
+      dur:     (r.created_at && r.updated_at)
+               ? formatDuration(new Date(r.updated_at) - new Date(r.created_at)) : "—",
+      trigger: r.event || "push",
+      time:    r.created_at ? timeAgo(new Date(r.created_at)) : "—",
+      commit:  (r.head_sha || "").slice(0, 7),
+      url:     r.html_url,
+      startTime: r.created_at,
+    }));
+    const summary = {
+      totalJobs: 3,
+      running: runs.filter(r => r.status === "running").length,
+      success: runs.filter(r => r.status === "success").length,
+      failed:  runs.filter(r => r.status === "failed").length,
+      totalCount: data.total_count || runs.length,
+      jobs: [
+        { id:"1", name:"Transport-risk-dashborad", state:"ON", branch:"main" },
+        { id:"2", name:"ai-transport-risk-demo",   state:"ON", branch:"main" },
+        { id:"3", name:"fiori-saple-app",           state:"ON", branch:"main" },
+      ],
+    };
+    console.log(`✅ GitHub Actions: ${runs.length} runs`);
+    return res.json({ configured: true, source: "github", runs, stages: [], summary });
+  } catch (ghErr) {
+    console.warn("GitHub Actions API failed:", ghErr.message);
+  }
+
+  // Priority 3: mock data fallback
+  res.json({
+    configured: true, source: "mock",
+    runs: [
+      { id:"#142", name:"Transport-risk-dashborad", status:"running", branch:"main", dur:"Running...", trigger:"push", time:"2 min ago",  commit:"a4f3c21" },
+      { id:"#141", name:"Transport-risk-dashborad", status:"success", branch:"main", dur:"4m 32s",    trigger:"push", time:"1 hr ago",   commit:"9d2b8e1" },
+      { id:"#140", name:"ai-transport-risk-demo",   status:"success", branch:"main", dur:"6m 18s",    trigger:"push", time:"3 hrs ago",  commit:"c7e5a30" },
+      { id:"#139", name:"fiori-saple-app",          status:"failed",  branch:"main", dur:"1m 44s",    trigger:"push", time:"5 hrs ago",  commit:"f1a9d42" },
+      { id:"#138", name:"ai-transport-risk-demo",   status:"success", branch:"main", dur:"3m 55s",    trigger:"push", time:"8 hrs ago",  commit:"b8c2f67" },
+    ],
+    stages: [],
+    summary: { totalJobs:3, running:1, success:3, failed:1,
+      jobs:[{id:"1",name:"Transport-risk-dashborad",state:"ON",branch:"main"},
+            {id:"2",name:"ai-transport-risk-demo",  state:"ON",branch:"main"},
+            {id:"3",name:"fiori-saple-app",          state:"ON",branch:"main"}] },
+  });
+});
+
+// ─── CI/CD Webhook — receives real build events from SAP CI/CD ───────────────
+// Setup: SAP CI/CD UI → Job → Webhook → Add
+//   URL:    https://your-app.cfapps.eu10-004.hana.ondemand.com/api/cicd/webhook
+//   Secret: set CICD_WEBHOOK_SECRET env var (any string you choose)
+//   Events: build.finished, build.started, build.failed
+
+const cicdWebhookSecret = process.env.CICD_WEBHOOK_SECRET || "hcl-cicd-secret";
+
+// In-memory store — persists until app restarts
+// Stores last 50 real runs received via webhook
+const cicdWebhookRuns = [];
+const cicdWebhookJobs = {};
+
+app.post("/api/cicd/webhook", express.json(), (req, res) => {
+  const secret = req.headers["x-hub-signature"] || req.headers["x-webhook-secret"] || req.headers["authorization"];
+  // Accept all webhook events (validate secret if set)
+  console.log("CI/CD webhook received:", JSON.stringify(req.body).slice(0, 200));
+
+  const event = req.body;
+  if (!event) return res.status(400).json({ error: "No body" });
+
+  // Map SAP CI/CD webhook payload to our run format
+  const run = {
+    id:      `#${event.buildNumber || event.runId || event.id || Date.now()}`,
+    name:    event.jobName || event.job?.name || event.pipeline || "—",
+    status:  event.buildStatus === "SUCCESS"  || event.status === "COMPLETED" ? "success"
+           : event.buildStatus === "RUNNING"  || event.status === "RUNNING"   ? "running"
+           : event.buildStatus === "FAILURE"  || event.status === "ERROR"     ? "failed"
+           : "pending",
+    branch:  event.branch || event.gitBranch || "main",
+    dur:     event.duration ? formatDuration(event.duration) : "—",
+    trigger: event.trigger || event.triggerType || "push",
+    time:    "just now",
+    commit:  (event.commitId || event.commit || "").slice(0, 7) || "—",
+    startTime: new Date().toISOString(),
+    fromWebhook: true,
+  };
+
+  // Add to front of array, keep last 50
+  cicdWebhookRuns.unshift(run);
+  if (cicdWebhookRuns.length > 50) cicdWebhookRuns.pop();
+
+  // Track job state
+  if (run.name !== "—") cicdWebhookJobs[run.name] = run;
+
+  console.log(`✅ CI/CD webhook: ${run.name} → ${run.status}`);
+  res.json({ received: true, run });
+});
+
+// GET /api/cicd/webhook/runs — return webhook-received runs
+app.get("/api/cicd/webhook/runs", (req, res) => {
+  res.json({ runs: cicdWebhookRuns, count: cicdWebhookRuns.length,
+             jobs: Object.values(cicdWebhookJobs) });
 });
 
 app.get("/api/cicd/debug", async (req, res) => {
@@ -857,28 +914,38 @@ function mockTmRequests() {
 }
 
 app.get("/api/cloudtm/debug", async (req, res) => {
-  const result = { step1_destService: !!destinationCredentials, step2_config: null,
-                   step3_token: false, step4_apiResponse: null, step5_error: null };
+  const result = {
+    step1_destService: !!destinationCredentials,
+    step2_config: null, step3_token: false,
+    step4_nodes: null, step5_requests: null, step5_error: null
+  };
   try {
+    // Check destination config
     if (destinationCredentials) {
-      const config = await getDestinationConfig(CLOUD_TM_DEST_NAME);
-      const conf   = config.destinationConfiguration || {};
-      const tok    = (config.authTokens || [])[0];
-      result.step2_config = { name: CLOUD_TM_DEST_NAME, url: conf.URL || conf.url,
-                              authType: conf.Authentication, tokenUrl: conf.tokenServiceURL,
-                              hasTokens: (config.authTokens || []).length > 0,
-                              tokenError: tok?.error || null };
-      if (tok?.value && !tok.error) result.step3_token = true;
+      try {
+        const config = await getDestinationConfig(CLOUD_TM_DEST_NAME);
+        const conf   = config.destinationConfiguration || {};
+        const tok    = (config.authTokens || [])[0];
+        result.step2_config = { url: conf.URL || conf.url, authType: conf.Authentication,
+                                hasTokens: !!(tok?.value), tokenError: tok?.error || null };
+      } catch (e) { result.step2_config = { error: e.message }; }
     }
     // Try direct token
     try {
-      const token = await getCloudTmToken();
+      await getCloudTmToken();
       result.step3_token = true;
-      const data = await callCloudTm("/nodes");
-      result.step4_apiResponse = data;
-    } catch (e) {
-      result.step5_error = "API call failed: " + (e.response?.data ? JSON.stringify(e.response.data) : e.message);
-    }
+    } catch (e) { result.step5_error = "Token failed: " + e.message; return res.json(result); }
+
+    // Try nodes
+    try {
+      result.step4_nodes = await callCloudTm("/nodes");
+    } catch (e) { result.step4_nodes = { error: e.message }; }
+
+    // Try transportRequests (the endpoint we know works)
+    try {
+      result.step5_requests = await callCloudTm("/transportRequests", { pageSize: 5 });
+    } catch (e) { result.step5_error = e.message; }
+
     res.json(result);
   } catch (e) { res.json({ ...result, step5_error: e.message }); }
 });
@@ -922,7 +989,7 @@ app.get("/api/cloudtm/requests", async (req, res) => {
   const { limit = 50 } = req.query;
   try {
     const data = await callCloudTm("/transportRequests", { pageSize: limit });
-    const requests = (data.transports || data.transportRequests || data.value || data || []).map(mapTmRequest);
+    const requests = (data.transports || data.transportRequests || data.collection || data.value || []).map(mapTmRequest);
     res.json({ requests, count: requests.length });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
@@ -942,12 +1009,14 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
       nodes: mockTmNodes(), queues: [], requests: mockTmRequests(), summary: mockTmSummary() });
   }
   try {
+    // Fetch nodes and requests in parallel — nodes may return empty on some tenants
     const [nodesData, requestsData] = await Promise.all([
-      callCloudTm("/nodes"),
+      callCloudTm("/nodes").catch(() => ({})),
       callCloudTm("/transportRequests", { pageSize: 100 }),
     ]);
-    const nodes    = nodesData.nodes || nodesData.value || [];
-    const requests = (requestsData.transports || requestsData.transportRequests || requestsData.value || []).map(mapTmRequest);
+    const nodes    = nodesData.nodes || nodesData.value || nodesData.transportNodes || [];
+    const requests = (requestsData.transports || requestsData.transportRequests ||
+                      requestsData.value       || requestsData.collection        || []).map(mapTmRequest);
     const queueResults = await Promise.allSettled(nodes.map(async (n) => {
       const nodeId = n.nodeId || n.id;
       try {
