@@ -1725,8 +1725,16 @@ app.get("/api/cicd/runs", async (req, res) => {
   try {
     // 1. Fetch all jobs — returns { jobs: [{id, name, state, branch}] }
     const jobsData = await callCICD("/api/v1/jobs");
-    const jobs = jobsData?.jobs || jobsData?.value || [];
-    console.log(`✅ CI/CD: ${jobs.length} jobs — ${jobs.map(j=>j.name).join(", ")}`);
+    // SAP CI/CD API response formats:
+    //   { collection: [...] }  — most common
+    //   { jobs: [...] }
+    //   { value: [...] }
+    //   [ ... ]                — direct array
+    const jobs = jobsData?.collection
+              || jobsData?.jobs
+              || jobsData?.value
+              || (Array.isArray(jobsData) ? jobsData : []);
+    console.log(`✅ CI/CD: ${jobs.length} jobs — ${jobs.map(j=>j.name||j.jobName||j.id).join(", ")}`);
 
     // 2. Fetch recent runs for each job in parallel
     const runResults = await Promise.allSettled(
@@ -1735,7 +1743,11 @@ app.get("/api/cicd/runs", async (req, res) => {
         const jobName = job.name || job.jobName || jobId;
         try {
           const runsData = await callCICD(`/api/v1/jobs/${jobId}/runs`);
-          const runs     = (runsData?.runs || runsData?.value || []).slice(0, 5);
+          // SAP CI/CD runs: { collection:[...] } or { runs:[...] } or { value:[...] } or [...]
+          const runs = (runsData?.collection
+                     || runsData?.runs
+                     || runsData?.value
+                     || (Array.isArray(runsData) ? runsData : [])).slice(0, 5);
           return runs.map(r => {
             const start = r.startTime || r.createdAt || null;
             const end   = r.completionTime || r.endTime || null;
@@ -1778,8 +1790,13 @@ app.get("/api/cicd/runs", async (req, res) => {
       try {
         const runId     = runningRun.id.replace("#", "");
         const stageData = await callCICD(`/api/v1/jobs/${runningRun.jobId}/runs/${runId}`);
-        stages = (stageData?.stages || stageData?.value || []).map(s => {
-          const n = (s.name || "").toLowerCase();
+        // Stages can be inside the run object or separate
+        const stageList = stageData?.stages
+                       || stageData?.collection
+                       || stageData?.value
+                       || [];
+        stages = stageList.map(s => {
+          const n = (s.name || s.stageName || "").toLowerCase();
           const icon = n.includes("source")||n.includes("clone") ? "📂"
                      : n.includes("build")                       ? "🔨"
                      : n.includes("test")                        ? "🧪"
@@ -1835,7 +1852,17 @@ app.get("/api/cicd/runs", async (req, res) => {
   }
 });
 
-// GET /api/cicd/jobs
+// GET /api/cicd/debug — see raw response from CI/CD API (troubleshooting)
+app.get("/api/cicd/debug", async (req, res) => {
+  try {
+    const raw = await fetchViaDestination(CICD_DEST_NAME, "/api/v1/jobs");
+    res.json({ raw, keys: Object.keys(raw || {}), isArray: Array.isArray(raw) });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+
 app.get("/api/cicd/jobs", async (req, res) => {
   try {
     let data;
@@ -1849,7 +1876,7 @@ app.get("/api/cicd/jobs", async (req, res) => {
       });
       data = r.data;
     }
-    res.json({ configured:true, jobs: data?.jobs || data?.value || [] });
+    res.json({ configured:true, jobs: data?.collection || data?.jobs || data?.value || (Array.isArray(data)?data:[]) });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }
@@ -2396,28 +2423,6 @@ function inferEnv(name) {
 
 // ── MOCK DATA (shown when Cloud TM not yet configured) ────────────────────────
 function mockTmNodes() {
-  return [
-    { id:"node-dev",  name:"HCL-BTP-DEV",  env:"DEV",  type:"MTA", queueCount:6  },
-    { id:"node-qas",  name:"HCL-BTP-QAS",  env:"QAS",  type:"MTA", queueCount:3  },
-    { id:"node-prod", name:"HCL-BTP-PROD", env:"PROD", type:"MTA", queueCount:1  },
-  ];
-}
-function mockTmQueues() {
-  return [
-    { node:"HCL-BTP-DEV",  nodeId:"node-dev",  env:"DEV",  entries:[
-        { id:"TQ-0042", name:"transport-dashboard-v3.1.2", status:"Initial",  owner:"RBASIS",  createdAt:new Date().toISOString(), targetNode:"HCL-BTP-DEV",  contentType:"MTA" },
-        { id:"TQ-0041", name:"cloud-alm-backend-v2.4",    status:"Imported", owner:"RDEV01",  createdAt:new Date().toISOString(), targetNode:"HCL-BTP-DEV",  contentType:"MTA" },
-    ]},
-    { node:"HCL-BTP-QAS",  nodeId:"node-qas",  env:"QAS",  entries:[
-        { id:"TQ-0040", name:"integration-monitor-v1.1",  status:"Initial",  owner:"RINTERF", createdAt:new Date().toISOString(), targetNode:"HCL-BTP-QAS",  contentType:"MTA" },
-    ]},
-    { node:"HCL-BTP-PROD", nodeId:"node-prod", env:"PROD", entries:[
-        { id:"TQ-0038", name:"cloud-alm-backend-v2.3",    status:"Imported", owner:"RBASIS",  createdAt:new Date().toISOString(), targetNode:"HCL-BTP-PROD", contentType:"MTA" },
-    ]},
-  ];
-}
-function mockTmRequests() {
-  var now = new Date();
   return [
     { id:"TQ-0042", name:"transport-dashboard-v3.1.2",   status:"Initial",  owner:"RBASIS",  createdAt:now.toISOString(), targetNode:"HCL-BTP-DEV",  contentType:"MTA", description:"Release candidate — CTMS & CI/CD tab" },
     { id:"TQ-0041", name:"cloud-alm-backend-v2.4",       status:"Imported", owner:"RDEV01",  createdAt:new Date(now-3600000).toISOString(), targetNode:"HCL-BTP-DEV", contentType:"MTA", description:"AI Core GPT-5.2 integration" },
