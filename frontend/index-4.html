@@ -1,0 +1,2050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TransTrack Pro — SAP Cloud ALM</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #f0f2f5;
+  --surface:  #ffffff;
+  --surface2: #f7f8fa;
+  --border:   #e2e6ec;
+  --border2:  #cdd2db;
+
+  --sap-blue: #0070f2;
+  --sap-blue-light: #e5f0fe;
+  --sap-blue-mid:   #b3d4fc;
+
+  --calm-purple:       #6366f1;
+  --calm-purple-light: #eef2ff;
+  --calm-purple-mid:   #c7d2fe;
+  --calm-purple-dark:  #4338ca;
+
+  --red:         #dc2626;
+  --red-light:   #fef2f2;
+  --red-mid:     #fecaca;
+  --green:       #16a34a;
+  --green-light: #f0fdf4;
+  --green-mid:   #bbf7d0;
+  --amber:       #d97706;
+  --amber-light: #fffbeb;
+  --amber-mid:   #fde68a;
+  --teal:        #0891b2;
+  --teal-light:  #ecfeff;
+  --teal-mid:    #a5f3fc;
+
+  --text:     #374151;
+  --text-hi:  #111827;
+  --text-lo:  #9ca3af;
+  --text-med: #6b7280;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.05);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.08);
+  --shadow-lg: 0 20px 48px rgba(0,0,0,.14);
+  --shadow-xl: 0 32px 64px rgba(0,0,0,.18);
+
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Space Grotesk', sans-serif;
+  --r:    10px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+@keyframes fadeUp   { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+@keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+@keyframes spin     { to { transform:rotate(360deg); } }
+@keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.4} }
+@keyframes modalIn  { from { opacity:0; transform:scale(.95) translateY(12px); } to { opacity:1; transform:none; } }
+@keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+
+/* ── TOP HEADER ─────────────────────────────────────────────── */
+.header {
+  position: sticky; top: 0; z-index: 200;
+  height: 62px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+  display: flex; align-items: center;
+  padding: 0 24px; gap: 16px;
+}
+.logo-wrap { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.logo-mark {
+  width:36px; height:36px; border-radius:10px;
+  background: linear-gradient(135deg, var(--sap-blue), var(--calm-purple));
+  display:grid; place-items:center;
+  font-family:var(--mono); font-size:11px; font-weight:600; color:#fff;
+  box-shadow: 0 2px 8px rgba(99,102,241,.35);
+}
+.logo-text { font-size:15px; font-weight:700; color:var(--text-hi); letter-spacing:-.3px; }
+.logo-sub  { font-size:10px; color:var(--text-lo); margin-top:1px; letter-spacing:.3px; }
+
+.hdr-divider { width:1px; height:32px; background:var(--border); flex-shrink:0; }
+
+/* ALM status badge in header */
+.alm-status-badge {
+  display:flex; align-items:center; gap:8px;
+  padding:6px 14px; border-radius:20px; border:1.5px solid;
+  font-family:var(--mono); font-size:11px; cursor:pointer;
+  transition:all .2s; flex-shrink:0;
+}
+.alm-status-badge.ok     { background:var(--green-light);  color:var(--green);        border-color:var(--green-mid); }
+.alm-status-badge.warn   { background:var(--amber-light);  color:var(--amber);        border-color:var(--amber-mid); }
+.alm-status-badge.error  { background:var(--red-light);    color:var(--red);          border-color:var(--red-mid); }
+.alm-status-badge.loading{ background:var(--surface2);     color:var(--text-lo);      border-color:var(--border); }
+.alm-status-badge:hover  { box-shadow:var(--shadow-sm); transform:translateY(-1px); }
+.alm-pulse { width:7px; height:7px; border-radius:50%; background:currentColor; }
+.alm-pulse.animate { animation:pulse 1.5s infinite; }
+
+.hdr-filters { display:flex; gap:8px; flex:1; }
+.hdr-input, .hdr-select {
+  background:var(--surface2); border:1.5px solid var(--border);
+  color:var(--text-hi); font-family:var(--sans); font-size:13px;
+  padding:6px 12px; border-radius:8px; outline:none; height:36px;
+  transition:border-color .2s, box-shadow .2s;
+}
+.hdr-input  { width:160px; }
+.hdr-input::placeholder { color:var(--text-lo); }
+.hdr-input:focus, .hdr-select:focus { border-color:var(--sap-blue); box-shadow:0 0 0 3px rgba(0,112,242,.1); background:var(--surface); }
+.hdr-select { cursor:pointer; min-width:130px; }
+.hdr-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.refresh-pill {
+  display:flex; align-items:center; gap:6px;
+  font-family:var(--mono); font-size:11px; color:var(--teal);
+  background:var(--teal-light); border:1.5px solid var(--teal-mid);
+  padding:5px 12px; border-radius:20px;
+}
+.spin-icon { display:inline-block; animation:spin 3s linear infinite; }
+.health-dot { width:8px; height:8px; border-radius:50%; background:var(--border2); transition:all .4s; }
+.health-dot.ok  { background:var(--green); box-shadow:0 0 0 3px var(--green-light); }
+.health-dot.err { background:var(--red);   box-shadow:0 0 0 3px var(--red-light); }
+
+/* ── CRITICAL ALM BANNER ────────────────────────────────────── */
+.alm-alert-banner {
+  display:none;
+  background: linear-gradient(135deg, #450a0a, #7f1d1d);
+  color:#fecaca; padding:10px 24px;
+  align-items:center; gap:12px; font-size:12.5px;
+  border-bottom: 1px solid #991b1b;
+}
+.alm-alert-banner.show { display:flex; animation:slideDown .3s ease; }
+.alm-alert-chips { display:flex; gap:8px; flex-wrap:wrap; }
+.alm-alert-chip {
+  background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2);
+  padding:2px 9px; border-radius:20px; font-size:11px;
+  font-family:var(--mono);
+}
+
+/* ── PAGE LAYOUT ─────────────────────────────────────────────── */
+.page { max-width:1500px; margin:0 auto; padding:20px 24px 60px; }
+
+/* ── COMMAND STRIP (ALM + transport KPIs together) ──────────── */
+.command-strip {
+  display:grid;
+  grid-template-columns: 3fr 1px 2fr;
+  gap:0;
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  border-radius:var(--r-lg);
+  overflow:hidden;
+  box-shadow:var(--shadow-sm);
+  margin-bottom:20px;
+  animation:fadeUp .4s ease both;
+}
+.strip-divider { background:var(--border); }
+
+/* Left: Transport KPIs */
+.strip-kpis {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:0;
+}
+.strip-kpi {
+  padding:16px 18px;
+  border-right:1px solid var(--border);
+  position:relative; overflow:hidden;
+}
+.strip-kpi:last-child { border-right:none; }
+.strip-kpi::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--kline, linear-gradient(90deg, var(--sap-blue), #60a5fa));
+}
+.strip-kpi.red   { --kline:linear-gradient(90deg,var(--red),#f87171); }
+.strip-kpi.green { --kline:linear-gradient(90deg,var(--green),#4ade80); }
+.strip-kpi.amber { --kline:linear-gradient(90deg,var(--amber),#fbbf24); }
+.strip-kpi-icon  { font-size:18px; margin-bottom:6px; }
+.strip-kpi-lbl   { font-size:11px; font-weight:500; color:var(--text-med); margin-bottom:3px; }
+.strip-kpi-val   { font-size:28px; font-weight:700; color:var(--text-hi); line-height:1; }
+.strip-kpi.red   .strip-kpi-val { color:var(--red); }
+.strip-kpi.green .strip-kpi-val { color:var(--green); }
+.strip-kpi.amber .strip-kpi-val { color:var(--amber); }
+.strip-kpi-sub   { font-size:11px; color:var(--text-lo); margin-top:3px; }
+
+/* Right: ALM KPIs */
+.strip-alm { display:grid; grid-template-columns:repeat(3,1fr); }
+.strip-alm-item {
+  padding:16px 18px;
+  border-right:1px solid var(--border);
+  position:relative; overflow:hidden;
+}
+.strip-alm-item:last-child { border-right:none; }
+.strip-alm-item::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--aline, linear-gradient(90deg,var(--calm-purple),#818cf8));
+}
+.strip-alm-item.teal  { --aline:linear-gradient(90deg,var(--teal),#22d3ee); }
+.strip-alm-item.amber { --aline:linear-gradient(90deg,var(--amber),#fbbf24); }
+.strip-alm-label { font-size:10px; font-weight:600; color:var(--calm-purple); text-transform:uppercase; letter-spacing:.6px; margin-bottom:5px; display:flex; align-items:center; gap:5px; }
+.strip-alm-item.teal  .strip-alm-label { color:var(--teal); }
+.strip-alm-item.amber .strip-alm-label { color:var(--amber); }
+.strip-alm-val  { font-size:22px; font-weight:700; color:var(--text-hi); line-height:1; margin-bottom:6px; }
+.alm-stat-row   { display:flex; justify-content:space-between; font-size:11px; padding:2px 0; color:var(--text-med); }
+.alm-stat-val   { font-family:var(--mono); font-weight:600; color:var(--text-hi); }
+.alm-stat-val.ok    { color:var(--green); }
+.alm-stat-val.warn  { color:var(--amber); }
+.alm-stat-val.error { color:var(--red); }
+
+/* ── CHARTS GRID ─────────────────────────────────────────────── */
+.charts-grid {
+  display:grid;
+  grid-template-columns:1fr 1.4fr 1fr;
+  gap:14px;
+  margin-bottom:20px;
+}
+.card {
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:var(--r-lg); overflow:hidden;
+  box-shadow:var(--shadow-sm); animation:fadeUp .5s ease both;
+}
+.card-head {
+  padding:13px 16px 10px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:8px;
+}
+.card-head-icon { font-size:14px; }
+.card-title { font-size:13px; font-weight:600; color:var(--text-hi); }
+.card-badge {
+  margin-left:auto; font-family:var(--mono); font-size:10px;
+  padding:2px 8px; border-radius:20px; border:1px solid;
+}
+.card-badge.blue   { background:var(--sap-blue-light); color:var(--sap-blue); border-color:var(--sap-blue-mid); }
+.card-badge.purple { background:var(--calm-purple-light); color:var(--calm-purple); border-color:var(--calm-purple-mid); }
+.card-body { padding:14px 16px; }
+.chart-wrap { height:180px; display:flex; align-items:center; justify-content:center; }
+
+/* ── ALM LIVE SECTION ────────────────────────────────────────── */
+.alm-live-section {
+  background:var(--surface);
+  border:1.5px solid var(--calm-purple-mid);
+  border-radius:var(--r-lg);
+  overflow:hidden;
+  box-shadow:var(--shadow-sm);
+  margin-bottom:20px;
+  animation:fadeUp .5s ease both;
+}
+.alm-live-header {
+  padding:13px 18px;
+  background: linear-gradient(135deg, var(--calm-purple-light), #f8f7ff);
+  border-bottom:1px solid var(--calm-purple-mid);
+  display:flex; align-items:center; gap:10px;
+}
+.alm-live-icon { font-size:18px; }
+.alm-live-title { font-size:13px; font-weight:700; color:var(--calm-purple-dark); }
+.alm-live-sub   { font-size:11px; color:var(--calm-purple); }
+.alm-last-sync  { margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--text-lo); }
+
+.alm-cards-row { display:grid; grid-template-columns:repeat(3,1fr); gap:0; }
+.alm-feature-card {
+  padding:16px 18px;
+  border-right:1px solid var(--calm-purple-mid);
+}
+.alm-feature-card:last-child { border-right:none; }
+.alm-feat-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.alm-feat-icon {
+  width:28px; height:28px; border-radius:7px;
+  display:grid; place-items:center; font-size:13px;
+}
+.alm-feat-icon.tm { background:var(--sap-blue-light); }
+.alm-feat-icon.cm { background:var(--calm-purple-light); }
+.alm-feat-icon.hm { background:var(--teal-light); }
+.alm-feat-title { font-size:12px; font-weight:600; color:var(--text-hi); }
+.alm-feat-sub   { font-size:10px; color:var(--text-lo); }
+.alm-stat-list  { display:flex; flex-direction:column; gap:0; }
+.alm-stat-item  {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:6px 0;
+  border-bottom:1px solid var(--border);
+  font-size:12px;
+}
+.alm-stat-item:last-child { border-bottom:none; }
+.alm-stat-key { color:var(--text-med); }
+.alm-stat-num { font-family:var(--mono); font-size:11px; font-weight:600; }
+.alm-stat-num.ok    { color:var(--green); }
+.alm-stat-num.warn  { color:var(--amber); }
+.alm-stat-num.error { color:var(--red); }
+.alm-stat-num.info  { color:var(--sap-blue); }
+.alm-stat-num.calm  { color:var(--calm-purple); }
+.alm-mini-spin {
+  width:14px; height:14px; border:2px solid var(--border2);
+  border-top-color:var(--calm-purple); border-radius:50%;
+  animation:spin .6s linear infinite; display:inline-block;
+}
+
+/* ── TABLE ──────────────────────────────────────────────────── */
+.table-card {
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:var(--r-lg); overflow:hidden;
+  box-shadow:var(--shadow-sm); animation:fadeUp .6s ease both;
+}
+.table-toolbar {
+  padding:11px 16px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px;
+}
+.tbl-count { font-family:var(--mono); font-size:11px; background:var(--sap-blue-light); color:var(--sap-blue); border:1px solid var(--sap-blue-mid); padding:2px 8px; border-radius:20px; }
+.hint-txt  { font-size:11px; color:var(--text-lo); }
+.tbl-search {
+  margin-left:auto; background:var(--surface2); border:1.5px solid var(--border);
+  color:var(--text-hi); font-family:var(--sans); font-size:13px;
+  padding:6px 12px; border-radius:8px; outline:none; width:200px;
+  transition:border-color .2s, box-shadow .2s;
+}
+.tbl-search:focus { border-color:var(--sap-blue); box-shadow:0 0 0 3px rgba(0,112,242,.1); }
+.tbl-search::placeholder { color:var(--text-lo); }
+
+.data-table { width:100%; border-collapse:collapse; }
+.data-table thead th {
+  background:var(--surface2); font-size:11px; font-weight:600;
+  letter-spacing:.4px; text-transform:uppercase; color:var(--text-med);
+  padding:9px 14px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap;
+}
+.data-table tbody tr { border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; animation:fadeUp .2s ease both; }
+.data-table tbody tr:hover { background:#f0f5ff; }
+.data-table tbody tr.failed-row { background:#fff8f8; }
+.data-table tbody tr.failed-row:hover { background:#ffe8e8; }
+.data-table tbody td { padding:11px 14px; font-size:13px; color:var(--text); }
+td.td-id     { font-family:var(--mono); font-size:12px; font-weight:600; color:var(--text-hi); }
+td.td-date   { font-family:var(--mono); font-size:11px; color:var(--text-lo); }
+td.td-target { font-family:var(--mono); font-size:11px; color:var(--teal); font-weight:500; }
+
+.status-pill { display:inline-flex; align-items:center; justify-content:center; min-width:28px; height:22px; padding:0 8px; border-radius:6px; font-family:var(--mono); font-size:10px; font-weight:600; }
+.pill-failed     { background:var(--red-light);       color:var(--red);         border:1px solid var(--red-mid); }
+.pill-released   { background:var(--sap-blue-light);  color:var(--sap-blue);    border:1px solid var(--sap-blue-mid); }
+.pill-modifiable { background:var(--amber-light);     color:var(--amber);       border:1px solid var(--amber-mid); }
+.pill-x          { background:var(--surface2);        color:var(--text-lo);     border:1px solid var(--border); }
+
+/* ALM CR chip in table */
+.cr-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-family:var(--mono); font-size:10px; font-weight:600; white-space:nowrap; }
+.cr-chip.approved { background:var(--green-light);         color:var(--green);         border:1px solid var(--green-mid); }
+.cr-chip.pending  { background:var(--amber-light);         color:var(--amber);         border:1px solid var(--amber-mid); }
+.cr-chip.rejected { background:var(--red-light);           color:var(--red);           border:1px solid var(--red-mid); }
+.cr-chip.none     { background:var(--surface2);            color:var(--text-lo);       border:1px solid var(--border); }
+.cr-chip.loading  { background:var(--calm-purple-light);   color:var(--calm-purple);   border:1px solid var(--calm-purple-mid); }
+
+/* ── STATES ─────────────────────────────────────────────────── */
+.state-row { display:flex; align-items:center; justify-content:center; gap:10px; padding:48px; font-size:12px; color:var(--text-lo); letter-spacing:.3px; }
+.spinner { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--sap-blue); border-radius:50%; animation:spin .65s linear infinite; }
+
+/* ── AI AGENT MODAL ─────────────────────────────────────────── */
+.agent-overlay { display:none; position:fixed; inset:0; z-index:500; background:rgba(17,24,39,.4); backdrop-filter:blur(6px); align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+.agent-overlay.open { display:flex; }
+.agent-modal {
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:var(--r-xl); width:100%; max-width:1040px;
+  box-shadow:var(--shadow-xl); animation:modalIn .22s cubic-bezier(.34,1.3,.64,1);
+  overflow:hidden; margin:auto;
+}
+.agent-header {
+  display:flex; align-items:center; gap:14px; padding:18px 22px;
+  background:linear-gradient(135deg, #eef2ff, #f8faff);
+  border-bottom:1px solid var(--border);
+}
+.agent-icon {
+  width:42px; height:42px; border-radius:12px; flex-shrink:0;
+  background:linear-gradient(135deg, var(--sap-blue), var(--calm-purple));
+  display:grid; place-items:center; font-size:20px;
+  box-shadow:0 4px 12px rgba(99,102,241,.3);
+}
+.agent-title  { font-size:15px; font-weight:700; color:var(--text-hi); }
+.agent-sub    { font-size:12px; color:var(--text-med); margin-top:2px; }
+.agent-chips  { display:flex; gap:6px; flex-wrap:wrap; margin-top:7px; }
+.achip { font-size:11px; padding:3px 9px; border-radius:20px; background:var(--surface); color:var(--text-med); border:1px solid var(--border); font-weight:500; }
+.achip.blue   { background:var(--sap-blue-light);   color:var(--sap-blue);       border-color:var(--sap-blue-mid); }
+.achip.green  { background:var(--green-light);       color:var(--green);          border-color:var(--green-mid); }
+.achip.red    { background:var(--red-light);         color:var(--red);            border-color:var(--red-mid); }
+.achip.amber  { background:var(--amber-light);       color:var(--amber);          border-color:var(--amber-mid); }
+.achip.purple { background:var(--calm-purple-light); color:var(--calm-purple);    border-color:var(--calm-purple-mid); }
+.agent-close { margin-left:auto; background:var(--surface); border:1.5px solid var(--border); color:var(--text-med); cursor:pointer; width:32px; height:32px; border-radius:8px; font-size:14px; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+.agent-close:hover { color:var(--red); border-color:var(--red-mid); background:var(--red-light); }
+
+.agent-tabs { display:flex; border-bottom:1px solid var(--border); background:var(--surface2); }
+.agent-tab {
+  flex:1; padding:11px; background:none; border:none; cursor:pointer;
+  font-size:12px; font-weight:500; color:var(--text-med);
+  border-bottom:2px solid transparent; transition:all .15s;
+}
+.agent-tab:hover { color:var(--sap-blue); background:var(--surface); }
+.agent-tab.active { color:var(--sap-blue); border-bottom-color:var(--sap-blue); background:var(--surface); }
+.agent-tab.alm-tab.active { color:var(--calm-purple); border-bottom-color:var(--calm-purple); }
+
+.modal-kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border-bottom:1px solid var(--border); }
+.modal-kpi { background:var(--surface); padding:13px 18px; }
+.modal-kpi-label { font-size:10px; font-weight:600; color:var(--text-lo); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+.modal-kpi-value { font-size:22px; font-weight:700; color:var(--text-hi); line-height:1; }
+.modal-kpi-value.s { color:var(--green); }
+.modal-kpi-value.w { color:var(--amber); }
+.modal-kpi-value.f { color:var(--red); }
+.modal-kpi-value.p { color:var(--calm-purple); }
+.modal-kpi-sub { font-size:11px; color:var(--text-lo); margin-top:3px; }
+
+.ai-banner { display:flex; gap:10px; align-items:flex-start; padding:11px 15px; margin:12px 20px 0; background:var(--sap-blue-light); border:1px solid var(--sap-blue-mid); border-radius:var(--r); font-size:12.5px; color:#1d4ed8; line-height:1.55; }
+.alm-agent-banner { display:none; flex-direction:column; gap:5px; padding:10px 15px; margin:8px 20px 0; background:var(--calm-purple-light); border:1px solid var(--calm-purple-mid); border-radius:var(--r); font-size:12px; color:var(--calm-purple-dark); }
+.alm-agent-banner.show { display:flex; }
+.alm-agent-banner-head { display:flex; align-items:center; gap:6px; font-weight:600; font-size:12px; }
+
+.modal-progress { padding:11px 20px 0; }
+.pb-row  { display:flex; justify-content:space-between; font-size:11px; color:var(--text-lo); margin-bottom:5px; }
+.pb-track{ height:6px; border-radius:3px; background:var(--surface2); border:1px solid var(--border); overflow:hidden; }
+.pb-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--sap-blue),var(--calm-purple)); transition:width .08s linear; }
+
+.modal-cols { display:grid; grid-template-columns:1.3fr 1fr; }
+.modal-col  { border-right:1px solid var(--border); padding:14px 18px; overflow-y:auto; max-height:400px; }
+.modal-col:last-child { border-right:none; }
+
+.sec-lbl { font-size:10px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--text-lo); margin:10px 0 6px; padding-top:10px; border-top:1px solid var(--border); }
+.sec-lbl:first-child { border-top:none; margin-top:0; padding-top:0; }
+.sec-lbl.calm { color:var(--calm-purple); }
+
+.chk { display:flex; align-items:flex-start; gap:9px; padding:7px 0; border-bottom:1px solid var(--border); }
+.chk:last-child { border-bottom:none; }
+.chk-icon { width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:10px; font-weight:700; flex-shrink:0; margin-top:1px; }
+.chk-icon.pass { background:var(--green-light); color:var(--green); border:1px solid var(--green-mid); }
+.chk-icon.fail { background:var(--red-light);   color:var(--red);   border:1px solid var(--red-mid); }
+.chk-icon.warn { background:var(--amber-light); color:var(--amber); border:1px solid var(--amber-mid); }
+.chk-icon.info { background:var(--sap-blue-light); color:var(--sap-blue); border:1px solid var(--sap-blue-mid); }
+.chk-icon.calm { background:var(--calm-purple-light); color:var(--calm-purple); border:1px solid var(--calm-purple-mid); }
+.chk-label  { font-size:12.5px; color:var(--text-hi); line-height:1.4; flex:1; font-weight:500; }
+.chk-detail { font-size:11px; color:var(--text-med); margin-top:2px; }
+.chk-badge  { font-size:10px; padding:2px 7px; border-radius:20px; border:1px solid; white-space:nowrap; align-self:center; flex-shrink:0; font-weight:600; }
+.chk-badge.pass { background:var(--green-light); color:var(--green); border-color:var(--green-mid); }
+.chk-badge.fail { background:var(--red-light);   color:var(--red);   border-color:var(--red-mid); }
+.chk-badge.warn { background:var(--amber-light); color:var(--amber); border-color:var(--amber-mid); }
+.chk-badge.info { background:var(--sap-blue-light); color:var(--sap-blue); border-color:var(--sap-blue-mid); }
+.chk-badge.calm { background:var(--calm-purple-light); color:var(--calm-purple); border-color:var(--calm-purple-mid); }
+
+.risk-meter { margin-bottom:10px; }
+.risk-lbl-row { display:flex; justify-content:space-between; font-size:12px; color:var(--text-med); margin-bottom:5px; }
+.risk-score { font-size:15px; font-weight:700; }
+.risk-score.low    { color:var(--green); }
+.risk-score.medium { color:var(--amber); }
+.risk-score.high   { color:var(--red); }
+.risk-track { height:8px; border-radius:4px; background:var(--surface2); border:1px solid var(--border); overflow:hidden; }
+.risk-fill  { height:100%; border-radius:4px; transition:width .9s cubic-bezier(.4,0,.2,1); }
+
+.tl-item { display:flex; gap:10px; padding:6px 0; border-bottom:1px solid var(--border); align-items:flex-start; }
+.tl-item:last-child { border-bottom:none; }
+.tl-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; margin-top:5px; }
+.tl-dot.pass   { background:var(--green); }
+.tl-dot.fail   { background:var(--red); }
+.tl-dot.warn   { background:var(--amber); }
+.tl-dot.info   { background:var(--sap-blue); }
+.tl-dot.alm    { background:var(--calm-purple); }
+.tl-msg  { font-size:12px; color:var(--text); flex:1; line-height:1.4; }
+.tl-time { font-family:var(--mono); font-size:10px; color:var(--text-lo); white-space:nowrap; }
+
+.obj-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+.obj-tbl thead th { font-size:10px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--text-lo); padding:5px 8px; border-bottom:1px solid var(--border); text-align:left; background:var(--surface2); }
+.obj-tbl tbody td { padding:6px 8px; border-bottom:1px solid var(--border); color:var(--text); }
+.obj-tbl tbody tr:last-child td { border-bottom:none; }
+.obj-tbl tbody tr:hover td { background:var(--surface2); }
+
+/* ALM detail grid inside agent */
+.alm-detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:14px 18px; }
+.alm-detail-card { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; }
+.alm-detail-lbl  { font-size:10px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--calm-purple); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.alm-detail-lbl.teal { color:var(--teal); }
+.alm-detail-lbl.blue { color:var(--sap-blue); }
+.alm-detail-row  { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.alm-detail-row:last-child { border-bottom:none; }
+.alm-detail-key  { color:var(--text-med); }
+.alm-detail-val  { font-family:var(--mono); font-size:11px; font-weight:600; color:var(--text-hi); }
+.alm-detail-val.ok    { color:var(--green); }
+.alm-detail-val.warn  { color:var(--amber); }
+.alm-detail-val.error { color:var(--red); }
+.alm-detail-val.calm  { color:var(--calm-purple); }
+
+.agent-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--surface2); }
+.btn-secondary { padding:7px 16px; font-size:13px; font-weight:500; border-radius:var(--r); cursor:pointer; background:var(--surface); color:var(--text-hi); border:1.5px solid var(--border); box-shadow:var(--shadow-xs); transition:all .15s; }
+.btn-secondary:hover { background:var(--surface2); border-color:var(--border2); }
+.btn-import { padding:7px 18px; font-size:13px; font-weight:600; border-radius:var(--r); cursor:pointer; background:var(--green); color:#fff; border:none; box-shadow:0 2px 8px rgba(22,163,74,.3); transition:all .15s; }
+.btn-import:hover { background:#15803d; transform:translateY(-1px); }
+
+.import-overlay { position:fixed; inset:0; z-index:600; background:rgba(17,24,39,.5); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; }
+.import-modal { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--r-lg); width:100%; max-width:560px; box-shadow:var(--shadow-xl); overflow:hidden; animation:modalIn .2s cubic-bezier(.34,1.3,.64,1); }
+.import-modal-head { display:flex; align-items:center; gap:12px; padding:15px 20px; border-bottom:1px solid var(--border); background:linear-gradient(135deg,var(--green-light),#f7fef9); }
+.import-head-icon { width:36px; height:36px; border-radius:10px; background:var(--green); display:grid; place-items:center; font-size:16px; flex-shrink:0; color:#fff; box-shadow:0 3px 10px rgba(22,163,74,.25); }
+.import-title { font-size:14px; font-weight:700; color:var(--text-hi); }
+.import-sub   { font-size:11px; color:var(--text-med); margin-top:2px; }
+.import-body  { padding:16px 20px; }
+.import-warning { display:flex; gap:10px; align-items:flex-start; padding:10px 13px; border-radius:var(--r); font-size:12.5px; line-height:1.5; margin-bottom:12px; border:1.5px solid; }
+.import-warning.ok   { background:var(--green-light); color:var(--green); border-color:var(--green-mid); }
+.import-warning.warn { background:var(--amber-light); color:var(--amber); border-color:var(--amber-mid); }
+.import-info-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+.import-info-item { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r); padding:8px 11px; }
+.import-info-label { font-size:10px; font-weight:600; color:var(--text-lo); text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; }
+.import-info-value { font-size:13px; font-weight:600; color:var(--text-hi); font-family:var(--mono); }
+.import-checklist { display:flex; flex-direction:column; gap:5px; }
+.import-check-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text); }
+.import-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--surface2); }
+.btn-import-confirm { padding:8px 22px; font-size:13px; font-weight:600; border-radius:var(--r); cursor:pointer; background:var(--green); color:#fff; border:none; box-shadow:0 2px 8px rgba(22,163,74,.3); transition:all .15s; }
+.btn-import-confirm:hover { background:#15803d; }
+.btn-import-confirm:disabled { opacity:.5; cursor:not-allowed; }
+
+.import-result-modal { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--r-lg); width:100%; max-width:440px; box-shadow:var(--shadow-xl); padding:28px 24px; display:flex; flex-direction:column; align-items:center; text-align:center; animation:modalIn .2s cubic-bezier(.34,1.3,.64,1); }
+.import-result-icon  { font-size:38px; margin-bottom:10px; line-height:1; }
+.import-result-title { font-size:16px; font-weight:700; color:var(--text-hi); margin-bottom:4px; }
+.import-result-sub   { font-size:12px; color:var(--text-med); }
+.import-log { width:100%; margin-top:12px; text-align:left; background:var(--surface2); border:1px solid var(--border); border-radius:var(--r); padding:9px 11px; max-height:140px; overflow-y:auto; }
+.import-log-row      { font-family:var(--mono); font-size:11px; color:var(--text); padding:2px 0; }
+.import-log-row.ok   { color:var(--green); }
+.import-log-row.err  { color:var(--red); }
+.import-log-row.info { color:var(--sap-blue); }
+.import-log-row.alm  { color:var(--calm-purple); }
+
+.audit-chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+
+/* ── PAGE TABS ──────────────────────────────────────────── */
+.page-nav{
+  display:flex;align-items:center;gap:2px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 20px;position:sticky;top:0;z-index:50;
+  box-shadow:var(--shadow-xs);
+}
+.page-tab{
+  font-family:var(--sans);font-size:13px;font-weight:500;
+  padding:11px 18px;border:none;background:none;cursor:pointer;
+  color:var(--text-lo);border-bottom:2px solid transparent;
+  transition:all .18s;display:flex;align-items:center;gap:6px;
+}
+.page-tab:hover{color:var(--text);background:var(--surface2)}
+.page-tab.active{color:var(--sap-blue);border-bottom-color:var(--sap-blue);font-weight:600}
+.page-tab .ptab-dot{width:6px;height:6px;border-radius:50%}
+.page-panel{display:none}.page-panel.active{display:block}
+
+/* ── CTMS & CICD PANEL ─────────────────────────────────── */
+@keyframes liveRun{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes stagePop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+
+.cicd-page{padding:18px 20px 60px;max-width:1500px;margin:0 auto}
+
+/* ── TOP KPI STRIP ── */
+.cicd-kpi-strip{
+  display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px;
+}
+.cicd-kpi{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:12px 14px;box-shadow:var(--shadow-xs);position:relative;overflow:hidden;
+}
+.cicd-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kcol,var(--sap-blue))}
+.cicd-kpi-val{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text-hi);line-height:1}
+.cicd-kpi-lbl{font-size:11px;color:var(--text-lo);margin-top:3px;font-weight:500}
+.cicd-kpi-sub{font-family:var(--mono);font-size:10px;margin-top:2px}
+
+/* ── SECTION LAYOUT ── */
+.cicd-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.cicd-grid.three{grid-template-columns:1fr 1fr 1fr}
+.cicd-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+  overflow:hidden;box-shadow:var(--shadow-sm);
+}
+.cicd-card-head{
+  display:flex;align-items:center;gap:10px;padding:12px 16px;
+  border-bottom:1px solid var(--border);background:var(--surface2);
+}
+.cicd-card-icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-size:16px;flex-shrink:0}
+.cicd-card-title{font-size:13px;font-weight:600;color:var(--text-hi)}
+.cicd-card-sub{font-size:11px;color:var(--text-lo);margin-top:1px}
+.cicd-card-badge{
+  margin-left:auto;font-family:var(--mono);font-size:10px;
+  padding:3px 8px;border-radius:20px;border:1px solid;font-weight:600;
+}
+.cicd-card-body{padding:14px 16px}
+
+/* ── PIPELINE STAGE DIAGRAM ── */
+.pipeline-stages{
+  display:flex;align-items:stretch;gap:0;overflow-x:auto;
+  padding:16px 16px 14px;
+}
+.ps-stage{
+  display:flex;align-items:center;flex:1;min-width:0;position:relative;
+}
+.ps-box{
+  flex:1;min-width:80px;padding:10px 8px;border-radius:8px;
+  border:1.5px solid var(--border);background:var(--surface2);
+  text-align:center;cursor:pointer;transition:all .15s;
+  animation:stagePop .3s ease both;position:relative;overflow:hidden;
+}
+.ps-box:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.ps-box.running{
+  border-color:var(--sap-blue);
+  background:linear-gradient(135deg,#e5f0fe,#f0f5ff);
+  animation:stagePop .3s ease both;
+}
+.ps-box.running::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(0,112,242,.08),transparent);
+  background-size:200%;animation:liveRun 1.5s linear infinite;
+}
+.ps-box.success{border-color:var(--green);background:var(--green-light)}
+.ps-box.failed{border-color:var(--red);background:var(--red-light)}
+.ps-box.pending{border-color:var(--border);background:var(--surface2);opacity:.6}
+.ps-box.skipped{border-color:var(--amber);background:var(--amber-light)}
+.ps-icon{font-size:18px;margin-bottom:4px}
+.ps-name{font-size:10px;font-weight:600;color:var(--text-hi);margin-bottom:2px}
+.ps-dur{font-family:var(--mono);font-size:9px;color:var(--text-lo)}
+.ps-status-dot{
+  width:8px;height:8px;border-radius:50%;
+  position:absolute;top:7px;right:7px;
+}
+.ps-status-dot.ok{background:var(--green)}.ps-status-dot.run{background:var(--sap-blue);animation:blink 1s infinite}.ps-status-dot.fail{background:var(--red)}.ps-status-dot.pend{background:var(--text-lo)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.ps-arrow{
+  width:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  color:var(--text-lo);font-size:14px;z-index:1;
+}
+
+/* ── JOB RUNS TABLE ── */
+.run-table{width:100%;border-collapse:collapse}
+.run-table th{
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--text-lo);padding:7px 12px;
+  text-align:left;border-bottom:1px solid var(--border);background:var(--surface2);
+}
+.run-table td{
+  padding:9px 12px;font-size:12px;border-bottom:1px solid var(--border);
+  vertical-align:middle;
+}
+.run-table tr:last-child td{border-bottom:none}
+.run-table tr:hover td{background:var(--sap-blue-light)}
+.run-status{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  padding:3px 8px;border-radius:20px;letter-spacing:.3px;
+}
+.rs-success{background:var(--green-light);color:var(--green);border:1px solid var(--green-mid)}
+.rs-running{background:var(--sap-blue-light);color:var(--sap-blue);border:1px solid var(--sap-blue-mid)}
+.rs-failed{background:var(--red-light);color:var(--red);border:1px solid var(--red-mid)}
+.rs-pending{background:var(--amber-light);color:var(--amber);border:1px solid var(--amber-mid)}
+.rs-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.rs-dot.anim{animation:blink 1s infinite}
+.run-trigger{font-family:var(--mono);font-size:10px;color:var(--text-lo)}
+.run-duration{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text-hi)}
+.run-branch{
+  font-family:var(--mono);font-size:10px;padding:2px 7px;
+  border-radius:4px;background:var(--surface2);border:1px solid var(--border);color:var(--text-med);
+}
+.run-commit{font-family:var(--mono);font-size:10px;color:var(--sap-blue)}
+
+/* ── CTMS TRANSPORT LIST ── */
+.ctms-row{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-bottom:1px solid var(--border);
+  cursor:pointer;transition:background .1s;
+}
+.ctms-row:last-child{border-bottom:none}
+.ctms-row:hover{background:var(--sap-blue-light)}
+.ctms-id{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text-hi);min-width:90px}
+.ctms-desc{flex:1;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctms-sys{font-family:var(--mono);font-size:10px;color:var(--text-lo);min-width:60px;text-align:center}
+.ctms-chip{
+  font-family:var(--mono);font-size:9px;font-weight:700;
+  padding:2px 7px;border-radius:4px;border:1px solid;
+}
+.cc-released{background:var(--green-light);color:var(--green);border-color:var(--green-mid)}
+.cc-modifiable{background:var(--amber-light);color:var(--amber);border-color:var(--amber-mid)}
+.cc-locked{background:var(--red-light);color:var(--red);border-color:var(--red-mid)}
+.cc-imported{background:var(--sap-blue-light);color:var(--sap-blue);border-color:var(--sap-blue-mid)}
+
+/* ── DEPLOYMENT TIMELINE ── */
+.deploy-timeline{display:flex;flex-direction:column;gap:0}
+.dt-row{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  position:relative;cursor:pointer;transition:background .1s;
+}
+.dt-row:hover{background:var(--sap-blue-light)}
+.dt-row:last-child{border-bottom:none}
+.dt-indicator{
+  width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px;
+  position:relative;
+}
+.dt-indicator::before{
+  content:'';position:absolute;left:50%;top:100%;transform:translateX(-50%);
+  width:1px;height:calc(100% + 10px);background:var(--border);
+}
+.dt-row:last-child .dt-indicator::before{display:none}
+.dt-time{font-family:var(--mono);font-size:10px;color:var(--text-lo);min-width:55px;margin-top:2px}
+.dt-content{flex:1}
+.dt-title{font-size:12px;font-weight:600;color:var(--text-hi);margin-bottom:2px}
+.dt-meta{font-family:var(--mono);font-size:10px;color:var(--text-lo)}
+.dt-env{
+  font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;
+  border-radius:4px;border:1px solid;align-self:flex-start;
+}
+.env-prod{background:var(--red-light);color:var(--red);border-color:var(--red-mid)}
+.env-qas{background:var(--amber-light);color:var(--amber);border-color:var(--amber-mid)}
+.env-dev{background:var(--green-light);color:var(--green);border-color:var(--green-mid)}
+
+/* ── LIVE BADGE ── */
+.live-indicator{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.5px;
+  color:var(--green);background:var(--green-light);
+  border:1px solid var(--green-mid);padding:3px 9px;border-radius:20px;
+}
+.live-dot-g{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 1.5s infinite}
+
+/* ── LOG CONSOLE ── */
+.log-console{
+  background:#0d1117;border-radius:var(--r);padding:12px 14px;
+  font-family:var(--mono);font-size:11px;line-height:1.7;
+  height:180px;overflow-y:auto;color:#8b949e;
+}
+.log-console::-webkit-scrollbar{width:3px}
+.log-console::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1)}
+.log-line{display:flex;gap:10px;margin-bottom:1px}
+.log-ts{color:#484f58;flex-shrink:0}
+.log-info{color:#79c0ff}
+.log-success{color:#3fb950}
+.log-warn{color:#d29922}
+.log-error{color:#f85149}
+.log-cursor{display:inline-block;width:7px;height:12px;background:#8b949e;animation:blink .8s infinite;vertical-align:middle}
+
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo-wrap">
+    <div class="logo-mark">TT</div>
+    <div>
+      <div class="logo-text">TransTrack Pro</div>
+      <div class="logo-sub">Transport Risk · SAP Cloud ALM</div>
+    </div>
+  </div>
+
+  <div class="hdr-divider"></div>
+
+  <div class="alm-status-badge loading" id="almBadge" onclick="openALMPanel()" title="Click to open Cloud ALM tab">
+    <span class="alm-pulse" id="almPulse"></span>
+    <span id="almBadgeTxt">☁️ Cloud ALM</span>
+  </div>
+
+  <div class="hdr-divider"></div>
+
+  <div class="hdr-filters">
+    <input type="text" class="hdr-input" id="ownerFilter" placeholder="Filter by Owner"/>
+    <select class="hdr-select" id="statusFilter">
+      <option value="">All Status</option>
+      <option value="Failed">Failed</option>
+      <option value="Released">Released</option>
+      <option value="Modifiable">Modifiable</option>
+    </select>
+    <select class="hdr-select" id="targetFilter">
+      <option value="">All Targets</option>
+      <option value="PROD">PROD</option>
+      <option value="QAS">QAS</option>
+      <option value="DEV">DEV</option>
+    </select>
+  </div>
+
+  <div class="hdr-right">
+    <div class="refresh-pill"><span class="spin-icon">↻</span>Refreshing in <span id="countdown">45</span>s</div>
+    <div class="health-dot" id="healthDot"></div>
+  </div>
+</div>
+
+<!-- CRITICAL ALM ALERT BANNER -->
+<div class="alm-alert-banner" id="almAlertBanner">
+  <span style="font-size:18px">🚨</span>
+  <div>
+    <strong>SAP Cloud ALM — Critical Health Alerts Active</strong>
+    <div class="alm-alert-chips" id="almAlertChips"></div>
+  </div>
+</div>
+
+<!-- PAGE -->
+
+<!-- PAGE NAVIGATION TABS -->
+<div class="page-nav" id="pageNav">
+  <button class="page-tab active" onclick="switchPageTab('transports')" id="ptab-transports">
+    <span class="ptab-dot" style="background:var(--sap-blue)"></span>
+    🚀 Transports
+  </button>
+  <button class="page-tab" onclick="switchPageTab('cicd')" id="ptab-cicd">
+    <span class="ptab-dot" style="background:var(--green)"></span>
+    ⚙️ CTMS &amp; CI/CD
+  </button>
+</div>
+
+<div id="pp-transports" class="page-panel active">
+<div class="page">
+
+  <!-- Command strip: Transport KPIs + ALM KPIs -->
+  <div class="command-strip">
+    <div class="strip-kpis">
+      <div class="strip-kpi">
+        <div class="strip-kpi-icon">📦</div>
+        <div class="strip-kpi-lbl">Total Transports</div>
+        <div class="strip-kpi-val" id="kpiTotal">—</div>
+        <div class="strip-kpi-sub">All records</div>
+      </div>
+      <div class="strip-kpi red">
+        <div class="strip-kpi-icon">⚠️</div>
+        <div class="strip-kpi-lbl">Failed</div>
+        <div class="strip-kpi-val" id="kpiFailed">—</div>
+        <div class="strip-kpi-sub">Import errors</div>
+      </div>
+      <div class="strip-kpi green">
+        <div class="strip-kpi-icon">✅</div>
+        <div class="strip-kpi-lbl">Released</div>
+        <div class="strip-kpi-val" id="kpiSuccess">—</div>
+        <div class="strip-kpi-sub">Successfully released</div>
+      </div>
+      <div class="strip-kpi amber">
+        <div class="strip-kpi-icon">📊</div>
+        <div class="strip-kpi-lbl">Success Rate</div>
+        <div class="strip-kpi-val" id="kpiRate">—</div>
+        <div class="strip-kpi-sub">Current filter</div>
+      </div>
+    </div>
+
+    <div class="strip-divider"></div>
+
+    <div class="strip-alm">
+      <div class="strip-alm-item">
+        <div class="strip-alm-label">☁️ Transport Mgmt</div>
+        <div class="strip-alm-val" id="kalmTmStatus">—</div>
+        <div class="alm-stat-row"><span>Pending deploys</span><span class="alm-stat-val" id="kalmTmPending">—</span></div>
+        <div class="alm-stat-row"><span>Failed deploys</span><span class="alm-stat-val" id="kalmTmFailed">—</span></div>
+      </div>
+      <div class="strip-alm-item teal">
+        <div class="strip-alm-label">🔔 Health Monitor</div>
+        <div class="strip-alm-val" id="kalmHmProd">—</div>
+        <div class="alm-stat-row"><span>Critical alerts</span><span class="alm-stat-val" id="kalmHmCritical">—</span></div>
+        <div class="alm-stat-row"><span>Warning alerts</span><span class="alm-stat-val" id="kalmHmWarning">—</span></div>
+      </div>
+      <div class="strip-alm-item amber">
+        <div class="strip-alm-label">📋 Change Mgmt</div>
+        <div class="strip-alm-val" id="kalmCmOpen">—</div>
+        <div class="alm-stat-row"><span>Pending approval</span><span class="alm-stat-val" id="kalmCmPending">—</span></div>
+        <div class="alm-stat-row"><span>Compliance rate</span><span class="alm-stat-val" id="kalmCmCompliance">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts grid -->
+  <div class="charts-grid">
+    <div class="card" style="animation-delay:.1s">
+      <div class="card-head">
+        <div class="card-head-icon">📊</div>
+        <div class="card-title">Transport Status</div>
+        <span class="card-badge blue">live</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap"><div class="spinner" id="pieSpinner"></div><canvas id="pieChart" style="display:none"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="animation-delay:.15s">
+      <div class="card-head">
+        <div class="card-head-icon">👥</div>
+        <div class="card-title">Top Failing Owners</div>
+        <span class="card-badge blue">by error count</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap"><div class="spinner" id="barSpinner"></div><canvas id="barChart" style="display:none"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="animation-delay:.2s">
+      <div class="card-head">
+        <div class="card-head-icon">☁️</div>
+        <div class="card-title">ALM Change Requests</div>
+        <span class="card-badge purple" id="crBadge">loading...</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap"><div class="spinner" id="crSpinner"></div><canvas id="crChart" style="display:none"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALM Live Section -->
+  <div class="alm-live-section">
+    <div class="alm-live-header">
+      <div class="alm-live-icon">☁️</div>
+      <div>
+        <div class="alm-live-title">SAP Cloud ALM — Live Integration</div>
+        <div class="alm-live-sub">Transport Management · Change Management · Health Monitoring</div>
+      </div>
+      <span class="alm-last-sync" id="almLastSync"></span>
+    </div>
+    <div class="alm-cards-row">
+      <div class="alm-feature-card">
+        <div class="alm-feat-head">
+          <div class="alm-feat-icon tm">🚀</div>
+          <div><div class="alm-feat-title">Transport Management</div><div class="alm-feat-sub">Deployment pipeline</div></div>
+        </div>
+        <div class="alm-stat-list" id="almTmContent"><div class="alm-mini-spin"></div></div>
+      </div>
+      <div class="alm-feature-card">
+        <div class="alm-feat-head">
+          <div class="alm-feat-icon cm">📋</div>
+          <div><div class="alm-feat-title">Change Management</div><div class="alm-feat-sub">ITSM change requests</div></div>
+        </div>
+        <div class="alm-stat-list" id="almCmContent"><div class="alm-mini-spin"></div></div>
+      </div>
+      <div class="alm-feature-card" style="border-right:none">
+        <div class="alm-feat-head">
+          <div class="alm-feat-icon hm">💚</div>
+          <div><div class="alm-feat-title">Health Monitoring</div><div class="alm-feat-sub">System availability & alerts</div></div>
+        </div>
+        <div class="alm-stat-list" id="almHmContent"><div class="alm-mini-spin"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transport Table -->
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="card-title">Transport Table</div>
+      <span class="tbl-count" id="tblCount">—</span>
+      <span class="hint-txt">↑ Click any row to run AI Agent</span>
+      <input type="text" class="tbl-search" id="tblSearch" placeholder="Search transport / owner…"/>
+    </div>
+    <div id="tableBody"><div class="state-row"><div class="spinner"></div>&nbsp;Loading transports...</div></div>
+  </div>
+
+
+</div><!-- /page --></div><!-- /pp-transports -->
+
+<!-- ══ CTMS & CI/CD PANEL ══ -->
+<div id="pp-cicd" class="page-panel">
+<div class="cicd-page">
+
+  <!-- KPI Strip -->
+  <div class="cicd-kpi-strip">
+    <div class="cicd-kpi" style="--kcol:var(--sap-blue)">
+      <div class="live-indicator" style="margin-bottom:6px"><span class="live-dot-g"></span>LIVE</div>
+      <div class="cicd-kpi-val" id="ck-pipelines">3</div>
+      <div class="cicd-kpi-lbl">Active Pipelines</div>
+      <div class="cicd-kpi-sub" style="color:var(--sap-blue)">SAP BTP CI/CD</div>
+    </div>
+    <div class="cicd-kpi" style="--kcol:var(--green)">
+      <div class="cicd-kpi-val" id="ck-success">94.2%</div>
+      <div class="cicd-kpi-lbl">Build Success Rate</div>
+      <div class="cicd-kpi-sub" style="color:var(--green)">↑ 2.1% this week</div>
+    </div>
+    <div class="cicd-kpi" style="--kcol:var(--amber)">
+      <div class="cicd-kpi-val" id="ck-duration">4m 32s</div>
+      <div class="cicd-kpi-lbl">Avg Build Time</div>
+      <div class="cicd-kpi-sub" style="color:var(--amber)">SLA: 10 min</div>
+    </div>
+    <div class="cicd-kpi" style="--kcol:var(--red)">
+      <div class="cicd-kpi-val" id="ck-failed">2</div>
+      <div class="cicd-kpi-lbl">Failed Deployments</div>
+      <div class="cicd-kpi-sub" style="color:var(--red)">Last 24 hours</div>
+    </div>
+    <div class="cicd-kpi" style="--kcol:var(--calm-purple)">
+      <div class="cicd-kpi-val" id="ck-transports">18</div>
+      <div class="cicd-kpi-lbl">CTMS Transports</div>
+      <div class="cicd-kpi-sub" style="color:var(--calm-purple)">Pending import</div>
+    </div>
+    <div class="cicd-kpi" style="--kcol:var(--teal)">
+      <div class="cicd-kpi-val" id="ck-deployed">47</div>
+      <div class="cicd-kpi-lbl">Deployed Today</div>
+      <div class="cicd-kpi-sub" style="color:var(--teal)">Across all systems</div>
+    </div>
+  </div>
+
+  <!-- BTP App Status Section -->
+  <div style="margin-bottom:14px">
+    <div style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-lo);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      SAP BTP — CLOUD FOUNDRY DEPLOYMENT
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span id="btpLiveTag" class="live-indicator"><span class="live-dot-g"></span>LIVE</span>
+    </div>
+    <div class="cicd-grid three" style="margin-bottom:10px">
+      <!-- App Status Card -->
+      <div class="cicd-card">
+        <div class="cicd-card-head">
+          <div class="cicd-card-icon" style="background:var(--sap-blue-light)">🚀</div>
+          <div>
+            <div class="cicd-card-title">App Instance</div>
+            <div class="cicd-card-sub" id="btpAppName">Loading...</div>
+          </div>
+          <span class="cicd-card-badge" id="btpStateBadge" style="background:var(--green-light);color:var(--green);border-color:var(--green-mid)">—</span>
+        </div>
+        <div class="cicd-card-body">
+          <div class="det-row"><span class="det-key">Region</span><span class="det-val blue">eu10-004</span></div>
+          <div class="det-row"><span class="det-key">Org</span><span class="det-val" id="btpOrg">HCL America Solutions Inc.</span></div>
+          <div class="det-row"><span class="det-key">Space</span><span class="det-val" id="btpSpace">dev</span></div>
+          <div class="det-row"><span class="det-key">Last Deploy</span><span class="det-val green" id="btpLastDeploy">—</span></div>
+        </div>
+      </div>
+      <!-- Instance Stats Card -->
+      <div class="cicd-card">
+        <div class="cicd-card-head">
+          <div class="cicd-card-icon" style="background:var(--green-light)">📊</div>
+          <div>
+            <div class="cicd-card-title">Instance Stats</div>
+            <div class="cicd-card-sub">Memory · CPU · Uptime</div>
+          </div>
+        </div>
+        <div class="cicd-card-body" id="btpInstanceStats">
+          <div class="det-row"><span class="det-key">Instances</span><span class="det-val" id="btpInstances">—</span></div>
+          <div class="det-row"><span class="det-key">Memory</span><span class="det-val" id="btpMemory">—</span></div>
+          <div class="det-row"><span class="det-key">CPU</span><span class="det-val" id="btpCpu">—</span></div>
+          <div class="det-row"><span class="det-key">Uptime</span><span class="det-val green" id="btpUptime">—</span></div>
+        </div>
+      </div>
+      <!-- Pipeline Stats Card -->
+      <div class="cicd-card">
+        <div class="cicd-card-head">
+          <div class="cicd-card-icon" style="background:var(--amber-light)">⚙️</div>
+          <div>
+            <div class="cicd-card-title">Pipeline Stats</div>
+            <div class="cicd-card-sub">GitHub Actions · main branch</div>
+          </div>
+        </div>
+        <div class="cicd-card-body">
+          <div class="det-row"><span class="det-key">Total Runs</span><span class="det-val" id="btpTotalRuns">—</span></div>
+          <div class="det-row"><span class="det-key">Success Rate</span><span class="det-val green" id="btpSuccessRate">—</span></div>
+          <div class="det-row"><span class="det-key">Last Run</span><span class="det-val" id="btpLastRun">—</span></div>
+          <div class="det-row"><span class="det-key">Avg Duration</span><span class="det-val" id="btpAvgDur">—</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- App URL Bar -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">APP URL</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--sap-blue);flex:1">https://hcl-america-solutions-inc--hclbuild-g03o2ijo-dev-transp4083dd13.cfapps.eu10-004.hana.ondemand.com</span>
+      <span style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:20px;background:var(--green-light);color:var(--green);border:1px solid var(--green-mid)">● RUNNING</span>
+    </div>
+  </div>
+
+
+  <div class="cicd-card" style="margin-bottom:14px">
+    <div class="cicd-card-head">
+      <div class="cicd-card-icon" style="background:var(--sap-blue-light)">⚙️</div>
+      <div>
+        <div class="cicd-card-title">SAP BTP CI/CD — Pipeline Dashboard</div>
+        <div class="cicd-card-sub" id="cicdSubtitle">hcl-integrationsuite-qxeoz78m · 3 jobs · Cloud Foundry Environment 3.0</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <div class="live-indicator"><span class="live-dot-g"></span>LIVE</div>
+        <a href="https://hcl-integrationsuite-qxeoz78m.eu10.cicd.cloud.sap" target="_blank" style="font-family:var(--mono);font-size:10px;padding:5px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);color:var(--text-lo);text-decoration:none;transition:all .15s" onmouseover="this.style.color='var(--sap-blue)';this.style.borderColor='var(--sap-blue)'" onmouseout="this.style.color='var(--text-lo)';this.style.borderColor='var(--border)'">↗ Open CI/CD</a>
+      </div>
+    </div>
+    <!-- 3 Job Cards -->
+    <div id="cicdJobCards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px 16px;border-bottom:1px solid var(--border)"></div>
+    <!-- Runs Table -->
+    <div class="tbl-toolbar" style="padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border)">
+      <div class="tbl-title">Recent Pipeline Runs</div>
+      <span class="tbl-count" id="runsBadge">Loading...</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="run-table">
+        <thead><tr>
+          <th>#</th><th>Pipeline</th><th>Status</th><th>Branch</th>
+          <th>Duration</th><th>Trigger</th><th>Time</th>
+        </tr></thead>
+        <tbody id="runsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- 2-column: Deployment Timeline + System Status -->
+  <div class="cicd-grid">
+
+    <!-- Deployment Timeline -->
+    <div class="cicd-card">
+      <div class="cicd-card-head">
+        <div class="cicd-card-icon" style="background:var(--green-light)">🕐</div>
+        <div>
+          <div class="cicd-card-title">Deployment Timeline</div>
+          <div class="cicd-card-sub">Live deployment events across all environments</div>
+        </div>
+      </div>
+      <div class="deploy-timeline" id="deployTimeline"></div>
+    </div>
+
+    <!-- System Deployment Status -->
+    <div class="cicd-card">
+      <div class="cicd-card-head">
+        <div class="cicd-card-icon" style="background:var(--teal-light)">🖥️</div>
+        <div>
+          <div class="cicd-card-title">System Deployment Status</div>
+          <div class="cicd-card-sub">Current version &amp; deployment health per system</div>
+        </div>
+      </div>
+      <div id="systemDeployStatus" class="cicd-card-body" style="padding:0"></div>
+    </div>
+
+  </div>
+
+</div>
+</div><!-- /pp-cicd -->
+
+
+<!-- AI AGENT MODAL -->
+<div class="agent-overlay" id="agentOverlay">
+  <div class="agent-modal">
+    <div class="agent-header">
+      <div class="agent-icon">🤖</div>
+      <div style="flex:1">
+        <div class="agent-title" id="agentTitle">AI Transport Agent</div>
+        <div class="agent-sub">Pre &amp; post-release QA + SAP Cloud ALM validation</div>
+        <div class="agent-chips" id="agentChips"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+        <button class="agent-close" id="agentClose">✕</button>
+        <span class="achip" id="agentStatusChip">Initializing...</span>
+      </div>
+    </div>
+
+    <div class="agent-tabs">
+      <button class="agent-tab active" id="atPre"   onclick="setAgentTab('pre')">Pre-release</button>
+      <button class="agent-tab"        id="atPost"  onclick="setAgentTab('post')">Post-release</button>
+      <button class="agent-tab alm-tab" id="atAlm"  onclick="setAgentTab('alm')">☁️ Cloud ALM</button>
+      <button class="agent-tab"        id="atAudit" onclick="setAgentTab('audit')">Audit trail</button>
+    </div>
+
+    <div class="modal-kpi-row">
+      <div class="modal-kpi"><div class="modal-kpi-label">Checks passed</div><div class="modal-kpi-value s" id="mkpiPass">—</div><div class="modal-kpi-sub">of total</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Warnings</div>    <div class="modal-kpi-value w" id="mkpiWarn">—</div><div class="modal-kpi-sub">review needed</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">Failures</div>    <div class="modal-kpi-value f" id="mkpiFail">—</div><div class="modal-kpi-sub">blocking issues</div></div>
+      <div class="modal-kpi"><div class="modal-kpi-label">ALM CR Status</div><div class="modal-kpi-value p" id="mkpiAlm">—</div><div class="modal-kpi-sub">change request</div></div>
+    </div>
+
+    <div class="modal-progress" id="modalProgress" style="display:none">
+      <div class="pb-row"><span id="pbLabel">Running agent...</span><span id="pbPct">0%</span></div>
+      <div class="pb-track"><div class="pb-fill" id="pbFill" style="width:0%"></div></div>
+    </div>
+
+    <div class="ai-banner" id="aiBanner" style="display:none">
+      <span style="font-size:15px;flex-shrink:0">🤖</span>
+      <span id="aiBannerTxt"></span>
+    </div>
+
+    <div class="alm-agent-banner" id="almAgentBanner">
+      <div class="alm-agent-banner-head"><span>☁️</span><span>SAP Cloud ALM Validation</span></div>
+      <div id="almAgentBannerTxt"></div>
+    </div>
+
+    <div class="agent-body" id="agentBody">
+      <div class="state-row"><div class="spinner"></div>&nbsp;Loading data from SAP...</div>
+    </div>
+
+    <div class="agent-footer">
+      <button class="btn-secondary" onclick="closeAgent()">Close</button>
+      <button class="btn-secondary" onclick="exportAudit()">Export audit ↓</button>
+      <button class="btn-import" id="importBtn" style="display:none" onclick="openImportConfirm()">⬆ Import to PROD</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT CONFIRM -->
+<div class="import-overlay" id="importOverlay" style="display:none">
+  <div class="import-modal">
+    <div class="import-modal-head">
+      <div class="import-head-icon">⬆</div>
+      <div><div class="import-title">Confirm STMS Import</div><div class="import-sub">This will import the transport into production</div></div>
+      <button class="agent-close" onclick="closeImportConfirm()" style="margin-left:auto">✕</button>
+    </div>
+    <div class="import-body">
+      <div class="import-warning" id="importWarning"></div>
+      <div class="import-info-grid" id="importInfoGrid"></div>
+      <div class="import-checklist" id="importChecklist"></div>
+    </div>
+    <div class="import-footer">
+      <button class="btn-secondary" onclick="closeImportConfirm()">Cancel</button>
+      <button class="btn-import-confirm" id="importConfirmBtn" onclick="executeImport()">Yes, Import now</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT PROGRESS -->
+<div class="import-overlay" id="importResultOverlay" style="display:none">
+  <div class="import-result-modal">
+    <div class="import-result-icon" id="irIcon">⏳</div>
+    <div class="import-result-title" id="irTitle">Importing transport...</div>
+    <div class="import-result-sub" id="irSub">Connecting to STMS</div>
+    <div style="width:100%;margin-top:14px" id="irPbWrap">
+      <div class="pb-track"><div class="pb-fill" id="irFill" style="width:0%"></div></div>
+      <div class="pb-row" style="margin-top:6px"><span id="irLabel">Initiating...</span><span id="irPct">0%</span></div>
+    </div>
+    <div class="import-log" id="irLog"></div>
+    <button class="btn-secondary" id="irClose" style="display:none;margin-top:14px" onclick="closeImportResult()">Close</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+let allTransports=[],filtered=[],pieInst,barInst,crInst;
+let agentTransport=null,agentObjects=[],agentLogs=[];
+let agentTab='pre',agentPreData=null,agentPostData=null;
+let almData=null,globalAlmHealth=null;
+const almCrCache={};
+
+// ════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════
+function fmt(raw){
+  if(!raw||raw==='-')return'-';
+  const m=String(raw).match(/\/Date\((\d+)\)\//);
+  if(m)return new Date(+m[1]).toISOString().slice(0,10);
+  if(/^\d{8}$/.test(String(raw)))return`${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`;
+  return raw;
+}
+function getStatus(t){
+  const raw=(t.STATUS||t.TRSTATUS||'').trim();
+  const m={'E':'Failed','R':'Released','D':'Modifiable','S':'Released','O':'Modifiable'};
+  return m[raw]||raw;
+}
+function pill(s){
+  const m={'Failed':'pill-failed','Released':'pill-released','Modifiable':'pill-modifiable'};
+  return`<span class="status-pill ${m[s]||'pill-x'}">${s||'?'}</span>`;
+}
+function chipClass(s){return s==='Failed'?'red':s==='Released'?'green':s==='Modifiable'?'amber':'';}
+function animCount(el,to,suffix=''){
+  const num=parseFloat(to),isFloat=String(to).includes('.');
+  const start=performance.now(),dur=700;
+  const step=now=>{const p=Math.min((now-start)/dur,1),e=1-Math.pow(1-p,3);
+    el.textContent=isFloat?(e*num).toFixed(1)+suffix:Math.round(e*num)+suffix;
+    if(p<1)requestAnimationFrame(step);else el.textContent=to+suffix;};
+  requestAnimationFrame(step);
+}
+
+// ════════════════════════════════════════════════════════════
+// HEALTH + COUNTDOWN
+// ════════════════════════════════════════════════════════════
+async function checkHealth(){
+  try{const d=await fetch('/api/health').then(r=>r.json());
+    document.getElementById('healthDot').className=d.status==='OK'?'health-dot ok':'health-dot err';}
+  catch{document.getElementById('healthDot').className='health-dot err';}
+}
+let cd=45;
+setInterval(()=>{document.getElementById('countdown').textContent=--cd;
+  if(cd<=0){cd=45;loadTransports();loadALMHealth();}},1000);
+
+// ════════════════════════════════════════════════════════════
+// CLOUD ALM — GLOBAL HEALTH
+// ════════════════════════════════════════════════════════════
+async function loadALMHealth(){
+  try{
+    const data=await fetch('/api/calm/health').then(r=>r.json());
+    globalAlmHealth=data;
+    renderALMBadge(data);
+    renderALMSection(data);
+    renderALMAlertBanner(data);
+    renderCRChart(data.changeManagement||{});
+    document.getElementById('almLastSync').textContent='Synced '+new Date().toLocaleTimeString();
+  }catch(e){
+    document.getElementById('almBadge').className='alm-status-badge loading';
+    document.getElementById('almBadgeTxt').textContent='☁️ ALM Unavailable';
+  }
+}
+
+function openALMPanel(){ window.open('/cloud_alm.html','_blank'); }
+
+function renderALMBadge(data){
+  const badge=document.getElementById('almBadge');
+  const pulse=document.getElementById('almPulse');
+  const txt  =document.getElementById('almBadgeTxt');
+  const crit =data.criticalAlerts||0;
+  const warn =data.warningAlerts||0;
+  if(crit>0){
+    badge.className='alm-status-badge error';
+    pulse.className='alm-pulse animate';
+    txt.textContent=`☁️ ALM — ${crit} Critical`;
+  }else if(warn>0){
+    badge.className='alm-status-badge warn';
+    pulse.className='alm-pulse animate';
+    txt.textContent=`☁️ ALM — ${warn} Warnings`;
+  }else{
+    badge.className='alm-status-badge ok';
+    pulse.className='alm-pulse';
+    txt.textContent='☁️ ALM — All Systems OK';
+  }
+}
+
+function renderALMAlertBanner(data){
+  const banner=document.getElementById('almAlertBanner');
+  const chips =document.getElementById('almAlertChips');
+  const crit=(data.alerts||[]).filter(a=>a.severity==='CRITICAL'||a.severity==='ERROR');
+  if(crit.length>0){
+    banner.className='alm-alert-banner show';
+    chips.innerHTML=crit.map(a=>`<span class="alm-alert-chip">⚡ ${a.systemId||'SYSTEM'}: ${a.message||a.type||'Critical'}</span>`).join('');
+  }else{
+    banner.className='alm-alert-banner';
+  }
+}
+
+function renderALMSection(data){
+  const tm=data.transportManagement||{};
+  const cm=data.changeManagement||{};
+  const hm=data.healthMonitoring||{};
+
+  // Command strip ALM KPIs
+  const pipe=tm.pipelineStatus||'—';
+  document.getElementById('kalmTmStatus').textContent=pipe;
+  document.getElementById('kalmTmStatus').style.color=pipe==='BLOCKED'?'var(--red)':pipe==='DEGRADED'?'var(--amber)':'var(--green)';
+  document.getElementById('kalmTmPending').textContent=tm.pendingCount??'—';
+  document.getElementById('kalmTmPending').className='alm-stat-val'+(tm.pendingCount>5?' warn':'');
+  document.getElementById('kalmTmFailed').textContent=tm.failedCount??'—';
+  document.getElementById('kalmTmFailed').className='alm-stat-val'+(tm.failedCount>0?' error':' ok');
+
+  document.getElementById('kalmHmProd').textContent=(hm.prodAvailability??'—')+'%';
+  document.getElementById('kalmHmCritical').textContent=hm.criticalCount??'—';
+  document.getElementById('kalmHmCritical').className='alm-stat-val'+(hm.criticalCount>0?' error':' ok');
+  document.getElementById('kalmHmWarning').textContent=hm.warningCount??'—';
+  document.getElementById('kalmHmWarning').className='alm-stat-val'+(hm.warningCount>0?' warn':' ok');
+
+  document.getElementById('kalmCmOpen').textContent=cm.openCount??'—';
+  document.getElementById('kalmCmPending').textContent=cm.pendingApproval??'—';
+  document.getElementById('kalmCmPending').className='alm-stat-val'+(cm.pendingApproval>0?' warn':'');
+  document.getElementById('kalmCmCompliance').textContent=(cm.complianceRate??'—')+'%';
+
+  // Feature cards
+  document.getElementById('almTmContent').innerHTML=`
+    <div class="alm-stat-item"><span class="alm-stat-key">Pending deployments</span><span class="alm-stat-num ${tm.pendingCount>5?'warn':''}">${tm.pendingCount??'—'}</span></div>
+    <div class="alm-stat-item"><span class="alm-stat-key">Failed deployments</span><span class="alm-stat-num ${tm.failedCount>0?'error':''}">${tm.failedCount??'—'}</span></div>
+    <div class="alm-stat-item"><span class="alm-stat-key">Pipeline status</span><span class="alm-stat-num ${tm.pipelineStatus==='BLOCKED'?'error':tm.pipelineStatus==='DEGRADED'?'warn':''}">${tm.pipelineStatus||'—'}</span></div>
+    <div class="alm-stat-item"><span class="alm-stat-key">Last deployment</span><span class="alm-stat-num">${fmt(tm.lastDeployment)||'—'}</span></div>`;
+
+  document.getElementById('almCmContent').innerHTML=`
+    <div class="alm-stat-item"><span class="alm-stat-key">Open changes</span><span class="alm-stat-num info">${cm.openCount??'—'}</span></div>
+    <div class="alm-stat-item"><span class="alm-stat-key">Pending approval</span><span class="alm-stat-num ${cm.pendingApproval>0?'warn':''}">${cm.pendingApproval??'—'}</span></div>
+    <div class="alm-stat-item"><span class="alm-stat-key">Rejected this week</span><span class="alm-stat-num ${cm.rejectedCount>0?'error':''}">${cm.rejectedCount??'—'}</span></div>
+    <div class="alm-stat-item"><span class="alm-stat-key">Compliance rate</span><span class="alm-stat-num ok">${cm.complianceRate??'—'}%</span></div>`;
+
+  document.getElementById('almHmContent').innerHTML=`
+    <div class="alm-stat-item"><span class="alm-stat-key">Critical alerts</span><span class="alm-stat-num ${hm.criticalCount>0?'error':''}">${hm.criticalCount??'—'}</span></div>
+    <div class="alm-stat-item"><span class="alm-stat-key">Warning alerts</span><span class="alm-stat-num ${hm.warningCount>0?'warn':''}">${hm.warningCount??'—'}</span></div>
+    <div class="alm-stat-item"><span class="alm-stat-key">PROD availability</span><span class="alm-stat-num ok">${hm.prodAvailability??'—'}%</span></div>
+    <div class="alm-stat-item"><span class="alm-stat-key">Systems monitored</span><span class="alm-stat-num calm">${hm.systemsMonitored??'—'}</span></div>`;
+}
+
+function renderCRChart(cm){
+  document.getElementById('crSpinner').style.display='none';
+  const c=document.getElementById('crChart');c.style.display='block';
+  const total=(cm.openCount||0)+(cm.pendingApproval||0)+(cm.rejectedCount||0);
+  document.getElementById('crBadge').textContent=total+' total';
+  if(crInst)crInst.destroy();
+  crInst=new Chart(c.getContext('2d'),{type:'doughnut',
+    data:{labels:['Open','Pending Approval','Rejected'],
+      datasets:[{data:[cm.openCount||0,cm.pendingApproval||0,cm.rejectedCount||0],
+        backgroundColor:['#eef2ff','#fffbeb','#fef2f2'],
+        borderColor:['#6366f1','#d97706','#dc2626'],
+        borderWidth:2,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{position:'bottom',labels:{color:'#6b7280',font:{family:"'Space Grotesk'",size:10},padding:12,boxWidth:10}},
+        tooltip:{backgroundColor:'#fff',borderColor:'#e2e6ec',borderWidth:1,
+          titleFont:{family:"'Space Grotesk'",size:11},bodyFont:{family:"'Space Grotesk'",size:11},
+          titleColor:'#111827',bodyColor:'#374151'}}}});
+}
+
+// ════════════════════════════════════════════════════════════
+// LOAD TRANSPORTS
+// ════════════════════════════════════════════════════════════
+async function loadTransports(){
+  try{
+    const data=await fetch('/api/transports').then(r=>r.json());
+    allTransports=data?.d?.results||[];
+    applyFilters();
+    loadALMChangeRequests();
+  }catch(e){
+    document.getElementById('tableBody').innerHTML=`<div class="state-row" style="color:var(--red)">✕ ${e.message}</div>`;
+  }
+}
+
+async function loadALMChangeRequests(){
+  const batch=allTransports.slice(0,20);
+  for(const t of batch){
+    if(almCrCache[t.TRKORR])continue;
+    try{
+      const data=await fetch(`/api/calm/changes/${encodeURIComponent(t.TRKORR)}`).then(r=>r.json());
+      almCrCache[t.TRKORR]=data;
+    }catch{almCrCache[t.TRKORR]={status:'none'};}
+    const chip=document.getElementById(`cr-${t.TRKORR}`);
+    if(chip)chip.outerHTML=renderCRChip(t.TRKORR);
+  }
+}
+
+function renderCRChip(trkorr){
+  const cr=almCrCache[trkorr];
+  if(!cr)return`<span class="cr-chip loading" id="cr-${trkorr}"><span class="alm-mini-spin" style="width:10px;height:10px;border-width:1.5px;margin-right:4px"></span>loading</span>`;
+  if(cr.status==='none'||!cr.id)return`<span class="cr-chip none" id="cr-${trkorr}">No CR</span>`;
+  const cls=cr.status==='APPROVED'?'approved':cr.status==='REJECTED'?'rejected':'pending';
+  return`<span class="cr-chip ${cls}" id="cr-${trkorr}" title="${cr.id}">${cr.id} · ${cr.status||'?'}</span>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// FILTERS
+// ════════════════════════════════════════════════════════════
+function applyFilters(){
+  const owner =document.getElementById('ownerFilter').value.toLowerCase().trim();
+  const status=document.getElementById('statusFilter').value.trim();
+  const target=document.getElementById('targetFilter').value.trim();
+  const search=document.getElementById('tblSearch').value.toLowerCase().trim();
+  filtered=allTransports.filter(t=>{
+    const tStatus=getStatus(t);
+    const tOwner=(t.OWNER||'').trim().toLowerCase();
+    const tTrkorr=(t.TRKORR||'').trim().toLowerCase();
+    const tTarget=(t.TARSYSTEM||t.TARGET||'').trim().toUpperCase();
+    return(!owner||tOwner.includes(owner))&&(!status||tStatus.toLowerCase()===status.toLowerCase())&&(!target||tTarget.includes(target))&&(!search||tTrkorr.includes(search)||tOwner.includes(search));
+  });
+  updateKPIs(filtered);updateCharts(filtered);renderTable(filtered);
+}
+document.getElementById('ownerFilter').addEventListener('input',applyFilters);
+document.getElementById('tblSearch').addEventListener('input',applyFilters);
+document.getElementById('statusFilter').addEventListener('change',applyFilters);
+document.getElementById('targetFilter').addEventListener('change',applyFilters);
+
+// ════════════════════════════════════════════════════════════
+// KPIs + CHARTS
+// ════════════════════════════════════════════════════════════
+function updateKPIs(list){
+  const failed =list.filter(t=>getStatus(t)==='Failed').length;
+  const success=list.filter(t=>getStatus(t)==='Released').length;
+  const rate   =list.length?((success/list.length)*100).toFixed(1):'0.0';
+  animCount(document.getElementById('kpiTotal'),  list.length);
+  animCount(document.getElementById('kpiFailed'), failed);
+  animCount(document.getElementById('kpiSuccess'),success);
+  document.getElementById('kpiRate').textContent=rate+'%';
+  document.getElementById('tblCount').textContent=filtered.length;
+}
+
+function updateCharts(list){
+  const failed =list.filter(t=>getStatus(t)==='Failed').length;
+  const success=list.filter(t=>getStatus(t)==='Released').length;
+  const other  =list.length-failed-success;
+  document.getElementById('pieSpinner').style.display='none';
+  const pieC=document.getElementById('pieChart');pieC.style.display='block';
+  if(pieInst)pieInst.destroy();
+  pieInst=new Chart(pieC.getContext('2d'),{type:'doughnut',
+    data:{labels:['Released','Failed','Modifiable'],datasets:[{data:[success,failed,other],
+      backgroundColor:['#f0fdf4','#fef2f2','#fffbeb'],borderColor:['#16a34a','#dc2626','#d97706'],borderWidth:2,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{position:'bottom',labels:{color:'#6b7280',font:{family:"'Space Grotesk'",size:10},padding:14,boxWidth:10}},
+        tooltip:{backgroundColor:'#fff',borderColor:'#e2e6ec',borderWidth:1,
+          titleFont:{family:"'Space Grotesk'",size:11},bodyFont:{family:"'Space Grotesk'",size:11},titleColor:'#111827',bodyColor:'#374151'}}}});
+  const ownerMap={};
+  list.filter(t=>getStatus(t)==='Failed').forEach(t=>{const k=(t.OWNER||'UNKNOWN').trim();ownerMap[k]=(ownerMap[k]||0)+1;});
+  const sorted=Object.entries(ownerMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  document.getElementById('barSpinner').style.display='none';
+  const barC=document.getElementById('barChart');barC.style.display='block';
+  if(barInst)barInst.destroy();
+  barInst=new Chart(barC.getContext('2d'),{type:'bar',
+    data:{labels:sorted.map(s=>s[0]),datasets:[{data:sorted.map(s=>s[1]),
+      backgroundColor:sorted.map((_,i)=>`rgba(220,38,38,${0.85-i*0.1})`),borderRadius:6,borderSkipped:false,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',borderColor:'#e2e6ec',borderWidth:1,
+        titleFont:{family:"'Space Grotesk'",size:11},bodyFont:{family:"'Space Grotesk'",size:11},titleColor:'#111827',bodyColor:'#374151'}},
+      scales:{x:{grid:{color:'#f3f4f6'},ticks:{color:'#9ca3af',font:{family:"'Space Grotesk'",size:10}}},
+              y:{grid:{color:'#f3f4f6'},ticks:{color:'#9ca3af',font:{family:"'Space Grotesk'",size:10}},beginAtZero:true}}}});
+}
+
+// ════════════════════════════════════════════════════════════
+// TABLE
+// ════════════════════════════════════════════════════════════
+function renderTable(list){
+  if(!list.length){document.getElementById('tableBody').innerHTML=`<div class="state-row">No transports found</div>`;return;}
+  let html=`<table class="data-table"><thead><tr><th>Transport #</th><th>Status</th><th>Owner</th><th>Target</th><th>Created On</th><th>ALM Change Request</th></tr></thead><tbody>`;
+  list.forEach((t,i)=>{
+    const st=getStatus(t);
+    html+=`<tr class="${st==='Failed'?'failed-row':''}" style="animation-delay:${i*.015}s"
+      data-trkorr="${(t.TRKORR||'').trim()}" data-owner="${(t.OWNER||'').trim()}"
+      data-date="${t.CREATED_ON||''}" data-status="${st}"
+      data-target="${(t.TARSYSTEM||t.TARGET||'').trim()}">
+      <td class="td-id">${(t.TRKORR||'-').trim()}</td>
+      <td>${pill(st)}</td>
+      <td>${(t.OWNER||'-').trim()}</td>
+      <td class="td-target">${(t.TARSYSTEM||t.TARGET||'-').trim()}</td>
+      <td class="td-date">${fmt(t.CREATED_ON)}</td>
+      <td>${renderCRChip(t.TRKORR)}</td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('tableBody').innerHTML=html;
+  document.querySelectorAll('.data-table tbody tr[data-trkorr]').forEach(tr=>{
+    tr.onclick=()=>openAgent({TRKORR:tr.dataset.trkorr,OWNER:tr.dataset.owner,CREATED_ON:tr.dataset.date,STATUS:tr.dataset.status,TARGET:tr.dataset.target});
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// AGENT MODAL
+// ════════════════════════════════════════════════════════════
+const overlay=document.getElementById('agentOverlay');
+document.getElementById('agentClose').onclick=closeAgent;
+overlay.addEventListener('click',e=>{if(e.target===overlay)closeAgent();});
+
+function closeAgent(){
+  overlay.classList.remove('open');
+  agentTransport=null;agentObjects=[];agentLogs=[];almData=null;
+  agentPreData=agentPostData=null;agentTab='pre';
+  document.getElementById('importBtn').style.display='none';
+  document.getElementById('almAgentBanner').className='alm-agent-banner';
+}
+
+async function openAgent(t){
+  agentTransport=t;agentObjects=[];agentLogs=[];almData=null;
+  agentPreData=agentPostData=null;
+  const st=t.STATUS||'';
+  const isReleased=st==='Released';
+  agentTab=isReleased?'post':'pre';
+  ['atPre','atPost','atAlm','atAudit'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById(isReleased?'atPost':'atPre').classList.add('active');
+  document.getElementById('agentTitle').textContent=`AI Agent — ${t.TRKORR}`;
+  ['mkpiPass','mkpiWarn','mkpiFail'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('mkpiAlm').textContent='—';
+  document.getElementById('aiBanner').style.display='none';
+  document.getElementById('almAgentBanner').className='alm-agent-banner';
+  document.getElementById('modalProgress').style.display='none';
+  document.getElementById('agentStatusChip').textContent='Fetching...';
+  document.getElementById('agentStatusChip').style.cssText='background:var(--sap-blue-light);color:var(--sap-blue);border:1px solid var(--sap-blue-mid);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;';
+  document.getElementById('agentChips').innerHTML=[
+    t.OWNER      ?`<span class="achip blue">OWNER: ${t.OWNER}</span>`:'',
+    t.TARGET     ?`<span class="achip">TARGET: ${t.TARGET}</span>`:'',
+    t.CREATED_ON ?`<span class="achip">DATE: ${fmt(t.CREATED_ON)}</span>`:'',
+    st           ?`<span class="achip ${chipClass(st)}">${pill(st)}</span>`:'',
+    almCrCache[t.TRKORR]?.id?`<span class="achip purple">CR: ${almCrCache[t.TRKORR].id}</span>`:'',
+  ].join('');
+  document.getElementById('agentBody').innerHTML=`<div class="state-row"><div class="spinner"></div>&nbsp;Fetching from SAP &amp; Cloud ALM...</div>`;
+  overlay.classList.add('open');
+  try{
+    const [objRes,logRes,almRes]=await Promise.all([
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/objects`).then(r=>r.json()),
+      fetch(`/api/transports/${encodeURIComponent(t.TRKORR)}/logs`).then(r=>r.json()),
+      fetch(`/api/calm/changes/${encodeURIComponent(t.TRKORR)}`).then(r=>r.json()).catch(()=>({status:'none'})),
+    ]);
+    agentObjects=objRes?.d?.results||[];
+    agentLogs   =logRes?.d?.results||[];
+    almData     =almRes;
+    almCrCache[t.TRKORR]=almRes;
+  }catch(e){
+    `<div class="state-row" style="color:var(--red)">✕ ${e.message}</div>`;
+  }
+}
+// ══════════════════════════════════════════════════════════════
+// PAGE TABS
+// ══════════════════════════════════════════════════════════════
+function switchPageTab(tab) {
+  document.querySelectorAll('.page-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.page-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('ptab-' + tab).classList.add('active');
+  document.getElementById('pp-' + tab).classList.add('active');
+  if (tab === 'cicd') initCICD();
+}
+
+// ══════════════════════════════════════════════════════════════
+// CTMS & CI/CD DATA
+// ══════════════════════════════════════════════════════════════
+var cicdInited = false;
+var pipelineSeconds = 134;
+
+var PIPELINE_STAGES = [
+  { name:'Source',    icon:'📂', status:'success', dur:'0m 12s' },
+  { name:'Build',     icon:'🔨', status:'success', dur:'1m 08s' },
+  { name:'Unit Test', icon:'🧪', status:'success', dur:'0m 45s' },
+  { name:'Package',   icon:'📦', status:'success', dur:'0m 22s' },
+  { name:'Deploy DEV',icon:'⬆️', status:'running', dur:'...'    },
+  { name:'Smoke Test',icon:'💨', status:'pending', dur:'—'      },
+  { name:'Deploy QAS',icon:'🚀', status:'pending', dur:'—'      },
+  { name:'Approval',  icon:'✅', status:'pending', dur:'—'      },
+];
+
+var PIPELINE_RUNS = [
+  { id:'#142', name:'Transport-risk-dashboard', status:'running', branch:'main',      dur:'2m 14s', trigger:'push',     time:'2 min ago',  commit:'a4f3c21' },
+  { id:'#141', name:'Transport-risk-dashboard', status:'success', branch:'main',      dur:'4m 32s', trigger:'push',     time:'1 hr ago',   commit:'9d2b8e1' },
+  { id:'#140', name:'Cloud ALM Backend',        status:'success', branch:'feature/ai',dur:'6m 18s', trigger:'PR merge', time:'3 hrs ago',  commit:'c7e5a30' },
+  { id:'#139', name:'Transport-risk-dashboard', status:'failed',  branch:'hotfix/01', dur:'1m 44s', trigger:'push',     time:'5 hrs ago',  commit:'f1a9d42' },
+  { id:'#138', name:'Integration Monitor',      status:'success', branch:'main',      dur:'3m 55s', trigger:'schedule', time:'8 hrs ago',  commit:'b8c2f67' },
+  { id:'#137', name:'Cloud ALM Backend',        status:'success', branch:'main',      dur:'5m 12s', trigger:'push',     time:'12 hrs ago', commit:'e3d7b19' },
+  { id:'#136', name:'Transaction Monitor',      status:'failed',  branch:'develop',   dur:'2m 01s', trigger:'push',     time:'1 day ago',  commit:'d5f4a88' },
+  { id:'#135', name:'Transport-risk-dashboard', status:'success', branch:'main',      dur:'4m 48s', trigger:'schedule', time:'1 day ago',  commit:'72a1c55' },
+];
+
+var CTMS_TRANSPORTS = [
+  { id:'HCLK900842', desc:'S/4HANA Cloud ALM Integration — Wave 3',  sys:'S4H→QAS',  status:'released',   owner:'RBASIS',  date:'Today 09:12' },
+  { id:'HCLK900841', desc:'ABAP Core Fix — PT60 Timeout Resolution',  sys:'S4H→DEV',  status:'modifiable', owner:'RDEV01',  date:'Today 08:45' },
+  { id:'HCLK900840', desc:'SuccessFactors iFlow Update v2.4',          sys:'BTP→PROD', status:'imported',   owner:'RINTERF', date:'Today 08:30' },
+  { id:'HCLK900839', desc:'FI Month-End Posting Enhancement',          sys:'S4H→QAS',  status:'released',   owner:'RFIUSER', date:'Today 07:55' },
+  { id:'HCLK900838', desc:'Security Patch — SU10 Authorization Fix',   sys:'S4H→PROD', status:'locked',     owner:'RSECADM', date:'Today 07:20' },
+  { id:'HCLK900837', desc:'MM Goods Movement Performance Improvement', sys:'S4H→QAS',  status:'released',   owner:'RMMUSER', date:'Yesterday'   },
+  { id:'HCLK900836', desc:'SD Billing Document BAdI Implementation',   sys:'S4H→DEV',  status:'modifiable', owner:'RDEV02',  date:'Yesterday'   },
+  { id:'HCLK900835', desc:'GRC Risk Assessment Rule Update',           sys:'GRC→QAS',  status:'released',   owner:'RSECADM', date:'Yesterday'   },
+  { id:'HCLK900834', desc:'STMS Queue Cleanup — Obsolete Transports',  sys:'S4H→PROD', status:'imported',   owner:'RBASIS',  date:'2 days ago'  },
+  { id:'HCLK900833', desc:'IBP Integration Adapter Patch',             sys:'IBP→PROD', status:'released',   owner:'RINTERF', date:'2 days ago'  },
+  { id:'HCLK900832', desc:'PA30 HR Master Data Enhancement',           sys:'S4H→QAS',  status:'modifiable', owner:'RHRUSER', date:'2 days ago'  },
+  { id:'HCLK900831', desc:'CO Profit Center Derivation Fix',           sys:'S4H→DEV',  status:'released',   owner:'RCOUSER', date:'3 days ago'  },
+];
+
+var DEPLOY_TIMELINE = [
+  { time:'09:45', title:'Deploy DEV — Transport-risk-dashboard #142', meta:'SAP BTP CF · eu10-004 · RUNNING',        env:'dev',  dot:'#0070f2', running:true  },
+  { time:'08:30', title:'SuccessFactors iFlow v2.4 → PROD',           meta:'SAP BTP Integration Suite · SUCCESS',    env:'prod', dot:'#16a34a', running:false },
+  { time:'07:55', title:'FI Posting Enhancement → QAS',               meta:'S/4HANA QAS-01 · HCLK900839 · SUCCESS', env:'qas',  dot:'#d97706', running:false },
+  { time:'07:20', title:'Security Patch LOCKED — Pending Approval',   meta:'S/4HANA PROD-01 · Awaiting sign-off',   env:'prod', dot:'#dc2626', running:false },
+  { time:'Yest 18:22', title:'Cloud ALM Backend #140 → DEV',          meta:'SAP BTP CF · 6m 18s · SUCCESS',         env:'dev',  dot:'#16a34a', running:false },
+  { time:'Yest 15:10', title:'MM Goods Movement Patch → QAS',         meta:'S/4HANA QAS-01 · HCLK900837 · SUCCESS', env:'qas',  dot:'#d97706', running:false },
+  { time:'Yest 12:05', title:'STMS Queue Cleanup → PROD',             meta:'S/4HANA PROD-01 · HCLK900834 · SUCCESS',env:'prod', dot:'#16a34a', running:false },
+];
+
+var SYSTEM_DEPLOY = [
+  { sys:'S/4HANA PROD-01',   ver:'S4H 2023 FPS02', lastDeploy:'2 hrs ago',  status:'ok',   pending:2 },
+  { sys:'S/4HANA QAS-01',    ver:'S4H 2023 FPS02', lastDeploy:'45 min ago', status:'ok',   pending:4 },
+  { sys:'S/4HANA DEV-01',    ver:'S4H 2023 FPS03', lastDeploy:'2 min ago',  status:'run',  pending:6 },
+  { sys:'SAP BTP CF eu10',   ver:'CF v3.1.2',       lastDeploy:'2 min ago',  status:'run',  pending:1 },
+  { sys:'Integration Suite', ver:'iFlow v2.4',       lastDeploy:'1 hr ago',   status:'ok',   pending:0 },
+  { sys:'SAP GRC PROD',      ver:'GRC 12.0 SP05',   lastDeploy:'1 day ago',  status:'warn', pending:1 },
+  { sys:'SAP IBP PROD',      ver:'IBP 2308',         lastDeploy:'2 days ago', status:'ok',   pending:2 },
+  { sys:'SAP MDG PROD',      ver:'MDG S/4 2023',    lastDeploy:'3 days ago', status:'ok',   pending:0 },
+];
+
+var LOG_MESSAGES = [
+  { type:'info',    text:'Pipeline #142 started — trigger: push to main' },
+  { type:'info',    text:'Stage: Source — checking out branch main @ a4f3c21' },
+  { type:'success', text:'✓ Source stage completed (12s)' },
+  { type:'info',    text:'Stage: Build — running npm install && npm run build' },
+  { type:'info',    text:'Installing 284 packages...' },
+  { type:'success', text:'✓ Build completed successfully (1m 08s)' },
+  { type:'info',    text:'Stage: Unit Test — running jest --coverage' },
+  { type:'success', text:'✓ 48/48 tests passed, coverage 87.4% (45s)' },
+  { type:'info',    text:'Stage: Package — creating CF deployment artifact' },
+  { type:'success', text:'✓ Package created: transport-dashboard-v3.1.2.zip (22s)' },
+  { type:'info',    text:'Stage: Deploy DEV — pushing to cf eu10-004.hana.ondemand.com' },
+  { type:'info',    text:'Uploading application bits...' },
+  { type:'info',    text:'Staging application in Cloud Foundry...' },
+  { type:'warn',    text:'⚠ Memory usage at 82% during staging — within limits' },
+];
+
+var logIdx = 0;
+
+function initCICD() {
+  if (cicdInited) return;
+  cicdInited = true;
+  renderPipelineStages();
+  renderRuns();
+  renderCTMS();
+  renderDeployTimeline();
+  renderSystemStatus();
+  startLogStream();
+  startPipelineTimer();
+  fetchCTMSData();
+  fetchBTPStatus();  // NEW
+}
+
+function fetchBTPStatus() {
+  // BTP App Status
+  fetch('/api/btp/status')
+    .then(r => r.json())
+    .then(data => {
+      var app = data.app || {};
+      var env = data.environment || {};
+      var inst = (data.instances || [])[0] || {};
+
+      // App state
+      var el = document.getElementById('btpAppName');
+      if (el) el.textContent = app.name || 'transport-dashboard-frontend';
+
+      var badge = document.getElementById('btpStateBadge');
+      if (badge) {
+        badge.textContent = app.state || 'STARTED';
+        badge.style.background = app.state === 'STARTED' ? 'var(--green-light)' : 'var(--red-light)';
+        badge.style.color      = app.state === 'STARTED' ? 'var(--green)'       : 'var(--red)';
+      }
+
+      var lastDeploy = document.getElementById('btpLastDeploy');
+      if (lastDeploy) lastDeploy.textContent = data.lastDeploy ? data.lastDeploy.timeAgo : 'via CI/CD';
+
+      // Instance stats
+      var instances = document.getElementById('btpInstances');
+      if (instances) instances.textContent = (data.process?.instances || 1) + ' running';
+
+      var memory = document.getElementById('btpMemory');
+      if (memory) memory.textContent = inst.memMB ? inst.memMB + ' MB used / ' + (data.process?.memoryMB || 256) + ' MB' : (data.process?.memoryMB || 256) + ' MB allocated';
+
+      var cpu = document.getElementById('btpCpu');
+      if (cpu) cpu.textContent = inst.cpu || '—';
+
+      var uptime = document.getElementById('btpUptime');
+      if (uptime) uptime.textContent = inst.uptime || '—';
+    })
+    .catch(() => {
+      // Show static fallback
+      var el = document.getElementById('btpAppName');
+      if (el) el.textContent = 'hcl-america-solutions-inc--hclbuild-g03o2ijo';
+      var badge = document.getElementById('btpStateBadge');
+      if (badge) badge.textContent = 'STARTED';
+    });
+
+  // Pipeline Stats from GitHub
+  fetch('/api/btp/pipelines')
+    .then(r => r.json())
+    .then(data => {
+      var runs = data.runs || [];
+      var total = document.getElementById('btpTotalRuns');
+      if (total) total.textContent = (data.total || runs.length) + ' total';
+
+      var success = runs.filter(function(r){return r.status==='success';}).length;
+      var rate = runs.length > 0 ? Math.round(success/runs.length*100) : 0;
+      var el = document.getElementById('btpSuccessRate');
+      if (el) { el.textContent = rate + '%'; el.style.color = rate >= 80 ? 'var(--green)' : rate >= 60 ? 'var(--amber)' : 'var(--red)'; }
+
+      var last = runs[0];
+      var lastRun = document.getElementById('btpLastRun');
+      if (lastRun && last) lastRun.textContent = last.time + ' · ' + last.status.toUpperCase();
+
+      var durations = runs.filter(function(r){return r.duration && r.duration!=='—';});
+      var avgDur = document.getElementById('btpAvgDur');
+      if (avgDur) avgDur.textContent = durations.length > 0 ? durations[0].duration : '~4m 30s';
+    })
+    .catch(() => {});
+}
+
+function renderPipelineStages() {
+  var el = document.getElementById('pipelineStages'); if(!el) return;
+  el.innerHTML = PIPELINE_STAGES.map((s,i)=>{
+    var sc=s.status==='success'?'success':s.status==='running'?'running':s.status==='failed'?'failed':'pending';
+    var dc=s.status==='success'?'ok':s.status==='running'?'run':s.status==='failed'?'fail':'pend';
+    return `<div class="ps-stage">
+      <div class="ps-box ${sc}">
+        <div class="ps-status-dot ${dc}"></div>
+        <div class="ps-icon">${s.icon}</div>
+        <div class="ps-name">${s.name}</div>
+        <div class="ps-dur">${s.dur}</div>
+      </div>
+      ${i<PIPELINE_STAGES.length-1?'<div class="ps-arrow">›</div>':''}
+    </div>`;
+  }).join('');
+}
+
+function renderRuns() {
+  var tbody=document.getElementById('runsBody'); if(!tbody) return;
+  var running=PIPELINE_RUNS.filter(r=>r.status==='running').length;
+  var badge=document.getElementById('runsBadge');
+  if(badge) badge.textContent=running>0?running+' running':PIPELINE_RUNS.length+' total';
+
+  // Render 3 job cards
+  var jobCards=document.getElementById('cicdJobCards');
+  if(jobCards){
+    var jobs=[
+      {name:'Transport-risk-dashborad',branch:'main',state:'ON',lastRun:PIPELINE_RUNS.find(r=>r.name==='Transport-risk-dashborad')},
+      {name:'ai-transport-risk-demo',  branch:'main',state:'ON',lastRun:PIPELINE_RUNS.find(r=>r.name==='ai-transport-risk-demo')},
+      {name:'fiori-saple-app',          branch:'main',state:'ON',lastRun:PIPELINE_RUNS.find(r=>r.name==='fiori-saple-app')},
+    ];
+    jobCards.innerHTML=jobs.map(function(j){
+      var lr=j.lastRun||{};
+      var sc=lr.status==='success'?'var(--green)':lr.status==='running'?'var(--sap-blue)':lr.status==='failed'?'var(--red)':'var(--text-lo)';
+      var sl=lr.status==='success'?'SUCCESS':lr.status==='running'?'RUNNING':lr.status==='failed'?'FAILED':'—';
+      return'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer" '
+        +'onclick="window.open(\'https://hcl-integrationsuite-qxeoz78m.eu10.cicd.cloud.sap\',\'_blank\')">'
+        +'<div style="font-size:12px;font-weight:700;color:var(--text-hi);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+j.name+'">'+j.name+'</div>'
+        +'<div style="font-family:var(--mono);font-size:10px;color:var(--text-lo);margin-bottom:8px">Branch: '+j.branch+' · '+j.state+'</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center">'
+        +'<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:10px;background:'+sc+'18;color:'+sc+';border:1px solid '+sc+'44">'+sl+'</span>'
+        +'<span style="font-family:var(--mono);font-size:9px;color:var(--text-lo)">'+(lr.time||'—')+'</span>'
+        +'</div></div>';
+    }).join('');
+  }
+
+  // Render runs table
+  tbody.innerHTML=PIPELINE_RUNS.map(function(r){
+    var sc=r.status==='success'?'rs-success':r.status==='running'?'rs-running':r.status==='failed'?'rs-failed':'rs-pending';
+    var sl=r.status==='success'?'SUCCESS':r.status==='running'?'RUNNING':r.status==='failed'?'FAILED':'PENDING';
+    var da=r.status==='running'?' anim':'';
+    return'<tr onclick="window.open(\'https://hcl-integrationsuite-qxeoz78m.eu10.cicd.cloud.sap\',\'_blank\')" style="cursor:pointer">'
+      +'<td><span class="run-commit">'+r.id+'</span></td>'
+      +'<td style="font-size:12px;font-weight:600;color:var(--text-hi)">'+r.name+'</td>'
+      +'<td><span class="run-status '+sc+'"><span class="rs-dot'+da+'"></span>'+sl+'</span></td>'
+      +'<td><span class="run-branch">'+r.branch+'</span></td>'
+      +'<td><span class="run-duration">'+r.dur+'</span></td>'
+      +'<td><span class="run-trigger">'+r.trigger+'</span></td>'
+      +'<td style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">'+r.time+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function renderCTMS() {
+  var el=document.getElementById('ctmsList'); if(!el) return;
+  el.innerHTML=CTMS_TRANSPORTS.map(t=>{
+    var sc=t.status==='released'?'cc-released':t.status==='modifiable'?'cc-modifiable':t.status==='locked'?'cc-locked':'cc-imported';
+    return `<div class="ctms-row">
+      <div class="ctms-id">${t.id}</div>
+      <div class="ctms-desc" title="${t.desc}">${t.desc}</div>
+      <div class="ctms-sys">${t.sys}</div>
+      <span class="ctms-chip ${sc}">${t.status.toUpperCase()}</span>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text-lo);min-width:80px;text-align:right">${t.date}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderDeployTimeline() {
+  var el=document.getElementById('deployTimeline'); if(!el) return;
+  el.innerHTML=DEPLOY_TIMELINE.map(d=>{
+    var ec=d.env==='prod'?'env-prod':d.env==='qas'?'env-qas':'env-dev';
+    var anim=d.running?';animation:blink 1s infinite':'';
+    return `<div class="dt-row">
+      <div class="dt-time">${d.time}</div>
+      <div class="dt-indicator" style="background:${d.dot}${anim}"></div>
+      <div class="dt-content">
+        <div class="dt-title">${d.title}</div>
+        <div class="dt-meta">${d.meta}</div>
+      </div>
+      <span class="dt-env ${ec}">${d.env.toUpperCase()}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderSystemStatus() {
+  var el=document.getElementById('systemDeployStatus'); if(!el) return;
+  el.innerHTML=SYSTEM_DEPLOY.map(s=>{
+    var dc=s.status==='ok'?'var(--green)':s.status==='run'?'var(--sap-blue)':'var(--amber)';
+    var da=s.status==='run'?'animation:blink 1s infinite;':'';
+    return `<div class="ctms-row">
+      <div style="width:8px;height:8px;border-radius:50%;background:${dc};${da}flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:600;color:var(--text-hi)">${s.sys}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">${s.ver}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">${s.lastDeploy}</div>
+        ${s.pending>0?`<div style="font-family:var(--mono);font-size:9px;color:var(--amber)">${s.pending} pending</div>`:'<div style="font-family:var(--mono);font-size:9px;color:var(--green)">Up to date</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function startLogStream() {
+  var con=document.getElementById('logConsole'); if(!con) return;
+  var print=()=>{
+    if(logIdx<LOG_MESSAGES.length){
+      var m=LOG_MESSAGES[logIdx++];
+      var ts=new Date().toLocaleTimeString('en-GB');
+      var cls=m.type==='success'?'log-success':m.type==='warn'?'log-warn':m.type==='error'?'log-error':'log-info';
+      con.innerHTML+=`<div class="log-line"><span class="log-ts">${ts}</span><span class="${cls}">${m.text}</span></div>`;
+      con.scrollTop=con.scrollHeight;
+      setTimeout(print,500+Math.random()*700);
+    } else {
+      if(!con.querySelector('.log-cursor'))
+        con.innerHTML+=`<div class="log-line"><span class="log-ts">${new Date().toLocaleTimeString('en-GB')}</span><span class="log-info">▶ <span class="log-cursor"></span></span></div>`;
+      con.scrollTop=con.scrollHeight;
+    }
+  };
+  setTimeout(print,600);
+}
+
+function startPipelineTimer() {
+  setInterval(()=>{
+    pipelineSeconds++;
+    var m=String(Math.floor(pipelineSeconds/60)).padStart(2,'0');
+    var s=String(pipelineSeconds%60).padStart(2,'0');
+    var el=document.getElementById('pipelineTimer'); if(el) el.textContent='00:'+m+':'+s;
+  },1000);
+}
+
+function fetchCTMSData() {
+  // PRIMARY: SAP Cloud Transport Management API
+  fetch('/api/cloudtm/dashboard')
+    .then(r => r.json())
+    .then(data => {
+      var s = data.summary || {};
+      console.log(`Cloud TM: ${s.totalNodes} nodes, ${s.totalPending} pending, ${s.totalRequests} requests`);
+
+      // Update KPIs
+      var el = document.getElementById('ck-transports');
+      if (el) el.textContent = s.totalPending || 0;
+      var badge = document.getElementById('ctmsBadge');
+      if (badge) badge.textContent = (s.totalPending || 0) + ' pending';
+
+      // Render nodes pipeline
+      renderCloudTmNodes(data.nodes || []);
+
+      // Render queues as CTMS transport list
+      var allEntries = [];
+      (data.queues || []).forEach(function(q) {
+        (q.entries || []).forEach(function(e) {
+          allEntries.push({
+            id:     e.id || e.name,
+            desc:   e.name || e.description || '—',
+            sys:    q.node || e.targetNode || '—',
+            status: e.status === 'Imported' ? 'imported'
+                  : e.status === 'Failed'   ? 'locked'
+                  : e.status === 'Initial'  ? 'released'
+                  : 'modifiable',
+            owner:  e.owner || '—',
+            date:   e.createdAt ? formatCTMSDate(e.createdAt) : '—',
+            env:    q.env || '—',
+          });
+        });
+      });
+
+      if (allEntries.length > 0) {
+        CTMS_TRANSPORTS.splice(0, CTMS_TRANSPORTS.length, ...allEntries);
+        renderCTMS();
+      }
+
+      // Update subtitle
+      var sub = document.querySelector('#pp-cicd .cicd-card .cicd-card-sub');
+      if (sub && data.configured) {
+        sub.textContent = 'SAP Cloud TM · ' + s.totalNodes + ' nodes · ' +
+          s.imported + ' imported · ' + s.failed + ' failed · ' +
+          new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+      }
+
+      // Also render recent requests table
+      renderCloudTmRequests(data.requests || []);
+    })
+    .catch(function() {
+      // FALLBACK: single-system STMS transports
+      fetch('/api/ctms/morning-run')
+        .then(r => r.json())
+        .then(data => {
+          var s = data.summary || {};
+          var el = document.getElementById('ck-transports');
+          if (el) el.textContent = s.released || 0;
+          if (data.transports && data.transports.length > 0) {
+            var mapped = data.transports.slice(0, 15).map(function(t) { return {
+              id: t.trkorr, desc: t.description,
+              sys: t.systemLabel + ' → ' + (t.target || t.env),
+              status: t.status === 'Released' ? 'released'
+                    : t.status === 'Modifiable' ? 'modifiable'
+                    : t.status === 'Failed' ? 'locked' : 'imported',
+              owner: t.owner, date: formatCTMSDate(t.createdOn),
+            };});
+            CTMS_TRANSPORTS.splice(0, CTMS_TRANSPORTS.length, ...mapped);
+            renderCTMS();
+          }
+        })
+        .catch(function() {});
+    });
+}
+
+// Render Cloud TM node pipeline diagram
+function renderCloudTmNodes(nodes) {
+  var existing = document.getElementById('cloudTmNodes');
+  if (!existing) {
+    // Insert node pipeline before the ctmsList
+    var ctmsCard = document.querySelector('#ctmsList');
+    if (!ctmsCard) return;
+    var nodeDiv = document.createElement('div');
+    nodeDiv.id = 'cloudTmNodes';
+    nodeDiv.style.cssText = 'display:flex;align-items:center;gap:0;padding:12px 14px;border-bottom:1px solid var(--border);overflow-x:auto;background:var(--surface2)';
+    ctmsCard.parentNode.insertBefore(nodeDiv, ctmsCard);
+  }
+  var container = document.getElementById('cloudTmNodes');
+  if (!container || !nodes.length) return;
+  var envColors = {PROD:'var(--red)',QAS:'var(--amber)',DEV:'var(--green)',SBX:'var(--teal)'};
+  container.innerHTML = nodes.map(function(n, i) {
+    var col = envColors[n.env] || 'var(--sap-blue)';
+    var arrow = i < nodes.length-1 ? '<div style="padding:0 6px;color:var(--text-lo);font-size:18px">›</div>' : '';
+    return '<div style="display:flex;align-items:center">' +
+      '<div style="text-align:center;padding:8px 12px;border-radius:var(--r);border:1.5px solid '+col+'18;background:'+col+'08;min-width:90px">' +
+        '<div style="font-size:11px;font-weight:700;color:'+col+';font-family:var(--mono)">' + n.name + '</div>' +
+        '<div style="font-size:10px;color:var(--text-lo);margin-top:2px">' + n.env + '</div>' +
+        '<div style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text-hi);margin-top:3px">' + (n.queueCount || 0) + ' queued</div>' +
+      '</div>' + arrow + '</div>';
+  }).join('');
+}
+
+// Render Cloud TM requests below main table
+function renderCloudTmRequests(requests) {
+  var existing = document.getElementById('cloudTmRequests');
+  if (!existing) {
+    var timeline = document.getElementById('deployTimeline');
+    if (!timeline) return;
+    var div = document.createElement('div');
+    div.id = 'cloudTmRequests';
+    timeline.parentNode.insertBefore(div, timeline.nextSibling);
+  }
+  var el = document.getElementById('cloudTmRequests');
+  if (!el || !requests.length) return;
+  var statusColors = {
+    Imported:'var(--green)', Failed:'var(--red)',
+    Initial:'var(--sap-blue)', Running:'var(--amber)'
+  };
+  el.innerHTML =
+    '<div class="cicd-card-head" style="border-top:1px solid var(--border)">' +
+      '<div class="cicd-card-icon" style="background:var(--sap-blue-light)">📦</div>' +
+      '<div><div class="cicd-card-title">Cloud TM — Transport Requests</div>' +
+      '<div class="cicd-card-sub">All requests across DEV → QAS → PROD pipeline</div></div>' +
+      '<span class="cicd-card-badge" style="background:var(--sap-blue-light);color:var(--sap-blue);border-color:var(--sap-blue-mid)">' + requests.length + ' requests</span>' +
+    '</div>' +
+    '<div style="overflow-x:auto"><table class="run-table"><thead><tr>' +
+      '<th>ID</th><th>Name</th><th>Target Node</th><th>Status</th><th>Owner</th><th>Type</th><th>Created</th>' +
+    '</tr></thead><tbody>' +
+    requests.slice(0, 20).map(function(r) {
+      var col = statusColors[r.status] || 'var(--text-lo)';
+      return '<tr><td><span class="run-commit">' + (r.id||'—') + '</span></td>' +
+        '<td style="font-size:12px;font-weight:600;color:var(--text-hi);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (r.description||r.name) + '">' + (r.name||'—') + '</td>' +
+        '<td><span class="run-branch">' + (r.targetNode||'—') + '</span></td>' +
+        '<td><span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:' + col + '18;color:' + col + ';border:1px solid ' + col + '44">' + (r.status||'—') + '</span></td>' +
+        '<td><span class="run-trigger">' + (r.owner||'—') + '</span></td>' +
+        '<td><span class="run-branch">' + (r.contentType||'MTA') + '</span></td>' +
+        '<td style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">' + (r.createdAt ? timeAgoJS(new Date(r.createdAt)) : '—') + '</td></tr>';
+    }).join('') +
+    '</tbody></table></div>';
+}
+
+function timeAgoJS(date) {
+  var diff = Date.now() - date.getTime();
+  var mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return mins + ' min ago';
+  var hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return hrs + ' hr' + (hrs>1?'s':'') + ' ago';
+  return Math.floor(hrs/24) + ' day' + (Math.floor(hrs/24)>1?'s':'') + ' ago';
+}
+
+function formatCTMSDate(raw) {
+  if (!raw || raw === '—') return '—';
+  // SAP format YYYYMMDD
+  var m = String(raw).match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (m) {
+    var d = new Date(m[1], m[2]-1, m[3]);
+    var today = new Date();
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    var yest = new Date(today); yest.setDate(yest.getDate()-1);
+    if (d.toDateString() === yest.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString('en-GB', {day:'2-digit', month:'short'});
+  }
+  // /Date(ms)/
+  var ms = String(raw).match(/\/Date\((\d+)\)\//);
+  if (ms) return new Date(+ms[1]).toLocaleDateString('en-GB', {day:'2-digit', month:'short'});
+  try { return new Date(raw).toLocaleDateString('en-GB', {day:'2-digit', month:'short'}); }
+  catch(e) { return raw; }
+}
+
+function showMorningRunBanner(s) {
+  var ctmsHead = document.querySelector('#pp-cicd .cicd-card-head .cicd-card-sub');
+  if (ctmsHead && s.totalSystems) {
+    ctmsHead.textContent = s.totalToday + ' transports today · ' +
+      s.released + ' released · ' + s.failed + ' failed · ' +
+      s.systemsOk + '/' + s.totalSystems + ' systems · ' +
+      new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  }
+}
+
+</script>
+</body>
+</html>
