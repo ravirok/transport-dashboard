@@ -56,6 +56,15 @@ app.get("/api/vcap", (req, res) => {
     destination:  !!destinationCredentials,
     connectivity: !!connectivityCredentials,
     destUri:      destinationCredentials?.uri || null,
+    // Show which token URL field exists (without exposing secrets)
+    destTokenUrlFields: destinationCredentials ? {
+      has_token_service_url: !!destinationCredentials.token_service_url,
+      has_url:               !!destinationCredentials.url,
+      has_uaa_url:           !!destinationCredentials.uaa?.url,
+      token_service_url:     destinationCredentials.token_service_url || null,
+      url:                   destinationCredentials.url || null,
+      uaa_url:               destinationCredentials.uaa?.url || null,
+    } : null,
   });
 });
 
@@ -87,11 +96,19 @@ async function getConnectivityToken() {
 
 async function getBTPToken() {
   if (!destinationCredentials) throw new Error("Destination service not bound");
-  const creds = destinationCredentials;
-  const r = await axios.post(
-    `${creds.url || creds.uaa?.url}/oauth/token`,
+  const creds   = destinationCredentials;
+  // Destination service VCAP credentials can have token URL in different fields
+  const tokenUrl = creds.token_service_url  ||
+                   creds.url                 ||
+                   creds.uaa?.url            ||
+                   creds.xsuaa?.url;
+  if (!tokenUrl) throw new Error("Cannot find token URL in destination service credentials");
+  const clientId     = creds.clientid     || creds.client_id     || creds.uaa?.clientid;
+  const clientSecret = creds.clientsecret || creds.client_secret || creds.uaa?.clientsecret;
+  const fullUrl = tokenUrl.endsWith("/oauth/token") ? tokenUrl : `${tokenUrl}/oauth/token`;
+  const r = await axios.post(fullUrl,
     new URLSearchParams({ grant_type: "client_credentials",
-      client_id: creds.clientid, client_secret: creds.clientsecret }),
+      client_id: clientId, client_secret: clientSecret }),
     { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent }
   );
   return r.data.access_token;
@@ -283,10 +300,53 @@ async function tryALMPaths(paths) {
 }
 
 app.get("/api/calm/x509debug", async (req, res) => {
-  const result = {};
-  try { result.token = await getDirectCALMToken(); result.ok = true; }
-  catch (e) { result.ok = false; result.error = e.message; }
-  res.json(result);
+  const result = {
+    step1_destService:   !!destinationCredentials,
+    step2_btpToken:      false,
+    step3_calmDest:      null,
+    step4_calmToken:     false,
+    step5_calmHealth:    null,
+    step6_error:         null,
+  };
+  try {
+    // Step 2: Get BTP token
+    try {
+      await getBTPToken();
+      result.step2_btpToken = true;
+    } catch (e) {
+      result.step6_error = "BTP token failed: " + e.message;
+      return res.json(result);
+    }
+    // Step 3: Resolve Cloud ALM destination
+    try {
+      const dest = await resolveCALMDestination();
+      const tok  = dest.authTokens[0];
+      result.step3_calmDest = {
+        baseUrl:    dest.baseUrl,
+        hasTokens:  dest.authTokens.length > 0,
+        tokenError: tok?.error || null,
+        tokenType:  tok?.type  || null,
+      };
+      if (tok?.value && !tok.error) result.step4_calmToken = true;
+    } catch (e) {
+      result.step6_error = "CALM destination failed: " + e.message;
+      return res.json(result);
+    }
+    // Step 5: Try Cloud ALM health
+    if (result.step4_calmToken) {
+      try {
+        const dest  = await resolveCALMDestination();
+        const token = dest.authTokens[0].value;
+        const r = await axios.get(`${dest.baseUrl}/calm-ops/api/v1/health`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, httpsAgent
+        });
+        result.step5_calmHealth = { ok: true, status: r.data };
+      } catch (e) {
+        result.step5_calmHealth = { ok: false, error: e.response?.data || e.message };
+      }
+    }
+    res.json(result);
+  } catch (e) { res.json({ ...result, step6_error: e.message }); }
 });
 
 app.get("/api/calm/discover", async (req, res) => {
