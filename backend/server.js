@@ -541,49 +541,47 @@ function getCloudTmBaseUrl() {
 }
 
 async function callCloudTm(path, params={}) {
-  const baseUrl=getCloudTmBaseUrl();
-  const qs=Object.keys(params).length?"?"+new URLSearchParams(params).toString():"";
-  const url=`${baseUrl}/v1${path}${qs}`;
+  const baseUrl = getCloudTmBaseUrl();
+  const qs      = Object.keys(params).length ? "?" + new URLSearchParams(params).toString() : "";
+  const url     = `${baseUrl}/v1${path}${qs}`;
 
-  // Try 1: Basic Auth (simplest — username/password)
-  if (process.env.CLOUD_TM_USERNAME && process.env.CLOUD_TM_PASSWORD) {
+  // Cloud TM uses the SAME token as Cloud ALM (ts.cfapps URL is part of Cloud ALM)
+  // Use the Cloud ALM destination token — that's what works in the browser
+  if (destinationCredentials) {
     try {
-      const basicAuth = Buffer.from(`${process.env.CLOUD_TM_USERNAME}:${process.env.CLOUD_TM_PASSWORD}`).toString("base64");
-      const r = await axios.get(url, {
-        headers: { Authorization: `Basic ${basicAuth}`, Accept: "application/json" },
-        httpsAgent, timeout: 12000
-      });
-      if ((r.headers?.["content-type"]||"").includes("text/html")) throw new Error("Got HTML");
-      console.log(`✅ Cloud TM basic auth: ${url}`);
-      return r.data;
+      const dest  = await resolveCALMDestination();
+      const token = dest.authToken;
+      if (token) {
+        console.log(`🔄 Cloud TM via ALM token: ${url}`);
+        const r = await axios.get(url, {
+          headers: { Authorization: `${dest.tokenType} ${token}`, Accept: "application/json" },
+          httpsAgent, timeout: 12000
+        });
+        if ((r.headers?.["content-type"]||"").includes("text/html")) {
+          throw new Error("Got HTML — wrong token");
+        }
+        return r.data;
+      }
     } catch(err) {
-      console.warn(`⚠️ Cloud TM basic auth failed: ${err.response?.status||err.message}`);
+      console.warn(`⚠️ Cloud TM via ALM token failed: ${err.message}`);
     }
   }
 
-  // Try 2: Bearer token from CLOUD_TM_SERVICE_KEY
+  // Fallback: direct token from CLOUD_TM_SERVICE_KEY
   try {
     const token = await getCloudTmToken();
-    const r = await axios.get(url, {
+    const r     = await axios.get(url, {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       httpsAgent, timeout: 12000
     });
-    if ((r.headers?.["content-type"]||"").includes("text/html")) throw new Error("Got HTML");
+    if ((r.headers?.["content-type"]||"").includes("text/html")) {
+      throw new Error("Got HTML — token rejected by Cloud TM");
+    }
     return r.data;
   } catch(err) {
-    console.warn(`⚠️ Cloud TM bearer token failed: ${err.response?.status||err.message}`);
+    console.warn(`⚠️ Cloud TM direct token failed: ${err.response?.status||err.message}`);
+    throw err;
   }
-
-  // Try 3: Via BTP Destination
-  if (destinationCredentials) {
-    try {
-      return await fetchViaDestination(CLOUD_TM_DEST_NAME, `/v1${path}`, params);
-    } catch(err) {
-      console.warn(`⚠️ Cloud TM destination failed: ${err.message}`);
-    }
-  }
-
-  throw new Error("Cloud TM: all authentication methods failed");
 }
 
 // fetchViaDestination helper for Cloud TM
@@ -656,7 +654,15 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
   const hasKey=!!(process.env.CLOUD_TM_SERVICE_KEY||process.env.CLOUD_TM_CLIENT_ID||process.env.CLOUD_TM_URL);
   if (!hasKey) return res.json({ configured:false, message:"Set CLOUD_TM_SERVICE_KEY env var", nodes:mockTmNodes(),queues:[],requests:mockTmRequests(),summary:mockTmSummary() });
   try {
-    const [nodesData,requestsData]=await Promise.all([callCloudTm("/nodes").catch(()=>({})),callCloudTm("/transportRequests",{ pageSize:100 })]);
+    const [nodesData,requestsData]=await Promise.all([
+      callCloudTm("/nodes").catch(()=>({})),
+      callCloudTm("/transportRequests",{ pageSize:100 }),
+    ]);
+    // If requests is HTML/empty — fall back to mock
+    if (!requestsData || typeof requestsData === "string" || (requestsData && !requestsData.transports && !requestsData.transportRequests && !requestsData.value && !requestsData.collection)) {
+      console.warn("Cloud TM returned unexpected format — using mock data");
+      return res.json({ configured:true, authIssue:true, message:"Cloud TM API requires dedicated service instance. Create 'Cloud Transport Management' service in BTP marketplace.", nodes:mockTmNodes(),queues:[],requests:mockTmRequests(),summary:mockTmSummary() });
+    }
     const nodes=(nodesData.nodes||nodesData.value||nodesData.transportNodes||[]);
     const requests=(requestsData.transports||requestsData.transportRequests||requestsData.collection||requestsData.value||[]).map(mapTmRequest);
     const queueResults=await Promise.allSettled(nodes.map(async n=>{ const nodeId=n.nodeId||n.id; try { const qd=await callCloudTm(`/nodes/${nodeId}/transportRequests`); return { node:n.nodeName||n.name,nodeId,env:inferEnv(n.nodeName||n.name),entries:(qd.transportRequests||qd.transports||qd.value||qd||[]).map(mapTmRequest) }; } catch { return { node:n.nodeName||n.name,nodeId,env:inferEnv(n.nodeName||n.name),entries:[] }; } }));
@@ -664,7 +670,10 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
     const totalPending=queues.reduce((s,q)=>s+q.entries.length,0);
     const summary={ totalNodes:nodes.length,totalPending,totalRequests:requests.length,imported:requests.filter(r=>r.status==="Imported").length,failed:requests.filter(r=>r.status==="Failed").length,initial:requests.filter(r=>r.status==="Initial").length,timestamp:new Date().toISOString() };
     res.json({ configured:true,nodes:nodes.map(n=>({ id:n.nodeId||n.id,name:n.nodeName||n.name,type:n.contentType||"MTA",env:inferEnv(n.nodeName||n.name),queueCount:queues.find(q=>q.nodeId===(n.nodeId||n.id))?.entries?.length??0 })),queues,requests:requests.slice(0,50),summary });
-  } catch(err){ console.error("Cloud TM dashboard:",err.message); res.json({ configured:true,error:err.message,nodes:mockTmNodes(),queues:[],requests:mockTmRequests(),summary:mockTmSummary() }); }
+  } catch(err){
+    console.error("Cloud TM dashboard:",err.message);
+    res.json({ configured:true, authIssue:true, message:"Create 'Cloud Transport Management' service instance in BTP marketplace to get correct API credentials.", nodes:mockTmNodes(),queues:[],requests:mockTmRequests(),summary:mockTmSummary() });
+  }
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
