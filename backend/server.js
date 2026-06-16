@@ -523,7 +523,14 @@ async function getCloudTmToken() {
   clientId=clientId||process.env.CLOUD_TM_CLIENT_ID; clientSecret=clientSecret||process.env.CLOUD_TM_CLIENT_SECRET; tokenUrl=tokenUrl||process.env.CLOUD_TM_TOKEN_URL;
   if (!clientId) throw new Error("Cloud TM credentials not configured. Set CLOUD_TM_SERVICE_KEY env var.");
   const fullUrl=tokenUrl.endsWith("/oauth/token")?tokenUrl:`${tokenUrl}/oauth/token`;
-  const r=await axios.post(fullUrl,new URLSearchParams({ grant_type:"client_credentials",client_id:clientId,client_secret:clientSecret }),{ headers:{ "Content-Type":"application/x-www-form-urlencoded" }, httpsAgent });
+  // Cloud TM requires token with correct audience — add client_id as audience hint
+  const params = new URLSearchParams({
+    grant_type:    "client_credentials",
+    client_id:     clientId,
+    client_secret: clientSecret,
+    response_type: "token",
+  });
+  const r=await axios.post(fullUrl, params, { headers:{ "Content-Type":"application/x-www-form-urlencoded" }, httpsAgent });
   cloudTmToken=r.data.access_token; cloudTmTokenExpiry=Date.now()+(r.data.expires_in||3600)*1000;
   console.log("✅ Cloud TM token fetched"); return cloudTmToken;
 }
@@ -537,8 +544,66 @@ async function callCloudTm(path, params={}) {
   const baseUrl=getCloudTmBaseUrl();
   const qs=Object.keys(params).length?"?"+new URLSearchParams(params).toString():"";
   const url=`${baseUrl}/v1${path}${qs}`;
-  const token=await getCloudTmToken();
-  const r=await axios.get(url,{ headers:{ Authorization:`Bearer ${token}`, Accept:"application/json" }, httpsAgent, timeout:12000 });
+
+  // Try 1: Basic Auth (simplest — username/password)
+  if (process.env.CLOUD_TM_USERNAME && process.env.CLOUD_TM_PASSWORD) {
+    try {
+      const basicAuth = Buffer.from(`${process.env.CLOUD_TM_USERNAME}:${process.env.CLOUD_TM_PASSWORD}`).toString("base64");
+      const r = await axios.get(url, {
+        headers: { Authorization: `Basic ${basicAuth}`, Accept: "application/json" },
+        httpsAgent, timeout: 12000
+      });
+      if ((r.headers?.["content-type"]||"").includes("text/html")) throw new Error("Got HTML");
+      console.log(`✅ Cloud TM basic auth: ${url}`);
+      return r.data;
+    } catch(err) {
+      console.warn(`⚠️ Cloud TM basic auth failed: ${err.response?.status||err.message}`);
+    }
+  }
+
+  // Try 2: Bearer token from CLOUD_TM_SERVICE_KEY
+  try {
+    const token = await getCloudTmToken();
+    const r = await axios.get(url, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      httpsAgent, timeout: 12000
+    });
+    if ((r.headers?.["content-type"]||"").includes("text/html")) throw new Error("Got HTML");
+    return r.data;
+  } catch(err) {
+    console.warn(`⚠️ Cloud TM bearer token failed: ${err.response?.status||err.message}`);
+  }
+
+  // Try 3: Via BTP Destination
+  if (destinationCredentials) {
+    try {
+      return await fetchViaDestination(CLOUD_TM_DEST_NAME, `/v1${path}`, params);
+    } catch(err) {
+      console.warn(`⚠️ Cloud TM destination failed: ${err.message}`);
+    }
+  }
+
+  throw new Error("Cloud TM: all authentication methods failed");
+}
+
+// fetchViaDestination helper for Cloud TM
+async function fetchViaDestination(destName, path, params={}) {
+  if (!destinationCredentials) throw new Error("Destination Service not bound");
+  const token  = await getBTPToken();
+  const config = await axios.get(
+    `${destinationCredentials.uri}/destination-configuration/v1/destinations/${destName}`,
+    { headers:{ Authorization:`Bearer ${token}` }, httpsAgent }
+  );
+  const conf   = config.data?.destinationConfiguration||{};
+  const baseUrl= conf.URL||conf.url;
+  if (!baseUrl) throw new Error(`No URL in destination ${destName}`);
+  const tok    = (config.data?.authTokens||[])[0];
+  if (!tok?.value||tok.error) throw new Error(`No auth token for ${destName}: ${tok?.error||"missing"}`);
+  const qs     = Object.keys(params).length?"?"+new URLSearchParams(params).toString():"";
+  const r      = await axios.get(`${baseUrl}${path}${qs}`,{
+    headers:{ Authorization:`Bearer ${tok.value}`, Accept:"application/json" },
+    httpsAgent, timeout:15000
+  });
   return r.data;
 }
 
