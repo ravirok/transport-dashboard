@@ -651,70 +651,55 @@ app.get("/api/cloudtm/requests/:id", async (req, res) => {
 });
 
 app.get("/api/cloudtm/dashboard", async (req, res) => {
-  // Try all known working Cloud ALM paths for transport/deployment data
   try {
-    const results = await Promise.allSettled([
-      tryALMPaths(["/api/imp-cdm-srv/v1/features?$top=100", "/api/imp-cdm-srv/v0/features?$top=100"]),
-      tryALMPaths(["/api/calm-projects/v1/projects?$top=50", "/api/imp-pjm-srv/v1/projects?$top=50"]),
-      tryALMPaths(["/api/imp-cdm-srv/v1/transportRequests?$top=100"]),
-      tryALMPaths(["/api/calm-operations/v1/deploymentOperations?$top=100", "/api/calm-operations/v0/deploymentOperations?$top=100"]),
-    ]);
+    // /api/calm-projects/v1/projects is confirmed working
+    const projectsRaw = await fetchFromALM("/api/calm-projects/v1/projects?$top=100");
+    const projects    = parseALMResponse(projectsRaw);
+    console.log(`✅ Cloud TM dashboard: ${projects.length} projects from Cloud ALM`);
 
-    const features     = parseALMResponse(results[0].status === "fulfilled" ? results[0].value : null);
-    const projects     = parseALMResponse(results[1].status === "fulfilled" ? results[1].value : null);
-    const tmRequests   = parseALMResponse(results[2].status === "fulfilled" ? results[2].value : null);
-    const deployOps    = parseALMResponse(results[3].status === "fulfilled" ? results[3].value : null);
-
-    console.log(`Cloud TM sources: features=${features.length} projects=${projects.length} tmRequests=${tmRequests.length} deployOps=${deployOps.length}`);
-
-    // Use whichever source has data
-    const source = tmRequests.length > 0 ? tmRequests
-                 : features.length   > 0 ? features
-                 : deployOps.length  > 0 ? deployOps
-                 : projects;
-
-    if (source.length > 0) {
-      const requests = source.map(f => ({
-        id:          f.id || f.transportRequestId || "—",
-        name:        f.title || f.name || f.featureName || f.description || "—",
-        description: f.description || f.title || "",
-        status:      f.status === "DEPLOYED"    || f.status === "Imported"    ? "Imported"
-                   : f.status === "FAILED"      || f.status === "Failed"      ? "Failed"
-                   : f.status === "IN_PROGRESS" || f.status === "Running"     ? "Running"
+    if (projects.length > 0) {
+      // Map projects to transport request format
+      const requests = projects.map(p => ({
+        id:          p.id        || p.projectId  || "—",
+        name:        p.name      || p.title      || "—",
+        description: p.description || p.purpose  || "",
+        status:      p.status === "CLOSED"   || p.status === "COMPLETED" ? "Imported"
+                   : p.status === "FAILED"   ? "Failed"
+                   : p.status === "OPEN"     || p.status === "IN_PROGRESS" ? "Initial"
                    : "Initial",
-        owner:       f.assigneeId || f.createdBy || f.owner || "—",
-        createdAt:   f.createdAt  || f.createDate || null,
-        targetNode:  f.targetSystemId || f.targetNode || f.origin || "HCL-BTP",
-        contentType: f.contentType || "MTA",
+        owner:       p.responsible || p.createdBy || p.assigneeId || "—",
+        createdAt:   p.createdAt   || p.createDate || null,
+        targetNode:  p.currentPhase || p.type     || "HCL-BTP",
+        contentType: "PROJECT",
+        phase:       p.currentPhase || "—",
+        type:        p.type         || p.projectType || "—",
       }));
 
-      // Build nodes from unique target systems or use mock nodes
-      const nodeMap = {};
-      requests.forEach(r => {
-        const node = r.targetNode || "HCL-BTP";
-        if (!nodeMap[node]) nodeMap[node] = { id:node, name:node, env:inferEnv(node), type:"MTA", queueCount:0 };
-        if (r.status === "Initial" || r.status === "Running") nodeMap[node].queueCount++;
-      });
-      const nodes = Object.values(nodeMap).length > 0 ? Object.values(nodeMap) : mockTmNodes();
+      // Fixed nodes — BTP pipeline
+      const nodes = mockTmNodes();
+      nodes[0].queueCount = requests.filter(r => r.status === "Initial").length;
 
       const summary = {
-        totalNodes:    nodes.length,
+        totalNodes:    3,
         totalPending:  requests.filter(r => r.status === "Initial").length,
         totalRequests: requests.length,
         imported:      requests.filter(r => r.status === "Imported").length,
         failed:        requests.filter(r => r.status === "Failed").length,
         initial:       requests.filter(r => r.status === "Initial").length,
         timestamp:     new Date().toISOString(),
-        source:        "Cloud ALM",
+        source:        "Cloud ALM Projects",
       };
-      console.log(`✅ Cloud TM dashboard via Cloud ALM: ${requests.length} items`);
-      return res.json({ configured:true, source:"calm", nodes, queues:[], requests:requests.slice(0,50), summary });
+
+      return res.json({
+        configured: true, source: "calm-projects",
+        nodes, queues: [], requests: requests.slice(0, 50), summary,
+      });
     }
   } catch(err) {
-    console.warn("Cloud TM via Cloud ALM failed:", err.message);
+    console.warn("Cloud TM dashboard error:", err.message);
   }
 
-  // Final fallback: mock data
+  // Fallback mock
   res.json({
     configured: true, source: "mock",
     nodes: mockTmNodes(), queues: [], requests: mockTmRequests(), summary: mockTmSummary(),
