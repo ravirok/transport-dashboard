@@ -332,6 +332,21 @@ app.get("/api/calm/x509debug", async (req, res) => {
 });
 
 // GET /api/calm/catalog — try to discover available services via SAP API catalog patterns
+// GET /api/calm/projects/sample — see full structure of one real project
+app.get("/api/calm/projects/sample", async (req, res) => {
+  try {
+    const data = await fetchFromALM("/api/calm-projects/v1/projects?$top=3");
+    const items = parseALMResponse(data);
+    res.json({
+      count: items.length,
+      sampleFields: items[0] ? Object.keys(items[0]) : [],
+      samples: items,
+    });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
 app.get("/api/calm/catalog", async (req, res) => {
   const result = { tried: {} };
   const catalogPaths = [
@@ -348,6 +363,28 @@ app.get("/api/calm/catalog", async (req, res) => {
       result.tried[p] = { ok: true, preview: JSON.stringify(data).slice(0, 300) };
     } catch (e) {
       result.tried[p] = { ok: false, status: e.response?.status };
+    }
+  }
+  res.json(result);
+});
+
+// GET /api/calm/features/test — test the officially documented Features API path
+// Per SAP docs: https://help.sap.com/docs/cloud-alm/apis/features
+// GET https://<tenant>.<region>.alm.cloud.sap/api/calm-features/v1/Features/{uuid}
+// Requires scope: calm-api.features.read
+app.get("/api/calm/features/test", async (req, res) => {
+  const paths = [
+    "/api/calm-features/v1/Features",
+    "/api/calm-features/v1/Features?$top=10",
+    "/api/calm-features/v1/Features?$top=10&$format=json",
+  ];
+  const result = {};
+  for (const p of paths) {
+    try {
+      const data = await fetchFromALM(p);
+      result[p] = { ok: true, keys: Object.keys(data||{}), count: parseALMResponse(data).length, sample: JSON.stringify(data).slice(0,300) };
+    } catch (e) {
+      result[p] = { ok: false, status: e.response?.status, body: JSON.stringify(e.response?.data||{}).slice(0,300) };
     }
   }
   res.json(result);
@@ -375,13 +412,8 @@ app.get("/api/calm/discover", async (req, res) => {
     "/api/calm-tm/v1/transportRequests?$top=1",
     "/api/imp-tkm-srv/v1/tasks?$top=1",
     "/api/calm-cdm/v1/features?$top=1",
-    // Additional feature path variations
-    "/api/calm-feature/v1/features?$top=1",
-    "/api/calm-features/v1/features?$top=1",
-    "/api/imp-fea-srv/v1/features?$top=1",
-    "/api/calm-cdm-srv/v1/features?$top=1",
-    "/api/imp-cdm-srv/v2/features?$top=1",
-    "/api/calm-cdm/v2/features?$top=1",
+    "/api/calm-features/v1/Features?$top=1",
+    "/api/calm-features/v1/Features",
   ];
   const results={};
   for (const path of testPaths) {
@@ -406,9 +438,13 @@ app.get("/api/calm/debug", async (req, res) => {
 app.get("/api/calm/health", async (req, res) => {
   const timer=setTimeout(()=>{ if (!res.headersSent) res.json({ criticalAlerts:0,warningAlerts:0,transportManagement:{pendingCount:0,failedCount:0,pipelineStatus:"UNKNOWN",lastDeployment:null},changeManagement:{openCount:0,pendingApproval:0,approvedCount:0,rejectedCount:0,deployedCount:0,complianceRate:100,projectCount:0,taskCount:0},healthMonitoring:{criticalCount:0,warningCount:0,prodAvailability:"99.9",systemsMonitored:0},alerts:[],projects:[],error:"timeout" }); },9000);
   try {
-    const projectsRaw=await tryALMPaths(["/api/calm-projects/v1/projects?$top=200&$orderby=createdAt%20desc","/api/calm-projects/v1/projects?$top=200","/api/imp-pjm-srv/v1/projects?$top=200"]);
-    const projects=parseALMResponse(projectsRaw);
-    console.log(`📁 Cloud ALM projects fetched: ${projects.length} (raw count check)`);
+    const projectsRaw=await tryALMPaths(["/api/calm-projects/v1/projects?$top=200","/api/imp-pjm-srv/v1/projects?$top=200"]);
+    const projects=parseALMResponse(projectsRaw).sort((a,b)=>{
+      const da=new Date(a.createdAt||a.createDate||0).getTime();
+      const db=new Date(b.createdAt||b.createDate||0).getTime();
+      return db-da; // newest first
+    });
+    console.log(`📁 Cloud ALM projects fetched: ${projects.length} (sorted newest-first)`);
     const [featRaw,hmRaw]=await Promise.all([tryALMPaths(["/api/imp-cdm-srv/v1/features?$top=100","/api/imp-cdm-srv/v0/features?$top=100"]).catch(()=>null),tryALMPaths(["/api/ops-alm-evt-srv/v1/events?$top=50","/api/calm-health/v1/events?$top=50"]).catch(()=>null)]);
     const features=parseALMResponse(featRaw), hmAlerts=parseALMResponse(hmRaw);
     let allTasks=[];
@@ -433,7 +469,7 @@ app.get("/api/calm/health", async (req, res) => {
 
 app.get("/api/calm/changes/all", async (req, res) => {
   try {
-    const projectsRaw=await tryALMPaths(["/api/calm-projects/v1/projects?$top=200&$orderby=createdAt%20desc","/api/imp-pjm-srv/v1/projects?$top=100"]);
+    const projectsRaw=await tryALMPaths(["/api/calm-projects/v1/projects?$top=200","/api/imp-pjm-srv/v1/projects?$top=200"]);
     const projects=parseALMResponse(projectsRaw);
     let allTasks=[];
     for (const proj of projects.slice(0,10)) {
@@ -479,7 +515,7 @@ app.post("/api/calm/projects", async (req, res) => {
     let verified = false;
     let createdId = result?.id || result?.projectId;
     try {
-      const checkRaw = await fetchFromALM("/api/calm-projects/v1/projects?$top=200&$orderby=createdAt%20desc");
+      const checkRaw = await fetchFromALM("/api/calm-projects/v1/projects?$top=200");
       const checkList = parseALMResponse(checkRaw);
       verified = checkList.some(p => (p.id || p.projectId) === createdId || p.name === name);
       console.log(`🔍 Verification: project "${name}" found in list = ${verified} (${checkList.length} total projects)`);
@@ -776,7 +812,7 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
     const [tmRaw, crRaw, projRaw] = await Promise.allSettled([
       fetchFromALM("/api/imp-cdm-srv/v1/transportRequests?$top=100"),
       fetchFromALM("/api/calm-requirements/v0/changeRequests?$top=100&$orderby=createdAt desc"),
-      fetchFromALM("/api/calm-projects/v1/projects?$top=200&$orderby=createdAt%20desc"),
+      fetchFromALM("/api/calm-projects/v1/projects?$top=200"),
     ]);
 
     const tmItems = tmRaw.status === "fulfilled" ? parseALMResponse(tmRaw.value) : [];
