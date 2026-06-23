@@ -406,8 +406,9 @@ app.get("/api/calm/debug", async (req, res) => {
 app.get("/api/calm/health", async (req, res) => {
   const timer=setTimeout(()=>{ if (!res.headersSent) res.json({ criticalAlerts:0,warningAlerts:0,transportManagement:{pendingCount:0,failedCount:0,pipelineStatus:"UNKNOWN",lastDeployment:null},changeManagement:{openCount:0,pendingApproval:0,approvedCount:0,rejectedCount:0,deployedCount:0,complianceRate:100,projectCount:0,taskCount:0},healthMonitoring:{criticalCount:0,warningCount:0,prodAvailability:"99.9",systemsMonitored:0},alerts:[],projects:[],error:"timeout" }); },9000);
   try {
-    const projectsRaw=await tryALMPaths(["/api/calm-projects/v1/projects?$top=100","/api/imp-pjm-srv/v1/projects?$top=100"]);
+    const projectsRaw=await tryALMPaths(["/api/calm-projects/v1/projects?$top=200&$orderby=createdAt%20desc","/api/calm-projects/v1/projects?$top=200","/api/imp-pjm-srv/v1/projects?$top=200"]);
     const projects=parseALMResponse(projectsRaw);
+    console.log(`📁 Cloud ALM projects fetched: ${projects.length} (raw count check)`);
     const [featRaw,hmRaw]=await Promise.all([tryALMPaths(["/api/imp-cdm-srv/v1/features?$top=100","/api/imp-cdm-srv/v0/features?$top=100"]).catch(()=>null),tryALMPaths(["/api/ops-alm-evt-srv/v1/events?$top=50","/api/calm-health/v1/events?$top=50"]).catch(()=>null)]);
     const features=parseALMResponse(featRaw), hmAlerts=parseALMResponse(hmRaw);
     let allTasks=[];
@@ -426,13 +427,13 @@ app.get("/api/calm/health", async (req, res) => {
     const prodAvail=hmCritical>0?String(Math.max(85,100-hmCritical*3).toFixed(1)):"99.9";
     clearTimeout(timer);
     if (res.headersSent) return;
-    res.json({ criticalAlerts:hmCritical,warningAlerts:hmWarning,transportManagement:{pendingCount:tmPending,failedCount:tmFailed,pipelineStatus,lastDeployment:null,featuresCount:features.length},changeManagement:{openCount:cmOpen,pendingApproval:cmPending,approvedCount:cmClosed,rejectedCount:0,deployedCount:cmClosed,complianceRate:cmCompliance,projectCount:projects.length,taskCount:allTasks.length},healthMonitoring:{criticalCount:hmCritical,warningCount:hmWarning,prodAvailability:prodAvail,systemsMonitored:[...new Set(hmAlerts.map(a=>a.serviceId||a.systemId).filter(Boolean))].length},alerts:hmAlerts.slice(0,50).map(a=>({id:a.id,severity:a.severity,systemId:a.serviceId||a.systemId||"SYSTEM",message:a.description||a.name||"Alert",type:a.alertType||a.type,createdAt:a.createdAt})),projects:projects.slice(0,96).map(p=>({id:p.id||p.projectId,title:p.name||p.title||"",status:p.status||"OPEN",type:p.type||p.projectType||"PROJECT",currentPhase:p.currentPhase||p.phase,startDate:p.startDate,endDate:p.endDate,createdAt:p.createdAt||p.createDate,operationalStatus:p.operationalStatus,purpose:p.purpose})) });
+    res.json({ criticalAlerts:hmCritical,warningAlerts:hmWarning,transportManagement:{pendingCount:tmPending,failedCount:tmFailed,pipelineStatus,lastDeployment:null,featuresCount:features.length},changeManagement:{openCount:cmOpen,pendingApproval:cmPending,approvedCount:cmClosed,rejectedCount:0,deployedCount:cmClosed,complianceRate:cmCompliance,projectCount:projects.length,taskCount:allTasks.length},healthMonitoring:{criticalCount:hmCritical,warningCount:hmWarning,prodAvailability:prodAvail,systemsMonitored:[...new Set(hmAlerts.map(a=>a.serviceId||a.systemId).filter(Boolean))].length},alerts:hmAlerts.slice(0,50).map(a=>({id:a.id,severity:a.severity,systemId:a.serviceId||a.systemId||"SYSTEM",message:a.description||a.name||"Alert",type:a.alertType||a.type,createdAt:a.createdAt})),projects:projects.slice(0,200).map(p=>({id:p.id||p.projectId,title:p.name||p.title||"",status:p.status||"OPEN",type:p.type||p.projectType||"PROJECT",currentPhase:p.currentPhase||p.phase,startDate:p.startDate,endDate:p.endDate,createdAt:p.createdAt||p.createDate,operationalStatus:p.operationalStatus,purpose:p.purpose})) });
   } catch(err) { clearTimeout(timer); if (!res.headersSent) res.json({ criticalAlerts:0,warningAlerts:0,transportManagement:{pendingCount:0,failedCount:0,pipelineStatus:"UNKNOWN",lastDeployment:null},changeManagement:{openCount:0,pendingApproval:0,approvedCount:0,rejectedCount:0,deployedCount:0,complianceRate:100,projectCount:0,taskCount:0},healthMonitoring:{criticalCount:0,warningCount:0,prodAvailability:"99.9",systemsMonitored:0},alerts:[],projects:[],error:err.message }); }
 });
 
 app.get("/api/calm/changes/all", async (req, res) => {
   try {
-    const projectsRaw=await tryALMPaths(["/api/calm-projects/v1/projects?$top=100","/api/imp-pjm-srv/v1/projects?$top=100"]);
+    const projectsRaw=await tryALMPaths(["/api/calm-projects/v1/projects?$top=200&$orderby=createdAt%20desc","/api/imp-pjm-srv/v1/projects?$top=100"]);
     const projects=parseALMResponse(projectsRaw);
     let allTasks=[];
     for (const proj of projects.slice(0,10)) {
@@ -478,7 +479,7 @@ app.post("/api/calm/projects", async (req, res) => {
     let verified = false;
     let createdId = result?.id || result?.projectId;
     try {
-      const checkRaw = await fetchFromALM("/api/calm-projects/v1/projects?$top=100");
+      const checkRaw = await fetchFromALM("/api/calm-projects/v1/projects?$top=200&$orderby=createdAt%20desc");
       const checkList = parseALMResponse(checkRaw);
       verified = checkList.some(p => (p.id || p.projectId) === createdId || p.name === name);
       console.log(`🔍 Verification: project "${name}" found in list = ${verified} (${checkList.length} total projects)`);
@@ -775,7 +776,7 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
     const [tmRaw, crRaw, projRaw] = await Promise.allSettled([
       fetchFromALM("/api/imp-cdm-srv/v1/transportRequests?$top=100"),
       fetchFromALM("/api/calm-requirements/v0/changeRequests?$top=100&$orderby=createdAt desc"),
-      fetchFromALM("/api/calm-projects/v1/projects?$top=100"),
+      fetchFromALM("/api/calm-projects/v1/projects?$top=200&$orderby=createdAt%20desc"),
     ]);
 
     const tmItems = tmRaw.status === "fulfilled" ? parseALMResponse(tmRaw.value) : [];
