@@ -298,6 +298,12 @@ async function patchToALM(path, body) {
   return res.data;
 }
 
+async function postToALM(path, body) {
+  const { baseUrl, authToken, tokenType } = await resolveCALMDestination();
+  const res = await axios.post(`${baseUrl}${path}`, body, { headers: { Authorization: `${tokenType} ${authToken}`, Accept: "application/json", "Content-Type": "application/json" }, httpsAgent });
+  return res.data;
+}
+
 function getCALMBaseUrl() { return calmDestCache?.baseUrl || `via destination: ${CALM_DESTINATION_NAME}`; }
 function isThisWeek(dateStr) { if (!dateStr) return false; const d=new Date(dateStr); return d>=new Date(Date.now()-7*24*60*60*1000); }
 
@@ -328,7 +334,23 @@ app.get("/api/calm/x509debug", async (req, res) => {
 app.get("/api/calm/discover", async (req, res) => {
   let resolvedBase="unknown";
   try { resolvedBase=(await resolveCALMDestination()).baseUrl; } catch(e){ resolvedBase=e.message; }
-  const testPaths=["/api/imp-cdm-srv/v1/features?$top=1","/api/imp-pjm-srv/v1/projects?$top=1","/api/calm-projects/v1/projects?$top=1","/api/calm-tasks/v1/tasks","/api/ops-alm-evt-srv/v1/events?$top=1","/api/ops-ihm-srv/v1/healthStatus?$top=1","/api/calm-analytics/v1/providers","/api/imp-cdm-srv/v1/transportRequests?$top=1"];
+  const testPaths=[
+    "/api/imp-cdm-srv/v1/features?$top=1",
+    "/api/imp-pjm-srv/v1/projects?$top=1",
+    "/api/calm-projects/v1/projects?$top=1",
+    "/api/calm-tasks/v1/tasks?$top=1",
+    "/api/ops-alm-evt-srv/v1/events?$top=1",
+    "/api/ops-ihm-srv/v1/healthStatus?$top=1",
+    "/api/calm-analytics/v1/providers",
+    "/api/imp-cdm-srv/v1/transportRequests?$top=1",
+    "/api/calm-requirements/v0/changeRequests?$top=1",
+    "/api/calm-requirements/v1/changeRequests?$top=1",
+    "/api/calm-operations/v0/deploymentOperations?$top=1",
+    "/api/calm-operations/v1/deploymentOperations?$top=1",
+    "/api/calm-tm/v1/transportRequests?$top=1",
+    "/api/imp-tkm-srv/v1/tasks?$top=1",
+    "/api/calm-cdm/v1/features?$top=1",
+  ];
   const results={};
   for (const path of testPaths) {
     try { const data=await fetchFromALM(path); results[path]={ ok:true, keys:Object.keys(data||{}), count:data?.value?.length??0 }; }
@@ -408,6 +430,22 @@ app.patch("/api/calm/changes/:changeId/deploy", async (req, res) => {
   const { changeId }=req.params;
   try { await patchToALM(`/api/calm-requirements/v0/changeRequests/${changeId}`,{ status:"DEPLOYED", deployedAt:new Date().toISOString(), comment:`Deployed via TransTrack Pro at ${new Date().toISOString()}` }); res.json({ success:true, message:`CR ${changeId} updated to DEPLOYED in Cloud ALM.` }); }
   catch(err){ res.status(500).json({ error:err.message }); }
+});
+
+// POST /api/calm/projects — create a new project in Cloud ALM
+app.post("/api/calm/projects", async (req, res) => {
+  const { name, description = "", type = "PROJECT", startDate, endDate } = req.body;
+  if (!name) return res.status(400).json({ error: "Project name is required" });
+  try {
+    const body = { name, description, type, status: "OPEN", startDate: startDate || new Date().toISOString(), endDate: endDate || null };
+    const result = await postToALM("/api/calm-projects/v1/projects", body);
+    console.log(`✅ Project created in Cloud ALM: ${name}`);
+    res.json({ success: true, project: result, message: `Project "${name}" created successfully in Cloud ALM.` });
+  } catch (err) {
+    const detail = err.response?.data || err.message;
+    console.error("❌ Create project error:", typeof detail === "object" ? JSON.stringify(detail) : detail);
+    res.status(err.response?.status || 500).json({ error: typeof detail === "object" ? (detail.message || JSON.stringify(detail)) : detail });
+  }
 });
 
 app.get("/api/calm/tm/deployments", async (req, res) => {
