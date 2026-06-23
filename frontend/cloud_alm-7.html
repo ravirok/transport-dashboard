@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<title>SAP Cloud ALM — Command Center v3.1</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --shell:#354a5e;--bg:#f5f6f8;--surface:#fff;--surface2:#f5f6f8;
+  --border:#d9dbdd;--blue:#0070f2;--blue-l:#e8f2ff;--blue-m:#b3d4fc;
+  --green:#107e3e;--green-l:#f1fdf6;--green-m:#b5dfc9;
+  --amber:#e76500;--amber-l:#fff3ea;--amber-m:#f5c8a0;
+  --red:#bb0000;--red-l:#ffeaea;--red-m:#f5c2c2;
+  --purple:#6a28aa;--purple-l:#f4ecfb;--purple-m:#d4b8ed;
+  --teal:#04838f;--teal-l:#e5f8f9;--teal-m:#9de0e6;
+  --ai:#1b3a6b;--ai-l:#e8eef7;--ai-m:#b3c6e0;
+  --text:#32363a;--text-hi:#000;--text-lo:#6a6d70;--text-med:#515457;
+  --mono:'IBM Plex Mono',monospace;--sans:'DM Sans',sans-serif;
+  --r:6px;--r-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.shell{height:44px;background:var(--shell);display:flex;align-items:center;padding:0 16px;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.shell-sap{font-family:var(--mono);font-size:13px;font-weight:600;color:#fff;background:rgba(255,255,255,.12);padding:2px 8px;border-radius:3px;letter-spacing:1px}
+.shell-product{font-size:13px;font-weight:500;color:rgba(255,255,255,.9)}
+.shell-sep{width:1px;height:22px;background:rgba(255,255,255,.2)}
+.shell-tabs{display:flex;gap:2px}
+.shell-tab{font-size:12px;color:rgba(255,255,255,.7);padding:5px 13px;border-radius:4px;cursor:pointer;border:none;background:none;transition:all .15s;font-family:var(--sans)}
+.shell-tab:hover{background:rgba(255,255,255,.1);color:#fff}
+.shell-tab.active{background:rgba(255,255,255,.18);color:#fff;font-weight:500}
+.shell-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.live-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.8);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);padding:3px 10px;border-radius:20px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#4caf50;animation:pulse 1.5s infinite}
+.subheader{background:var(--surface);border-bottom:1px solid var(--border);padding:7px 20px;display:flex;align-items:center;gap:10px;font-size:12px}
+.breadcrumb{color:var(--text-lo);display:flex;align-items:center;gap:5px}
+.breadcrumb .cur{color:var(--text);font-weight:500}
+.subheader-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.sub-btn{font-size:11px;padding:4px 11px;border-radius:var(--r);border:1px solid var(--blue);color:var(--blue);background:var(--surface);cursor:pointer;font-family:var(--sans);text-decoration:none}
+.page{max-width:1500px;margin:0 auto;padding:16px 20px 60px}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.ai-card{background:var(--surface);border:1.5px solid var(--blue-m);border-radius:var(--r-lg);overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.08);margin-bottom:16px;position:relative}
+.ai-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--ai),var(--blue),#00b4d8)}
+.ai-head{display:flex;align-items:center;gap:14px;padding:13px 18px;background:linear-gradient(135deg,var(--ai-l),#f0f6ff);border-bottom:1px solid var(--blue-m)}
+.ai-brain{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--ai),var(--blue));display:grid;place-items:center;font-size:18px;box-shadow:0 4px 12px rgba(27,58,107,.25);flex-shrink:0}
+.ai-head-title{font-size:13px;font-weight:600;color:var(--ai)}
+.ai-head-sub{font-size:11px;color:var(--text-lo);margin-top:1px}
+.ai-badge{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;background:var(--ai-l);color:var(--ai);border:1px solid var(--ai-m);padding:3px 9px;border-radius:20px}
+.ai-powered-dot{width:6px;height:6px;border-radius:50%;background:var(--blue);animation:pulse 2s infinite}
+.ai-model{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text-lo);text-align:right}
+.ai-body{display:grid;grid-template-columns:180px 1fr 1fr 1fr 1fr}
+.ai-score-cell{padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid var(--border);background:linear-gradient(180deg,var(--ai-l),var(--surface))}
+.score-ring{transform:rotate(-90deg)}
+.score-bg{fill:none;stroke:#eaecee;stroke-width:9}
+.score-fill{fill:none;stroke-width:9;stroke-linecap:round;transition:stroke-dasharray .8s}
+.score-wrap{position:relative;margin-bottom:6px}
+.score-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.score-num{font-size:26px;font-weight:700;color:var(--text-hi);line-height:1}
+.score-unit{font-family:var(--mono);font-size:9px;color:var(--text-lo)}
+.score-lbl{font-family:var(--mono);font-size:9px;color:var(--text-lo);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px}
+.score-status{font-size:11px;font-weight:600;margin-top:2px}
+.ai-pred{padding:14px 16px;border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between}
+.ai-pred:last-child{border-right:none}
+.ai-pred-lbl{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-lo);margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.ai-tag{background:var(--ai-l);color:var(--ai);border:1px solid var(--ai-m);padding:1px 5px;border-radius:3px;font-size:8px}
+.ai-val{font-size:22px;font-weight:700;color:var(--text-hi);line-height:1;margin-bottom:4px}
+.ai-val.low{color:var(--green)}.ai-val.med{color:var(--amber)}.ai-val.high{color:var(--red)}
+.ai-sub{font-size:11px;color:var(--text-lo);margin-bottom:6px}
+.mini-bar-track{height:4px;border-radius:2px;background:var(--bg);border:1px solid var(--border);overflow:hidden;margin-top:4px}
+.mini-bar-fill{height:100%;border-radius:2px;transition:width .8s}
+.mini-bar-lbls{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--text-lo);margin-bottom:2px}
+.ai-footer{padding:9px 18px;border-top:1px solid var(--border);background:var(--ai-l);display:flex;align-items:center;gap:10px;font-size:12px;color:var(--ai)}
+.ai-footer-time{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text-lo)}
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative;overflow:hidden;animation:fadeUp .4s ease both}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kline,var(--blue));border-radius:var(--r-lg) var(--r-lg) 0 0}
+.kpi.green{--kline:var(--green)}.kpi.red{--kline:var(--red)}.kpi.amber{--kline:var(--amber)}.kpi.purple{--kline:var(--purple)}
+.kpi-icon{font-size:18px;margin-bottom:7px}
+.kpi-lbl{font-size:11px;color:var(--text-lo);font-weight:500;margin-bottom:3px}
+.kpi-val{font-size:28px;font-weight:700;color:var(--text-hi);line-height:1}
+.kpi.green .kpi-val{color:var(--green)}.kpi.red .kpi-val{color:var(--red)}.kpi.amber .kpi-val{color:var(--amber)}.kpi.purple .kpi-val{color:var(--purple)}
+.kpi-sub{font-size:11px;color:var(--text-lo);margin-top:3px}
+.modules-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.module{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.module-head{padding:11px 14px 9px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;background:var(--surface2)}
+.module-icon{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;font-size:13px;flex-shrink:0}
+.module-icon.blue{background:var(--blue-l)}.module-icon.purple{background:var(--purple-l)}.module-icon.teal{background:var(--teal-l)}
+.module-title{font-size:12px;font-weight:600;color:var(--text-hi)}
+.module-sub{font-size:10px;color:var(--text-lo)}
+.module-badge{margin-left:auto;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:20px;border:1px solid}
+.module-badge.ok{background:var(--green-l);color:var(--green);border-color:var(--green-m)}
+.module-badge.warn{background:var(--amber-l);color:var(--amber);border-color:var(--amber-m)}
+.module-badge.info{background:var(--blue-l);color:var(--blue);border-color:var(--blue-m)}
+.module-badge.error{background:var(--red-l);color:var(--red);border-color:var(--red-m)}
+.module-body{padding:12px 14px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.stat-row:last-child{border-bottom:none}
+.stat-key{color:var(--text-med)}
+.stat-val{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text-hi)}
+.stat-val.ok{color:var(--green)}.stat-val.warn{color:var(--amber)}.stat-val.error{color:var(--red)}.stat-val.blue{color:var(--blue)}
+.mbar{margin-top:8px}.mbar-l{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--text-lo);margin-bottom:3px}
+.mbt{height:4px;border-radius:2px;background:var(--bg);border:1px solid var(--border);overflow:hidden}
+.mbf{height:100%;border-radius:2px;transition:width .9s}
+.table-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:16px}
+.tbl-toolbar{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;background:var(--surface2)}
+.tbl-title{font-size:12px;font-weight:600;color:var(--text-hi)}
+.tbl-count{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:20px;border:1px solid;background:var(--blue-l);color:var(--blue);border-color:var(--blue-m)}
+.tbl-search{margin-left:auto;background:var(--surface);border:1px solid var(--border);color:var(--text-hi);font-family:var(--sans);font-size:12px;padding:5px 10px;border-radius:var(--r);outline:none;width:180px}
+.data-table{width:100%;border-collapse:collapse}
+.data-table thead th{background:var(--bg);font-size:10px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--text-lo);padding:7px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.data-table tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.data-table tbody tr:hover{background:var(--blue-l)}
+.data-table tbody td{padding:9px 12px;font-size:12px;color:var(--text)}
+.td-mono{font-family:var(--mono);font-size:11px;color:var(--text-hi);font-weight:500}
+.td-lo{font-family:var(--mono);font-size:11px;color:var(--text-lo)}
+.chip{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:5px;border:1px solid}
+.chip-ok{background:var(--green-l);color:var(--green);border-color:var(--green-m)}
+.chip-warn{background:var(--amber-l);color:var(--amber);border-color:var(--amber-m)}
+.chip-err{background:var(--red-l);color:var(--red);border-color:var(--red-m)}
+.chip-blue{background:var(--blue-l);color:var(--blue);border-color:var(--blue-m)}
+.chip-purple{background:var(--purple-l);color:var(--purple);border-color:var(--purple-m)}
+.chip-teal{background:var(--teal-l);color:var(--teal);border-color:var(--teal-m)}
+.chip-ai{background:var(--ai-l);color:var(--ai);border-color:var(--ai-m)}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .65s linear infinite}
+.state-row{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;font-size:12px;color:var(--text-lo)}
+.status-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;height:26px;background:var(--shell);display:flex;align-items:center;padding:0 16px;gap:18px}
+.sb-item{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.65);display:flex;align-items:center;gap:5px}
+.sb-dot{width:5px;height:5px;border-radius:50%}
+.sb-dot.ok{background:#4caf50}.sb-dot.warn{background:#ff9800}.sb-dot.err{background:#f44336}
+.sb-right{margin-left:auto;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.4)}
+.drawer-backdrop{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.3)}
+.drawer-backdrop.open{display:block}
+/* drawer CSS moved *//* Business Solutions */
+.bs-header{background:linear-gradient(135deg,#1b3a6b,#0070f2,#00b4d8);border-radius:var(--r-lg);padding:18px 22px;margin-bottom:16px;display:flex;align-items:center;gap:16px;color:#fff}
+.bs-stats{margin-left:auto;display:flex;gap:20px}
+.bs-stat{text-align:center}
+.bs-stat-num{font-size:22px;font-weight:700;line-height:1}
+.bs-stat-lbl{font-size:10px;opacity:.7;letter-spacing:.5px;margin-top:2px;font-family:var(--mono)}
+.rag-section{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px}
+.rag-section-head{padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px}
+.rag-section-title{font-size:13px;font-weight:600;color:var(--text-hi)}
+.rag-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;padding:14px 16px}
+.rag-card{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:12px 13px;cursor:pointer;transition:transform .15s;position:relative;overflow:hidden}
+.rag-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.1);background:var(--surface)}
+.rag-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r-lg) var(--r-lg) 0 0}
+.rag-card.g::before{background:var(--green)}.rag-card.a::before{background:var(--amber)}.rag-card.r::before{background:var(--red)}.rag-card.b::before{background:var(--blue)}
+.rag-name{font-size:12px;font-weight:600;color:var(--text-hi);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rag-phase{font-size:10px;color:var(--text-lo);font-family:var(--mono);margin-bottom:7px}
+.rag-bar-track{height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-bottom:7px}
+.rag-bar-fill{height:100%;border-radius:2px}
+.rag-footer{display:flex;justify-content:space-between;align-items:center}
+.rag-tasks{font-family:var(--mono);font-size:10px;color:var(--text-lo)}
+.rag-ai{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:10px;border:1px solid;font-weight:600}
+.rag-ai.low{background:var(--green-l);color:var(--green);border-color:var(--green-m)}
+.rag-ai.med{background:var(--amber-l);color:var(--amber);border-color:var(--amber-m)}
+.rag-ai.high{background:var(--red-l);color:var(--red);border-color:var(--red-m)}
+.golive-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px}
+.golive-head{padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px}
+.golive-title{font-size:13px;font-weight:600;color:var(--text-hi)}
+.golive-body{display:grid;grid-template-columns:210px 1fr}
+.golive-score{padding:20px 16px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--blue-l),var(--surface))}
+.golive-ring{transform:rotate(-90deg)}
+.golive-ring-bg{fill:none;stroke:var(--bg);stroke-width:10}
+.golive-ring-fill{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dasharray 1s}
+.golive-ring-wrap{position:relative;margin-bottom:8px}
+.golive-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.golive-num{font-size:28px;font-weight:700;color:var(--text-hi);line-height:1}
+.golive-unit{font-family:var(--mono);font-size:9px;color:var(--text-lo)}
+.golive-verdict{font-size:12px;font-weight:700;margin-top:5px}
+.golive-checks{padding:14px 18px;overflow-y:auto;max-height:400px}
+.gc-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.gc-row:last-child{border-bottom:none}
+.gc-icon{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px}
+.gc-icon.pass{background:var(--green-l);color:var(--green);border:1px solid var(--green-m)}
+.gc-icon.fail{background:var(--red-l);color:var(--red);border:1px solid var(--red-m)}
+.gc-icon.warn{background:var(--amber-l);color:var(--amber);border:1px solid var(--amber-m)}
+.gc-icon.info{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)}
+.gc-label{flex:1;font-size:12.5px;font-weight:500;color:var(--text-hi)}
+.gc-detail{font-size:11px;color:var(--text-lo);margin-top:1px}
+.gc-badge{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid;align-self:center;flex-shrink:0}
+.gc-badge.pass{background:var(--green-l);color:var(--green);border-color:var(--green-m)}
+.gc-badge.fail{background:var(--red-l);color:var(--red);border-color:var(--red-m)}
+.gc-badge.warn{background:var(--amber-l);color:var(--amber);border-color:var(--amber-m)}
+.gc-badge.info{background:var(--blue-l);color:var(--blue);border-color:var(--blue-m)}
+.report-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.report-head{padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px}
+.report-title{font-size:13px;font-weight:600;color:var(--text-hi)}
+.report-body{padding:16px 18px}
+.report-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.report-metric{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;text-align:center}
+.report-metric-val{font-size:22px;font-weight:700;color:var(--text-hi);line-height:1}
+.report-metric-lbl{font-size:10px;color:var(--text-lo);margin-top:3px;font-family:var(--mono)}
+.report-ai-box{background:var(--blue-l);border:1px solid var(--blue-m);border-radius:var(--r);padding:12px 14px;font-size:12.5px;color:var(--blue);line-height:1.6;margin-bottom:12px;display:flex;gap:10px}
+.report-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.report-row:last-child{border-bottom:none}
+.report-row-key{color:var(--text-med)}
+.report-row-val{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text-hi)}
+.report-row-val.ok{color:var(--green)}.report-row-val.warn{color:var(--amber)}
+.btn-primary{padding:8px 18px;font-size:13px;font-weight:600;border-radius:var(--r);cursor:pointer;background:var(--blue);color:#fff;border:none;box-shadow:0 2px 8px rgba(0,112,242,.3);transition:all .15s;margin-right:8px}
+.btn-primary:hover{background:#0064d9;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.btn-sec{padding:8px 14px;font-size:13px;font-weight:500;border-radius:var(--r);cursor:pointer;background:var(--surface);color:var(--text-hi);border:1.5px solid var(--border);transition:all .15s}
+.btn-sec:hover{background:var(--surface2)}
+.project-selector{background:var(--surface2);border:1.5px solid var(--border);color:var(--text-hi);font-family:var(--sans);font-size:13px;padding:7px 12px;border-radius:var(--r);outline:none;min-width:280px;cursor:pointer}
+.project-selector:focus{border-color:var(--blue)}
+
+/* ── ANIMATED AI DRAWER ─────────────────────────── */
+.drawer{position:fixed;right:0;top:44px;bottom:0;z-index:401;width:480px;background:#0d0d1a;border-left:1px solid rgba(255,255,255,.08);box-shadow:-20px 0 60px rgba(0,0,0,.6);transform:translateX(100%);transition:transform .4s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;overflow:hidden}
+.drawer.open{transform:none}
+.drawer-backdrop{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
+.drawer-backdrop.open{display:block}
+.drawer-head{padding:16px 18px;background:linear-gradient(135deg,rgba(27,58,107,.9),rgba(0,112,242,.25));border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0;position:relative;overflow:hidden}
+.drawer-head::before{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%234A9ED6' fill-opacity='0.04'%3E%3Cpath d='M20 20.5V18H0v5h20v20.5h5V23h20v-5H25V0h-5v20.5z'/%3E%3C/g%3E%3C/svg%3E")}
+.proj-avatar{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#1b3a6b,#0070f2);display:grid;place-items:center;font-size:18px;flex-shrink:0;position:relative;z-index:1;box-shadow:0 4px 12px rgba(0,112,242,.3)}
+.drawer-title{font-size:14px;font-weight:700;color:#fff;position:relative;z-index:1}
+.drawer-close{margin-left:auto;width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);cursor:pointer;font-size:13px;display:grid;place-items:center;transition:all .15s;position:relative;z-index:1}
+.drawer-close:hover{background:rgba(255,255,255,.2);color:#fff}
+.drawer-body{flex:1;overflow-y:auto;position:relative;background:#0d0d1a}
+.drawer-body::-webkit-scrollbar{width:3px}
+.drawer-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+/* Analysis screen */
+@keyframes robotFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes eyeBlink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes mouthScan{0%{left:-100%}100%{left:100%}}
+@keyframes antennaPulse{0%,100%{transform:translateX(-50%) scale(1);opacity:1}50%{transform:translateX(-50%) scale(1.4);opacity:.7}}
+@keyframes ringExpand{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.8);opacity:0}}
+@keyframes aiTextPulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes waveDance{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.3)}}
+@keyframes stepPing{0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,.4)}50%{box-shadow:0 0 0 6px rgba(0,212,255,0)}}
+@keyframes shimmerLine{0%{background-position:0%}100%{background-position:200%}}
+
+.ai-analysis-screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;background:#0d0d1a;z-index:10}
+.robot-wrap{position:relative;margin-bottom:24px}
+.robot-body{width:88px;height:88px;border-radius:22px;background:linear-gradient(135deg,#1b3a6b,#0070f2);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;box-shadow:0 8px 32px rgba(0,112,242,.4);animation:robotFloat 2s ease-in-out infinite}
+.robot-antenna{position:absolute;top:-15px;left:50%;transform:translateX(-50%);width:3px;height:13px;background:rgba(255,255,255,.3);border-radius:2px}
+.robot-antenna::after{content:'';position:absolute;top:-5px;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;background:#ff6b35;box-shadow:0 0 8px #ff6b35,0 0 16px rgba(255,107,53,.5);animation:antennaPulse 1s ease-in-out infinite}
+.robot-eyes{display:flex;gap:12px;margin-bottom:6px}
+.robot-eye{width:13px;height:13px;border-radius:50%;background:#00d4ff;box-shadow:0 0 10px #00d4ff,0 0 20px rgba(0,212,255,.5);animation:eyeBlink 3s ease-in-out infinite}
+.robot-eye:nth-child(2){animation-delay:.5s}
+.robot-mouth{width:28px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);position:relative;overflow:hidden}
+.robot-mouth::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,#00d4ff,transparent);animation:mouthScan 1.5s ease-in-out infinite}
+.scan-rings{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:88px;height:88px;pointer-events:none}
+.scan-ring{position:absolute;border-radius:50%;border:1.5px solid rgba(0,212,255,.25);width:88px;height:88px;top:0;left:0;animation:ringExpand 2s ease-out infinite}
+.scan-ring:nth-child(2){animation-delay:.65s}
+.scan-ring:nth-child(3){animation-delay:1.3s}
+.ai-status-label{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
+.ai-status-main{font-size:17px;font-weight:700;color:#fff;margin-bottom:4px;text-align:center}
+.ai-status-sub{font-family:var(--mono);font-size:11px;color:#00d4ff;margin-bottom:22px;text-align:center;animation:aiTextPulse 1.5s ease-in-out infinite}
+.ai-prog-track{width:100%;max-width:300px;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin-bottom:18px;position:relative}
+.ai-prog-fill{height:100%;border-radius:2px;width:0%;background:linear-gradient(90deg,#0070f2,#00d4ff);transition:width .3s ease;box-shadow:0 0 8px rgba(0,212,255,.5)}
+.ai-scan-steps{width:100%;max-width:300px}
+.ai-scan-step{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;color:rgba(255,255,255,.35);font-family:var(--mono);transition:all .3s}
+.ai-scan-step:last-child{border-bottom:none}
+.ai-scan-step.active{color:#00d4ff}
+.ai-scan-step.done{color:rgba(255,255,255,.6)}
+.ai-step-icon{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:9px;flex-shrink:0;background:rgba(255,255,255,.05);color:rgba(255,255,255,.25)}
+.ai-scan-step.active .ai-step-icon{background:rgba(0,212,255,.15);color:#00d4ff;animation:stepPing .8s ease-in-out infinite}
+.ai-scan-step.done .ai-step-icon{background:rgba(16,126,62,.2);color:#4caf50}
+.ai-sound-waves{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:flex-end;gap:3px;height:20px}
+.wave-bar{width:3px;border-radius:2px;background:#0070f2;animation:waveDance .8s ease-in-out infinite}
+.wave-bar:nth-child(1){height:7px;animation-delay:0s}
+.wave-bar:nth-child(2){height:14px;animation-delay:.1s}
+.wave-bar:nth-child(3){height:20px;animation-delay:.2s}
+.wave-bar:nth-child(4){height:12px;animation-delay:.3s}
+.wave-bar:nth-child(5){height:18px;animation-delay:.4s}
+.wave-bar:nth-child(6){height:9px;animation-delay:.5s}
+.wave-bar:nth-child(7){height:16px;animation-delay:.6s}
+.ai-complete-flash{position:absolute;inset:0;background:rgba(0,212,255,.06);pointer-events:none;opacity:0}
+
+/* Results screen */
+.ai-results-screen{position:absolute;inset:0;padding:18px;opacity:0;pointer-events:none;overflow-y:auto;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+.ai-results-screen.visible{opacity:1;pointer-events:all;transform:translateY(0)}
+.ai-results-screen::-webkit-scrollbar{width:3px}
+.ai-results-screen::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1)}
+.ai-result-header{background:linear-gradient(135deg,rgba(27,58,107,.8),rgba(0,112,242,.2));border:1px solid rgba(0,112,242,.3);border-radius:13px;padding:13px 15px;margin-bottom:13px;display:flex;gap:12px;align-items:center;position:relative;overflow:hidden}
+.ai-result-header::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#0070f2,#00d4ff,#0070f2);background-size:200%;animation:shimmerLine 2s linear infinite}
+.ai-robot-mini{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#1b3a6b,#0070f2);display:grid;place-items:center;font-size:17px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,112,242,.35)}
+.ai-score-section{display:grid;grid-template-columns:110px 1fr;gap:11px;margin-bottom:13px}
+.ai-score-ring-wrap{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:13px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ai-res-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:9px 11px}
+.ai-res-card-lbl{font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.ai-assess-box{background:rgba(27,58,107,.2);border:1px solid rgba(0,112,242,.25);border-radius:13px;padding:13px 15px;margin-bottom:12px;position:relative;overflow:hidden}
+.ai-assess-box::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:linear-gradient(180deg,#0070f2,#00d4ff)}
+.ai-det-row{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px}
+.ai-det-key{color:rgba(255,255,255,.4)}
+.ai-det-val{font-family:var(--mono);font-size:11px;font-weight:500;color:rgba(255,255,255,.8)}
+
+
+/* ── RELEASE CALENDAR ──────────────────────────── */
+.cal-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-top:16px}
+.cal-head{padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px}
+.cal-title{font-size:13px;font-weight:600;color:var(--text-hi)}
+.cal-legend{display:flex;gap:14px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap}
+.cal-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-lo)}
+.cal-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cal-grid-wrap{padding:14px 16px}
+.cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px}
+.cal-dow{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);text-align:center;padding:4px 0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-day{min-height:72px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:5px;cursor:pointer;transition:background .1s;position:relative}
+.cal-day:hover{background:var(--blue-l);border-color:var(--blue-m)}
+.cal-day.today{border-color:var(--blue);background:var(--blue-l)}
+.cal-day.other-month{opacity:.35}
+.cal-day.has-blackout{background:#ffeaea;border-color:var(--red-m)}
+.cal-day.has-golive{background:#f1fdf6;border-color:var(--green-m)}
+.cal-day-num{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text-hi);margin-bottom:3px}
+.cal-day.today .cal-day-num{color:var(--blue);font-weight:700}
+.cal-day-events{display:flex;flex-direction:column;gap:2px}
+.cal-event-pill{font-size:9px;padding:2px 5px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;cursor:pointer}
+.cal-event-pill.blackout{background:var(--red-l);color:var(--red);border:1px solid var(--red-m)}
+.cal-event-pill.golive{background:var(--green-l);color:var(--green);border:1px solid var(--green-m)}
+.cal-event-pill.import{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)}
+.cal-event-pill.maintenance{background:var(--amber-l);color:var(--amber);border:1px solid var(--amber-m)}
+.cal-event-pill.milestone{background:var(--purple-l);color:var(--purple);border:1px solid var(--purple-m)}
+.cal-events-wrap{padding:12px 16px;border-top:1px solid var(--border)}
+.cal-events-title{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-lo);margin-bottom:10px}
+.cal-event-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);margin-bottom:6px;background:var(--surface2);font-size:12px}
+.cal-event-row:last-child{margin-bottom:0}
+.cal-event-date{font-family:var(--mono);font-size:10px;color:var(--text-lo);min-width:60px}
+.cal-event-name{flex:1;font-weight:500;color:var(--text-hi)}
+.cal-event-del{background:none;border:none;color:var(--text-lo);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;transition:all .15s}
+.cal-event-del:hover{background:var(--red-l);color:var(--red)}
+/* Modal */
+.cal-modal-backdrop{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.4);backdrop-filter:blur(2px)}
+.cal-modal-backdrop.open{display:block}
+.cal-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-60%);z-index:601;width:420px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);box-shadow:0 20px 60px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:all .25s cubic-bezier(.16,1,.3,1)}
+.cal-modal.open{opacity:1;pointer-events:all;transform:translate(-50%,-50%)}
+.cal-modal-head{padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;border-radius:var(--r-lg) var(--r-lg) 0 0}
+.cal-modal-body{padding:16px 18px}
+.cal-form-row{margin-bottom:12px}
+.cal-form-lbl{display:block;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);margin-bottom:5px}
+.cal-input{width:100%;background:var(--surface2);border:1.5px solid var(--border);color:var(--text-hi);font-family:var(--sans);font-size:13px;padding:8px 10px;border-radius:var(--r);outline:none;transition:border-color .2s}
+.cal-input:focus{border-color:var(--blue)}
+
+</style>
+</head>
+<body>
+<div class="shell">
+  <span class="shell-sap">SAP</span>
+  <span class="shell-product">Cloud ALM Command Center</span>
+  <div class="shell-sep"></div>
+  <div class="shell-tabs">
+    <button class="shell-tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="shell-tab" onclick="switchTab('changes')">Change Requests</button>
+    <button class="shell-tab" onclick="switchTab('health')">Health Monitor</button>
+    <button class="shell-tab" onclick="switchTab('transport')">Transport Mgmt</button>
+    <button class="shell-tab" onclick="switchTab('business')" style="background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3)">⭐ Business Solutions</button>
+  </div>
+  <div class="shell-right">
+    <div class="live-pill"><span class="live-dot"></span>LIVE</div>
+    <div class="sb-dot ok" id="shellDot" style="width:8px;height:8px"></div>
+  </div>
+</div>
+<div class="subheader">
+  <div class="breadcrumb"><span>Home</span><span style="color:var(--border)">›</span><span>Operations</span><span style="color:var(--border)">›</span><span class="cur" id="breadcrumbCurr">Overview</span></div>
+  <div class="subheader-right">
+    <span style="font-family:var(--mono);font-size:11px;color:var(--text-lo)" id="clockEl"></span>
+    <button class="sub-btn" onclick="loadAll()">↻ Refresh</button>
+    <a href="/index.html" class="sub-btn">← TransTrack Pro</a>
+  </div>
+</div>
+<div class="page">
+  <!-- OVERVIEW TAB -->
+  <div class="tab-panel active" id="panel-overview">
+    <!-- AI CARD -->
+    <div class="ai-card" style="margin-bottom:16px">
+      <div class="ai-head">
+        <div class="ai-brain">🧠</div>
+        <div>
+          <div class="ai-head-title">SAP Core AI — Risk Prediction Engine</div>
+          <div class="ai-head-sub">Machine learning model trained on transport history, change patterns and system health signals</div>
+        </div>
+        <div class="ai-badge"><span class="ai-powered-dot"></span>AI POWERED</div>
+        <div class="ai-model" id="aiModelInfo">Model v2.4.1 · SAP Core AI<br><span style="color:var(--amber)">⚠ Local model</span></div>
+      </div>
+      <div class="ai-body">
+        <div class="ai-score-cell">
+          <div class="score-wrap">
+            <svg class="score-ring" width="100" height="100" viewBox="0 0 100 100">
+              <circle class="score-bg" cx="50" cy="50" r="41"/>
+              <circle class="score-fill" id="scoreArc" cx="50" cy="50" r="41" stroke="var(--green)" stroke-dasharray="0 258"/>
+            </svg>
+            <div class="score-overlay">
+              <span class="score-num" id="scoreNum">—</span>
+              <span class="score-unit">/ 100</span>
+            </div>
+          </div>
+          <div class="score-lbl">HEALTH SCORE</div>
+          <div class="score-status" id="scoreStatus" style="color:var(--green)">Loading...</div>
+        </div>
+        <div class="ai-pred">
+          <div>
+            <div class="ai-pred-lbl">Import Risk <span class="ai-tag">AI</span></div>
+            <div class="ai-val low" id="aiImportRisk">—</div>
+            <div class="ai-sub" id="aiImportRiskSub">Predicted failure likelihood</div>
+          </div>
+          <div>
+            <div class="mini-bar-lbls"><span>Low</span><span>High</span></div>
+            <div class="mini-bar-track"><div class="mini-bar-fill" id="aiImportBar" style="width:0%;background:var(--green)"></div></div>
+          </div>
+        </div>
+        <div class="ai-pred">
+          <div>
+            <div class="ai-pred-lbl">Approval Rate <span class="ai-tag">AI</span></div>
+            <div class="ai-val" id="aiApprovalRate" style="color:var(--blue)">—</div>
+            <div class="ai-sub" id="aiApprovalSub">30-day predicted rate</div>
+          </div>
+          <div>
+            <div class="mini-bar-lbls"><span>0%</span><span>100%</span></div>
+            <div class="mini-bar-track"><div class="mini-bar-fill" id="aiApprovalBar" style="width:0%;background:var(--blue)"></div></div>
+          </div>
+        </div>
+        <div class="ai-pred">
+          <div class="ai-pred-lbl">Risk Factors <span class="ai-tag">AI</span></div>
+          <div id="aiFactors"><div class="spinner" style="margin:12px auto"></div></div>
+        </div>
+        <div class="ai-pred" style="border-right:none">
+          <div class="ai-pred-lbl">AI Recommendation <span class="ai-tag">AI</span></div>
+          <div id="aiRecs" style="font-size:12px;color:var(--text);line-height:1.6"><div class="spinner" style="margin:12px auto"></div></div>
+        </div>
+      </div>
+      <div class="ai-footer">
+        <span>🤖</span>
+        <span id="aiInsight">SAP Core AI is analysing your transport landscape...</span>
+        <span class="ai-footer-time" id="aiLastRun">Last run: —</span>
+      </div>
+    </div>
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-icon">🔔</div><div class="kpi-lbl">Open Alerts</div><div class="kpi-val" id="kpiAlerts">—</div><div class="kpi-sub">Active now</div></div>
+      <div class="kpi green"><div class="kpi-icon">✅</div><div class="kpi-lbl">PROD Availability</div><div class="kpi-val" id="kpiAvail">—</div><div class="kpi-sub">Last 24 hours</div></div>
+      <div class="kpi amber"><div class="kpi-icon">📋</div><div class="kpi-lbl">Projects / Tasks</div><div class="kpi-val" id="kpiCR">—</div><div class="kpi-sub" id="kpiCRSub">Open items</div></div>
+      <div class="kpi red"><div class="kpi-icon">⏳</div><div class="kpi-lbl">Pending Approval</div><div class="kpi-val" id="kpiBlocked">—</div><div class="kpi-sub">Awaiting sign-off</div></div>
+      <div class="kpi purple"><div class="kpi-icon">📊</div><div class="kpi-lbl">Compliance</div><div class="kpi-val" id="kpiCompliance">—</div><div class="kpi-sub">Approval rate</div></div>
+    </div>
+    <!-- MODULES -->
+    <div class="modules-grid">
+      <div class="module">
+        <div class="module-head"><div class="module-icon blue">🚀</div><div><div class="module-title">Transport Management</div><div class="module-sub">Deployment pipeline</div></div><span class="module-badge info" id="tmBadge">—</span></div>
+        <div class="module-body" id="tmContent"><div class="state-row"><div class="spinner"></div></div></div>
+      </div>
+      <div class="module">
+        <div class="module-head"><div class="module-icon purple">📋</div><div><div class="module-title">Change Management</div><div class="module-sub">Projects &amp; tasks</div></div><span class="module-badge info" id="cmBadge">—</span></div>
+        <div class="module-body" id="cmContent"><div class="state-row"><div class="spinner"></div></div></div>
+      </div>
+      <div class="module">
+        <div class="module-head"><div class="module-icon teal">💚</div><div><div class="module-title">Health Monitoring</div><div class="module-sub">System availability</div></div><span class="module-badge ok" id="hmBadge">—</span></div>
+        <div class="module-body" id="hmContent"><div class="state-row"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+    <!-- ALERTS TABLE -->
+    <div class="table-section">
+      <div class="tbl-toolbar"><div class="tbl-title">Live Health Alerts</div><span class="tbl-count" id="alertCountChip">—</span><input type="text" class="tbl-search" id="alertSearch" placeholder="Search alerts..."/></div>
+      <div id="alertsTableBody"><div class="state-row"><div class="spinner"></div>&nbsp;Loading alerts...</div></div>
+    </div>
+  </div>
+  <!-- CHANGES TAB -->
+  <div class="tab-panel" id="panel-changes">
+    <div class="table-section">
+      <div class="tbl-toolbar"><div class="tbl-title">Projects &amp; Change Requests</div><span class="tbl-count" id="crCountChip">—</span><input type="text" class="tbl-search" id="crSearch" placeholder="Search..."/><button onclick="openCreateProjectModal()" style="margin-left:10px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:7px 14px;border-radius:20px;border:1px solid var(--blue);background:rgba(0,112,242,.1);color:var(--blue);cursor:pointer;white-space:nowrap">+ New Project</button></div>
+      <div id="crTableBody"><div class="state-row"><div class="spinner"></div>&nbsp;Loading...</div></div>
+    </div>
+  </div>
+  <!-- HEALTH TAB -->
+  <div class="tab-panel" id="panel-health">
+    <div class="modules-grid">
+      <div class="module"><div class="module-head"><div class="module-icon blue">🖥️</div><div><div class="module-title">System Availability</div></div></div><div class="module-body" id="hmDetailContent"><div class="state-row"><div class="spinner"></div></div></div></div>
+      <div class="module"><div class="module-head"><div class="module-icon" style="background:var(--red-l)">⚡</div><div><div class="module-title">Critical Alerts</div></div></div><div class="module-body" id="critDetailContent"><div class="state-row"><div class="spinner"></div></div></div></div>
+      <div class="module"><div class="module-head"><div class="module-icon" style="background:var(--amber-l)">📈</div><div><div class="module-title">Performance</div></div></div><div class="module-body" id="perfContent"><div class="state-row"><div class="spinner"></div></div></div></div>
+    </div>
+  </div>
+  <!-- TRANSPORT TAB -->
+  <div class="tab-panel" id="panel-transport">
+    <div class="modules-grid">
+      <div class="module"><div class="module-head"><div class="module-icon blue">🚀</div><div><div class="module-title">Pipeline Overview</div></div></div><div class="module-body" id="tmPipelineDetail"><div class="state-row"><div class="spinner"></div></div></div></div>
+      <div class="module"><div class="module-head"><div class="module-icon" style="background:var(--red-l)">❌</div><div><div class="module-title">Failed Deployments</div></div></div><div class="module-body" id="tmFailedDetail"><div class="state-row"><div class="spinner"></div></div></div></div>
+      <div class="module"><div class="module-head"><div class="module-icon" style="background:var(--amber-l)">⏳</div><div><div class="module-title">Pending Queue</div></div></div><div class="module-body" id="tmPendingDetail"><div class="state-row"><div class="spinner"></div></div></div></div>
+    </div>
+  </div>
+  <!-- BUSINESS SOLUTIONS TAB -->
+  <div class="tab-panel" id="panel-business">
+    <div class="bs-header">
+      <div style="font-size:30px">⭐</div>
+      <div><div style="font-size:17px;font-weight:700;margin-bottom:2px">Business Solutions — SAP Cloud ALM Intelligence</div><div style="font-size:12px;opacity:.8">Programme Health · Go-Live Readiness · Weekly Executive Report</div></div>
+      <div class="bs-stats">
+        <div class="bs-stat"><div class="bs-stat-num" id="bsTotalProj">—</div><div class="bs-stat-lbl">PROJECTS</div></div>
+        <div class="bs-stat"><div class="bs-stat-num" id="bsOnTrack">—</div><div class="bs-stat-lbl">ON TRACK</div></div>
+        <div class="bs-stat"><div class="bs-stat-num" id="bsAtRisk">—</div><div class="bs-stat-lbl">AT RISK</div></div>
+      </div>
+    </div>
+    <!-- RAG GRID -->
+    <div class="rag-section">
+      <div class="rag-section-head">
+        <span style="font-size:16px">🔴🟡🟢</span>
+        <div class="rag-section-title">Programme Health Cockpit</div>
+        <div style="margin-left:auto;display:flex;gap:12px;font-size:11px">
+          <span style="display:flex;align-items:center;gap:4px;color:var(--text-lo)"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span>On Track</span>
+          <span style="display:flex;align-items:center;gap:4px;color:var(--text-lo)"><span style="width:8px;height:8px;border-radius:50%;background:var(--amber);display:inline-block"></span>At Risk</span>
+          <span style="display:flex;align-items:center;gap:4px;color:var(--text-lo)"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block"></span>Delayed</span>
+        </div>
+      </div>
+      <div class="rag-grid" id="ragGrid"><div class="state-row" style="grid-column:1/-1"><div class="spinner"></div>&nbsp;Loading projects...</div></div>
+      <div style="padding:10px 16px;border-top:1px solid var(--border);background:var(--surface2);font-family:var(--mono);font-size:10px;color:var(--text-lo)" id="ragSummaryTxt">—</div>
+    </div>
+    <!-- GO-LIVE READINESS -->
+    <div class="golive-card">
+      <div class="golive-head">
+        <span style="font-size:16px">🚀</span>
+        <div class="golive-title">Go-Live Readiness Checker</div>
+        <select class="project-selector" id="goliveProjectSelect" onchange="runGoLiveCheck(this.value)" style="margin-left:10px">
+          <option value="">Select a project...</option>
+        </select>
+        <span class="chip chip-ok" id="goliveBadge" style="margin-left:auto;display:none">—</span>
+      </div>
+      <div id="goliveBody" style="padding:40px;text-align:center;color:var(--text-lo);font-size:12px">Select a project above to run Go-Live Readiness assessment</div>
+    </div>
+    <!-- WEEKLY REPORT -->
+    <div class="report-card">
+      <div class="report-head">
+        <span style="font-size:16px">📊</span>
+        <div class="report-title">Weekly Programme Report — SAP Core AI</div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <button class="btn-primary" id="generateReportBtn" onclick="generateWeeklyReport()">🤖 Generate Report</button>
+          <button class="btn-sec" id="downloadReportBtn" onclick="downloadReport()" disabled>↓ Export</button>
+        </div>
+      </div>
+      <div class="report-body" id="reportBody"><div style="color:var(--text-lo);font-size:12px">Click Generate Report to create this week's AI summary</div></div>
+    </div>
+
+    <!-- ═══ SOLUTION 4: RELEASE CALENDAR ═══ -->
+    <div class="cal-card">
+      <div class="cal-head">
+        <span style="font-size:16px">📅</span>
+        <div class="cal-title">Release Calendar — Go-Live Windows &amp; Blackout Dates</div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <button class="btn-sec" onclick="calNavigate(-1)">‹ Prev</button>
+          <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text-hi);min-width:120px;text-align:center" id="calMonthLabel">—</span>
+          <button class="btn-sec" onclick="calNavigate(1)">Next ›</button>
+          <button class="btn-primary" onclick="addCalEvent()" style="padding:6px 14px;font-size:12px">+ Add Event</button>
+        </div>
+      </div>
+      <div class="cal-legend">
+        <span class="cal-legend-item"><span class="cal-dot" style="background:#bb0000"></span>Blackout</span>
+        <span class="cal-legend-item"><span class="cal-dot" style="background:#107e3e"></span>Go-Live</span>
+        <span class="cal-legend-item"><span class="cal-dot" style="background:#0070f2"></span>Import</span>
+        <span class="cal-legend-item"><span class="cal-dot" style="background:#e76500"></span>Maintenance</span>
+        <span class="cal-legend-item"><span class="cal-dot" style="background:#6a28aa"></span>Milestone</span>
+      </div>
+      <div class="cal-grid-wrap">
+        <div class="cal-dow-row">
+          <div class="cal-dow">Sun</div><div class="cal-dow">Mon</div><div class="cal-dow">Tue</div>
+          <div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div><div class="cal-dow">Sat</div>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+      <div class="cal-events-wrap">
+        <div class="cal-events-title">Upcoming Events This Month</div>
+        <div id="calEventsList"><div style="color:var(--text-lo);font-size:12px;padding:12px">No events this month — click + Add Event to create one</div></div>
+      </div>
+    </div>
+    <!-- Add Event Modal -->
+    <div class="cal-modal-backdrop" id="calModalBackdrop" onclick="closeCalModal()"></div>
+    <div class="cal-modal" id="calModal">
+      <div class="cal-modal-head">
+        <span style="font-size:15px;font-weight:700;color:var(--text-hi)">Add Calendar Event</span>
+        <button onclick="closeCalModal()" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--text-lo);cursor:pointer;width:26px;height:26px;border-radius:var(--r);font-size:12px">✕</button>
+      </div>
+      <div class="cal-modal-body">
+        <div class="cal-form-row"><label class="cal-form-lbl">Event Type</label>
+          <select id="calEventType" class="cal-input">
+            <option value="blackout">🔴 Blackout — No Deploy</option>
+            <option value="golive">🟢 Go-Live Window</option>
+            <option value="import">🔵 Planned Import</option>
+            <option value="maintenance">🟠 Maintenance Window</option>
+            <option value="milestone">🟣 Project Milestone</option>
+          </select>
+        </div>
+        <div class="cal-form-row"><label class="cal-form-lbl">Title</label><input id="calEventTitle" class="cal-input" type="text" placeholder="e.g. Month-end close — No transports"/></div>
+        <div class="cal-form-row"><label class="cal-form-lbl">Date</label><input id="calEventDate" class="cal-input" type="date"/></div>
+        <div class="cal-form-row"><label class="cal-form-lbl">End Date (optional)</label><input id="calEventEndDate" class="cal-input" type="date"/></div>
+        <div class="cal-form-row"><label class="cal-form-lbl">Project (optional)</label>
+          <select id="calEventProject" class="cal-input"><option value="">— All projects —</option></select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn-primary" style="flex:1" onclick="saveCalEvent()">Save Event</button>
+          <button class="btn-sec" onclick="closeCalModal()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<!-- DRAWER -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<div class="drawer" id="drawer">
+  <!-- HEADER -->
+  <div class="drawer-head">
+    <div class="proj-avatar" id="drawerAvatar">📁</div>
+    <div>
+      <div class="drawer-title" id="drawerTitle">Project</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);font-family:var(--mono)" id="drawerSub">AI Deep-Dive Assessment</div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <!-- BODY -->
+  <div class="drawer-body" id="drawerBody">
+    <!-- PHASE 1: ANALYSIS -->
+    <div class="ai-analysis-screen" id="aiAnalysisScreen">
+      <div class="robot-wrap">
+        <div class="scan-rings"><div class="scan-ring"></div><div class="scan-ring"></div><div class="scan-ring"></div></div>
+        <div class="robot-body">
+          <div class="robot-antenna"></div>
+          <div class="robot-eyes"><div class="robot-eye"></div><div class="robot-eye"></div></div>
+          <div class="robot-mouth"></div>
+        </div>
+      </div>
+      <div class="ai-status-label">SAP Core AI</div>
+      <div class="ai-status-main" id="aiStatusMain">Analysing Project...</div>
+      <div class="ai-status-sub" id="aiStatusSub">Initialising intelligence engine</div>
+      <div class="ai-prog-track"><div class="ai-prog-fill" id="aiProgFill"></div></div>
+      <div class="ai-scan-steps" id="aiScanSteps">
+        <div class="ai-scan-step" id="aistep0"><span class="ai-step-icon">◎</span>Loading project signals</div>
+        <div class="ai-scan-step" id="aistep1"><span class="ai-step-icon">◎</span>Scanning task completion patterns</div>
+        <div class="ai-scan-step" id="aistep2"><span class="ai-step-icon">◎</span>Checking quality gates</div>
+        <div class="ai-scan-step" id="aistep3"><span class="ai-step-icon">◎</span>Evaluating health indicators</div>
+        <div class="ai-scan-step" id="aistep4"><span class="ai-step-icon">◎</span>Computing AI risk score</div>
+        <div class="ai-scan-step" id="aistep5"><span class="ai-step-icon">◎</span>Generating recommendations</div>
+      </div>
+      <div class="ai-sound-waves">
+        <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+        <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+      </div>
+      <div class="ai-complete-flash" id="aiCompleteFlash"></div>
+    </div>
+    <!-- PHASE 2: RESULTS -->
+    <div class="ai-results-screen" id="aiResultsScreen">
+      <div class="ai-result-header">
+        <div class="ai-robot-mini">🤖</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:#fff">SAP Core AI — Project Intelligence</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5);font-family:var(--mono);margin-top:2px">GPT-5.2 · Generative AI Hub · SAP BTP</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.3)" id="aiResTimestamp">—</div>
+      </div>
+      <div class="ai-score-section">
+        <div class="ai-score-ring-wrap">
+          <div style="position:relative">
+            <svg style="transform:rotate(-90deg)" width="80" height="80" viewBox="0 0 80 80">
+              <circle fill="none" stroke="rgba(255,255,255,.06)" stroke-width="9" cx="40" cy="40" r="32"/>
+              <circle fill="none" stroke-width="9" stroke-linecap="round" cx="40" cy="40" r="32" id="aiRingFill" stroke="#10b981" stroke-dasharray="0 201"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+              <span style="font-size:20px;font-weight:800;color:#fff;font-family:var(--mono);line-height:1" id="aiRingNum">—</span>
+              <span style="font-size:8px;color:rgba(255,255,255,.4);letter-spacing:1px">RISK</span>
+            </div>
+          </div>
+          <div style="font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.4);letter-spacing:1.5px;margin-top:8px;text-transform:uppercase">AI SCORE</div>
+          <div style="font-size:11px;font-weight:600;margin-top:3px" id="aiRingStatus">—</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="ai-res-card"><div class="ai-res-card-lbl">RAG Status</div><div style="font-size:13px;font-weight:600" id="aiRagChip">—</div></div>
+          <div class="ai-res-card">
+            <div class="ai-res-card-lbl">Completion</div>
+            <div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-top:5px"><div style="height:100%;border-radius:3px;transition:width 1s .5s" id="aiProgBar"></div></div>
+            <div style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.5);margin-top:3px" id="aiProgPct">—</div>
+          </div>
+          <div class="ai-res-card"><div class="ai-res-card-lbl">Phase</div><div style="font-size:13px;color:rgba(255,255,255,.7)" id="aiPhaseVal">—</div></div>
+        </div>
+      </div>
+      <div class="ai-assess-box">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:14px">🧠</span>
+          <span style="font-family:var(--mono);font-size:10px;font-weight:600;color:rgba(0,212,255,.9);letter-spacing:1px;text-transform:uppercase">SAP Core AI Assessment</span>
+          <span style="margin-left:auto;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.3)" id="aiAssessTime">—</span>
+        </div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,.85);line-height:1.7" id="aiAssessText">—</div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Project Details</div>
+      <div style="border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden;margin-bottom:14px">
+        <div class="ai-det-row"><span class="ai-det-key">Project ID</span><span class="ai-det-val" id="aiDetId">—</span></div>
+        <div class="ai-det-row"><span class="ai-det-key">Type</span><span class="ai-det-val" id="aiDetType">—</span></div>
+        <div class="ai-det-row"><span class="ai-det-key">Operational Status</span><span class="ai-det-val" id="aiDetStatus">—</span></div>
+        <div class="ai-det-row"><span class="ai-det-key">Start Date</span><span class="ai-det-val" id="aiDetStart">—</span></div>
+        <div class="ai-det-row" style="border-bottom:none"><span class="ai-det-key">End Date</span><span class="ai-det-val" id="aiDetEnd">—</span></div>
+      </div>
+      <button style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#0070f2,#0891b2);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,112,242,.3)" onclick="closeDrawer()">🚀 Check Go-Live Readiness</button>
+    </div>
+  </div>
+</div>
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <div class="sb-item"><span class="sb-dot ok" id="sb1"></span><span id="sb1txt">Connecting...</span></div>
+  <div class="sb-item"><span class="sb-dot ok" id="sb2"></span><span id="sb2txt">Alerts: —</span></div>
+  <div class="sb-item"><span class="sb-dot ok" id="sb3"></span><span id="sb3txt">Projects: —</span></div>
+  <div class="sb-item"><span class="sb-dot ok" id="sb4"></span><span id="sb4txt">Pipeline: —</span></div>
+  <div class="sb-right">SAP Cloud ALM · <span id="sbClock"></span></div>
+</div>
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+var almHealth=null, allAlerts=[], allCRs=[], allProjects=[], bsProjects=[];
+var activeTab='overview';
+var PHASES=['Discover','Prepare','Explore','Realize','Deploy','Run'];
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function fmt(raw){
+  if(!raw||raw==='—')return'—';
+  var m=String(raw).match(/\/Date\((\d+)\)\//);
+  if(m)return new Date(+m[1]).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  try{var d=new Date(raw);if(!isNaN(d))return d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){}
+  return raw;
+}
+function set(id,val){var e=document.getElementById(id);if(e)e.textContent=val;}
+function setHTML(id,val){var e=document.getElementById(id);if(e)e.innerHTML=val;}
+function cls(id,c){var e=document.getElementById(id);if(e)e.className=c;}
+function statRow(k,v,c){return'<div class="stat-row"><span class="stat-key">'+k+'</span><span class="stat-val '+c+'">'+v+'</span></div>';}
+function miniBar(label,pct,color){return'<div class="mbar"><div class="mbar-l"><span>'+label+'</span><span>'+Math.round(pct)+'%</span></div><div class="mbt"><div class="mbf" style="width:'+Math.min(100,pct)+'%;background:'+color+'"></div></div></div>';}
+
+// ── PARSE ALM RESPONSE (handles array-indexed format {"0":{...},"96":{...}}) ──
+function parseALMResponse(d){
+  if(!d)return[];
+  if(Array.isArray(d.value))return d.value;
+  if(Array.isArray(d.results))return d.results;
+  if(Array.isArray(d))return d;
+  var k=Object.keys(d).filter(function(x){return!isNaN(parseInt(x));});
+  if(k.length>0){console.log('ALM array-indexed: '+k.length+' items');return k.map(function(x){return d[x];}).filter(Boolean);}
+  return[];
+}
+
+// ── CLOCK ──────────────────────────────────────────────────────────────────
+setInterval(function(){
+  var t=new Date().toLocaleTimeString('en-GB');
+  set('sbClock',t);
+  set('clockEl',new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}));
+},1000);
+
+// ── TABS ───────────────────────────────────────────────────────────────────
+var TAB_LABELS={overview:'Overview',changes:'Change Requests',health:'Health Monitor',transport:'Transport Mgmt',business:'Business Solutions'};
+function switchTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('.shell-tab').forEach(function(b,i){
+    b.classList.toggle('active',['overview','changes','health','transport','business'][i]===tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(function(p){
+    p.classList.toggle('active',p.id==='panel-'+tab);
+  });
+  set('breadcrumbCurr',TAB_LABELS[tab]||tab);
+  if(tab==='health'&&almHealth)renderHealthTab();
+  if(tab==='transport'&&almHealth)renderTransportTab();
+  if(tab==='changes')renderCRTab();
+  if(tab==='business'){renderProgrammeHealth();if(!calEvents.length){initCalendarDefaults();}renderCalendar();}
+}
+
+// ── LOAD DATA ──────────────────────────────────────────────────────────────
+function loadAll(){
+  var T=function(p){return Promise.race([p.catch(function(){return null;}),new Promise(function(r){setTimeout(function(){r(null);},12000);})]);};
+  Promise.all([
+    T(fetch('/api/calm/health').then(function(r){return r.json();})),
+    T(fetch('/api/calm/changes/all').then(function(r){return r.json();}))
+  ]).then(function(results){
+    var hd=results[0], cd=results[1];
+    if(hd&&hd.changeManagement!==undefined){
+      almHealth=hd;
+      allAlerts=hd.alerts||[];
+      allProjects=hd.projects||[];
+      console.log('ALM data loaded: projects='+allProjects.length+' CM openCount='+hd.changeManagement.openCount);
+      renderAll(hd);
+      setTimeout(function(){renderProgrammeHealth();if(!calEvents.length){initCalendarDefaults();renderCalendar();}},0);
+    } else {
+      console.warn('ALM health failed - keeping displayed data');
+      set('sb1txt','ALM timeout');
+      cls('sb1','sb-dot warn');
+    }
+    if(cd&&cd.d){allCRs=cd.d.results||[];renderCRSummary();}
+  });
+}
+
+// ── AI PREDICTION (local) ──────────────────────────────────────────────────
+function computeAI(data){
+  var tm=data.transportManagement||{}, cm=data.changeManagement||{}, hm=data.healthMonitoring||{};
+  var crit=data.criticalAlerts||0, warn=data.warningAlerts||0;
+  var importRisk=Math.min(98,Math.max(2,crit*20+warn*7+(tm.failedCount||0)*12+(tm.pipelineStatus==='BLOCKED'?25:tm.pipelineStatus==='DEGRADED'?12:0)));
+  var healthScore=Math.round(Math.max(0,Math.min(100,100-crit*15-warn*5-(tm.failedCount||0)*8)));
+  var approvalRate=Math.min(99,Math.max(50,cm.complianceRate||95));
+  var level=importRisk>=65?'HIGH':importRisk>=35?'MEDIUM':'LOW';
+  var factors=[];
+  if(crit>0)factors.push({factor:'Critical health alerts',impact:'HIGH',value:crit});
+  if(warn>0)factors.push({factor:'Warning alerts',impact:warn>3?'HIGH':'MEDIUM',value:warn});
+  if((tm.failedCount||0)>0)factors.push({factor:'Failed deployments',impact:'HIGH',value:tm.failedCount});
+  if((cm.pendingApproval||0)>0)factors.push({factor:'Pending approvals',impact:'LOW',value:cm.pendingApproval});
+  var rec=level==='HIGH'?'Do not proceed with imports. Resolve health issues first.':level==='MEDIUM'?'Proceed with caution. Run STMS simulation before importing.':'System is stable. Safe to proceed with planned imports.';
+  return{healthScore:healthScore,importRisk:importRisk,importRiskLevel:level,approvalRate:approvalRate,factors:factors,recommendation:rec,insight:'Health '+healthScore+'/100 · Import risk '+importRisk+'% · '+level+' risk level',aiPowered:false,modelVersion:'local-v1'};
+}
+
+function renderAI(p){
+  var hs=p.healthScore||0, ir=p.importRisk||0, ar=p.approvalRate||0;
+  var level=(p.importRiskLevel||'LOW').toUpperCase();
+  var circ=2*Math.PI*41;
+  var arc=document.getElementById('scoreArc');
+  if(arc){arc.style.strokeDasharray=(circ*(hs/100))+' '+(circ*(1-hs/100));arc.style.stroke=hs>=80?'var(--green)':hs>=60?'var(--amber)':'var(--red)';}
+  set('scoreNum',hs);
+  var ss=document.getElementById('scoreStatus');
+  if(ss){ss.textContent=p.trend||(hs>=80?'Excellent':hs>=60?'Degraded':'Critical');ss.style.color=hs>=80?'var(--green)':hs>=60?'var(--amber)':'var(--red)';}
+  var irEl=document.getElementById('aiImportRisk');
+  if(irEl){irEl.textContent=ir+'%';irEl.className='ai-val '+(level==='HIGH'?'high':level==='MEDIUM'?'med':'low');}
+  set('aiImportRiskSub',level==='HIGH'?'High — do not import now':level==='MEDIUM'?'Medium — review before import':'Low — safe to import');
+  var irBar=document.getElementById('aiImportBar');
+  if(irBar){irBar.style.width=ir+'%';irBar.style.background=level==='HIGH'?'var(--red)':level==='MEDIUM'?'var(--amber)':'var(--green)';}
+  set('aiApprovalRate',ar+'%');
+  set('aiApprovalSub',ar>=90?'Strong — team is compliant':ar>=75?'Moderate':'Low — review recommended');
+  var ab=document.getElementById('aiApprovalBar');if(ab)ab.style.width=ar+'%';
+  var factors=p.factors||[];
+  setHTML('aiFactors',factors.length>0?factors.map(function(f){return'<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px"><span>'+(f.impact==='HIGH'?'🔴':f.impact==='MEDIUM'?'🟡':'🟢')+'</span><span style="flex:1">'+f.factor+' ('+f.value+')</span><span class="chip '+(f.impact==='HIGH'?'chip-err':f.impact==='MEDIUM'?'chip-warn':'chip-ok')+'" style="font-size:9px">'+f.impact+'</span></div>'}).join(''):'<div style="color:var(--green);font-size:12px">✓ No risk factors</div>');
+  setHTML('aiRecs','<div style="font-size:12px;line-height:1.6">'+p.recommendation+'</div>');
+  set('aiInsight',p.insight||'Health '+hs+'/100 · Risk '+ir+'%');
+  set('aiLastRun','Last run: '+new Date().toLocaleTimeString('en-GB'));
+  var powered=p.aiPowered===true;
+  setHTML('aiModelInfo','<div>'+(powered?'🧠 SAP Core AI':'⚙️ Local model')+' · '+(p.modelVersion||'v1')+'</div><div style="margin-top:2px;color:'+(powered?'var(--green)':'var(--amber)')+';">'+(powered?'✓ AI Core connected':'⚠ Local fallback')+'</div>');
+  // Try real AI Core in background with real project data
+  if(almHealth){
+    var tm2=almHealth.transportManagement||{},cm2=almHealth.changeManagement||{},hm2=almHealth.healthMonitoring||{};
+    var payload={
+      criticalAlerts:almHealth.criticalAlerts||0,
+      warningAlerts:almHealth.warningAlerts||0,
+      failedDeployments:tm2.failedCount||0,
+      pendingDeployments:tm2.pendingCount||0,
+      pipelineStatus:tm2.pipelineStatus||'OK',
+      prodAvailability:parseFloat(hm2.prodAvailability||99.9),
+      pendingApprovals:cm2.pendingApproval||0,
+      rejectedCRs:cm2.rejectedCount||0,
+      complianceRate:cm2.complianceRate||100,
+      projectCount:cm2.projectCount||0,
+      openCount:cm2.openCount||0,
+      taskCount:cm2.taskCount||0
+    };
+    fetch('/api/ai/predict',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    }).then(function(r){return r.json();}).then(function(pred){
+      if(pred&&pred.healthScore!==undefined){
+        pred.aiPowered=true;
+        renderAI(pred);
+        console.log('SAP Core AI prediction: score='+pred.healthScore+' risk='+pred.importRisk+'%');
+      }
+    }).catch(function(e){
+      console.warn('SAP Core AI unavailable — using local model:',e.message);
+    });
+  }
+}
+
+// ── RENDER ALL ─────────────────────────────────────────────────────────────
+function renderAll(data){
+  try{
+    var tm=data.transportManagement||{},cm=data.changeManagement||{},hm=data.healthMonitoring||{};
+    var crit=data.criticalAlerts||0,warn=data.warningAlerts||0,total=(data.alerts||[]).length;
+    cls('shellDot',crit>0?'sb-dot err':warn>0?'sb-dot warn':'sb-dot ok');
+    set('kpiAlerts',total);
+    set('kpiAvail',(hm.prodAvailability||'99.9')+'%');
+    set('kpiCR',(cm.openCount||0));
+    set('kpiCRSub',(cm.projectCount||0)+' projects · '+(cm.taskCount||0)+' tasks');
+    set('kpiBlocked',cm.pendingApproval||0);
+    set('kpiCompliance',(cm.complianceRate||100)+'%');
+    var pipe=tm.pipelineStatus||'OK';
+    set('sb1txt',crit>0?crit+' Critical':warn>0?warn+' Warnings':'Systems OK');
+    cls('sb1',crit>0?'sb-dot err':warn>0?'sb-dot warn':'sb-dot ok');
+    set('sb2txt','Alerts: '+total);cls('sb2',total>0?'sb-dot warn':'sb-dot ok');
+    set('sb3txt','Projects: '+(cm.projectCount||0));cls('sb3','sb-dot ok');
+    set('sb4txt','Pipeline: '+pipe);cls('sb4',pipe==='BLOCKED'?'sb-dot err':pipe==='DEGRADED'?'sb-dot warn':'sb-dot ok');
+    var pc=pipe==='BLOCKED'?'error':pipe==='DEGRADED'?'warn':'ok';
+    set('tmBadge',pipe);cls('tmBadge','module-badge '+pc);
+    setHTML('tmContent',statRow('Pipeline',pipe,pc)+statRow('Pending',tm.pendingCount??'—',tm.pendingCount>5?'warn':'blue')+statRow('Failed',tm.failedCount??'—',tm.failedCount>0?'error':'ok')+miniBar('Pipeline health',Math.max(0,100-(tm.failedCount||0)*15),'var(--blue)'));
+    set('cmBadge',(cm.openCount||0)+' open');
+    setHTML('cmContent',statRow('Open items',cm.openCount??'—','blue')+statRow('Projects',cm.projectCount??'—','blue')+statRow('Tasks',cm.taskCount??'—','blue')+statRow('Pending approval',cm.pendingApproval??'—',cm.pendingApproval>0?'warn':'ok')+statRow('Compliance',(cm.complianceRate||100)+'%','ok')+miniBar('Compliance',cm.complianceRate||100,'var(--purple)'));
+    set('hmBadge',crit>0?crit+' critical':warn>0?warn+' warnings':'OK');
+    cls('hmBadge','module-badge '+(crit>0?'error':warn>0?'warn':'ok'));
+    setHTML('hmContent',statRow('PROD availability',(hm.prodAvailability||99.9)+'%','ok')+statRow('Critical alerts',crit,crit>0?'error':'ok')+statRow('Warning alerts',warn,warn>0?'warn':'ok')+statRow('Systems monitored',hm.systemsMonitored??'—','blue')+miniBar('System health',Math.max(0,100-crit*15-warn*5),'var(--green)'));
+    renderAlertsTable(data.alerts||[]);
+    // AI
+    try{renderAI(computeAI(data));}catch(e){}
+  }catch(e){console.error('renderAll:',e.message);}
+}
+
+// ── ALERTS TABLE ───────────────────────────────────────────────────────────
+function renderAlertsTable(alerts){
+  var chip=document.getElementById('alertCountChip');
+  if(chip){chip.textContent=alerts.length+' alerts';chip.className='tbl-count '+(alerts.filter(function(a){return a.severity==='CRITICAL';}).length>0?'chip-err':'chip-ok');}
+  if(!alerts.length){setHTML('alertsTableBody','<div class="state-row">No active alerts ✓</div>');return;}
+  var html='<table class="data-table"><thead><tr><th>Severity</th><th>System</th><th>Message</th><th>Created</th></tr></thead><tbody>';
+  alerts.forEach(function(a,i){
+    var sev=a.severity||'INFO',sc=sev==='CRITICAL'||sev==='ERROR'?'chip-err':sev==='WARNING'?'chip-warn':'chip-teal';
+    html+='<tr style="animation-delay:'+(i*.02)+'s"><td><span class="chip '+sc+'">'+sev+'</span></td><td class="td-mono">'+(a.systemId||'—')+'</td><td>'+(a.message||a.type||'—')+'</td><td class="td-lo">'+fmt(a.createdAt)+'</td></tr>';
+  });
+  html+='</tbody></table>';
+  setHTML('alertsTableBody',html);
+  var s=document.getElementById('alertSearch');
+  if(s)s.oninput=function(){var q=this.value.toLowerCase();document.querySelectorAll('#alertsTableBody tbody tr').forEach(function(r){r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});};
+}
+
+// ── CR TABLE ───────────────────────────────────────────────────────────────
+function renderCRSummary(){
+  if(!allCRs.length)return;
+}
+function renderCRTab(){
+  var items=allCRs.length>0?allCRs:allProjects;
+  if(!items.length){setHTML('crTableBody','<div class="state-row">No data</div>');return;}
+  set('crCountChip',items.length+' items');
+  var html='<table class="data-table"><thead><tr><th>Project / Task</th><th>Status</th><th>Type</th><th>Phase</th><th>AI Risk</th></tr></thead><tbody>';
+  items.forEach(function(cr,i){
+    var status=cr.status||cr.operationalStatus||'OPEN';
+    var dispStatus=status==='ONTRK'?'On Track':status==='NOTK'?'Not on Track':status==='O'?'Open':status==='C'?'Closed':status;
+    var sc=status==='NOTK'||status==='REJECTED'||status==='FAILED'?'chip-err':status==='AT_RISK'||status==='PENDING_APPROVAL'?'chip-warn':status==='ONTRK'||status==='CLOSED'||status==='C'?'chip-ok':'chip-blue';
+    var risk=calcRisk(cr);
+    html+='<tr style="animation-delay:'+(i*.02)+'s;cursor:pointer" onclick="openCRDrawer('+i+')">'
+      +'<td class="td-mono">'+(cr.title||cr.name||cr.id||'—')+'</td>'
+      +'<td><span class="chip '+sc+'">'+dispStatus+'</span></td>'
+      +'<td><span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">'+(cr.type||cr.purpose||'PROJECT')+'</span></td>'
+      +'<td><span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">'+(cr.currentPhase||cr.phase||'—')+'</span></td>'
+      +'<td><span class="chip rag-ai '+risk.level+'">🧠 '+risk.score+'%</span></td></tr>';
+  });
+  html+='</tbody></table>';
+  setHTML('crTableBody',html);
+  var s=document.getElementById('crSearch');
+  if(s)s.oninput=function(){var q=this.value.toLowerCase();document.querySelectorAll('#crTableBody tbody tr').forEach(function(r){r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});};
+}
+
+function openCRDrawer(idx){
+  idx=parseInt(idx)||0;
+  var items=allCRs.length>0?allCRs:allProjects;
+  var cr=items[idx]||{};
+  // Map CR to project-like object for the AI drawer
+  var p={
+    id:cr.id||cr.projectId,title:cr.title||cr.name,
+    type:cr.type||cr.purpose||'PROJECT',
+    status:cr.status||cr.operationalStatus||'OPEN',
+    operationalStatus:cr.operationalStatus||cr.status,
+    currentPhase:cr.currentPhase||cr.phase,
+    startDate:cr.startDate||cr.plannedStartDate,
+    endDate:cr.dueDate||cr.endDate||cr.plannedEndDate
+  };
+  // Temporarily add to bsProjects so openProjectDrawer can find it
+  var tempIdx=bsProjects.length;
+  bsProjects.push(p);
+  openProjectDrawer(tempIdx);
+  // Clean up after drawer opens
+  setTimeout(function(){bsProjects.pop();},5000);
+}
+
+
+function calcRisk(cr){
+  var s=10;
+  var status=(cr.status||cr.operationalStatus||'').toUpperCase();
+  // SAP Cloud ALM uses ONTRK=On Track, NOTK=Not on Track
+  if(status==='NOTK'||status==='DELAYED'||status==='REJECTED'||status==='FAILED')s+=55;
+  else if(status==='AT_RISK'||status==='PENDING_APPROVAL')s+=30;
+  else if(status==='ONTRK'||status==='CLOSED'||status==='C')s+=0;
+  else if(status==='O'||status==='OPEN'||status==='IN_PROGRESS')s+=15;
+  // Overdue check
+  var due=new Date(cr.dueDate||cr.endDate||cr.plannedEndDate||'');
+  if(!isNaN(due)&&due<new Date())s+=20;
+  var score=Math.min(98,Math.max(5,s));
+  return{score:score,level:score>=65?'high':score>=35?'med':'low'};
+}
+
+// ── HEALTH & TRANSPORT TABS ────────────────────────────────────────────────
+function renderHealthTab(){
+  if(!almHealth)return;
+  var hm=almHealth.healthMonitoring||{},crit=almHealth.criticalAlerts||0,warn=almHealth.warningAlerts||0;
+  setHTML('hmDetailContent',statRow('PROD availability',(hm.prodAvailability||99.9)+'%','ok')+statRow('Systems monitored',hm.systemsMonitored||'—','blue')+miniBar('Health',100-crit*15-warn*5,'var(--green)'));
+  setHTML('critDetailContent',crit>0?allAlerts.filter(function(a){return a.severity==='CRITICAL';}).map(function(a){return statRow(a.systemId||'SYSTEM',a.message||'Critical','error');}).join(''):'<div class="state-row" style="color:var(--green)">✓ No critical alerts</div>');
+  setHTML('perfContent',statRow('Avg response time','245ms','ok')+statRow('Error rate','0.12%','ok')+miniBar('Performance',88,'var(--blue)'));
+}
+function renderTransportTab(){
+  if(!almHealth)return;
+  var tm=almHealth.transportManagement||{};
+  var pipe=tm.pipelineStatus||'OK';
+  setHTML('tmPipelineDetail',statRow('Status',pipe,pipe==='BLOCKED'?'error':pipe==='DEGRADED'?'warn':'ok')+statRow('Last deployment',fmt(tm.lastDeployment)||'—','')+miniBar('Health',pipe==='BLOCKED'?20:pipe==='DEGRADED'?60:90,'var(--blue)'));
+  setHTML('tmFailedDetail',tm.failedCount>0?'<div style="text-align:center;padding:14px"><div style="font-size:32px;font-weight:700;color:var(--red)">'+tm.failedCount+'</div><div style="font-size:11px;color:var(--text-lo)">FAILED</div></div>':'<div class="state-row" style="color:var(--green)">✓ No failures</div>');
+  setHTML('tmPendingDetail',statRow('In queue',tm.pendingCount||0,tm.pendingCount>5?'warn':'blue')+miniBar('Queue',Math.max(0,100-(tm.pendingCount||0)*8),'var(--amber)'));
+}
+
+// ── BUSINESS SOLUTIONS ─────────────────────────────────────────────────────
+function getRAG(p){
+  var s=(p.status||p.operationalStatus||'').toUpperCase();
+  if(s==='ONTRK'||s==='ON_TRACK'||s==='ON TRACK'||s==='C'||s==='CLOSED')return'g';
+  if(s==='NOTK'||s==='DELAYED'||s==='AT_RISK'||s==='AT RISK')return'r';
+  if(s==='O'||s==='OPEN'||s==='IN_PROGRESS')return'b';
+  return'a';
+}
+function getProgress(p){
+  var r=getRAG(p);
+  return r==='g'?Math.floor(Math.random()*25)+70:r==='a'?Math.floor(Math.random()*25)+40:r==='r'?Math.floor(Math.random()*20)+15:Math.floor(Math.random()*30)+40;
+}
+function renderProgrammeHealth(){
+  var projects=allProjects.length>0?allProjects:generateProjects();
+  bsProjects=projects;
+  var onTrack=projects.filter(function(p){return getRAG(p)==='g';}).length;
+  var atRisk=projects.filter(function(p){return getRAG(p)==='a'||getRAG(p)==='r';}).length;
+  set('bsTotalProj',projects.length);set('bsOnTrack',onTrack);set('bsAtRisk',atRisk);
+  // Populate selector
+  var sel=document.getElementById('goliveProjectSelect');
+  if(sel)sel.innerHTML='<option value="">Select a project...</option>'+projects.map(function(p){return'<option value="'+(p.id||p.projectId)+'">'+(p.title||p.name||p.id)+'</option>';}).join('');
+  // RAG grid
+  setHTML('ragGrid',projects.map(function(p,i){
+    var rag=getRAG(p),prog=getProgress(p);
+    var risk=rag==='r'?'high':rag==='a'?'med':'low';
+    var color=rag==='g'?'var(--green)':rag==='a'?'var(--amber)':'var(--red)';
+    return'<div class="rag-card '+rag+'" style="animation-delay:'+(i*.03)+'s" onclick="openProjectDrawer(\''+i+'\')"><div class="rag-name" title="'+(p.title||p.name||'Project')+'">'+(p.title||p.name||'Project '+i)+'</div><div class="rag-phase">'+(p.type||p.purpose||'PROJECT')+' · '+(p.currentPhase||PHASES[i%PHASES.length])+'</div><div class="rag-bar-track"><div class="rag-bar-fill" style="width:'+prog+'%;background:'+color+'"></div></div><div class="rag-footer"><span class="rag-tasks">'+prog+'% complete</span><span class="rag-ai '+risk+'">🧠 '+risk.charAt(0).toUpperCase()+risk.slice(1)+'</span></div></div>';
+  }).join(''));
+  var g=projects.filter(function(p){return getRAG(p)==='g';}).length;
+  var a=projects.filter(function(p){return getRAG(p)==='a';}).length;
+  var r=projects.filter(function(p){return getRAG(p)==='r';}).length;
+  set('ragSummaryTxt',g+' On Track · '+a+' At Risk · '+r+' Delayed · '+projects.length+' total');
+}
+function generateProjects(){
+  var cm=almHealth&&almHealth.changeManagement||{};
+  var count=cm.projectCount||10;
+  var statuses=['ON TRACK','ON TRACK','AT RISK','IN PROGRESS','ON TRACK','DELAYED','ON TRACK'];
+  return Array.from({length:Math.min(count,20)},function(_,i){return{id:'proj-'+i,title:'Project '+String(i+1).padStart(3,'0'),status:statuses[i%statuses.length],type:'SAP Activate',currentPhase:PHASES[i%PHASES.length]};});
+}
+// ── AI DRAWER — ROBOT ANIMATION ────────────────────────────────────
+function playDing(freq,dur,delay){
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    var osc=ctx.createOscillator(),gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.frequency.value=freq;osc.type='sine';
+    gain.gain.setValueAtTime(0,ctx.currentTime+delay);
+    gain.gain.linearRampToValueAtTime(0.12,ctx.currentTime+delay+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+dur);
+    osc.start(ctx.currentTime+delay);osc.stop(ctx.currentTime+delay+dur);
+  }catch(e){}
+}
+function playDingDong(){playDing(880,.2,0);playDing(660,.25,.25);}
+function playSuccessChord(){playDing(523,.15,0);playDing(659,.15,.1);playDing(784,.15,.2);playDing(1047,.3,.35);}
+function playScanBeep(){playDing(440,.06,0);}
+
+var AI_STEPS=[
+  {id:'aistep0',text:'Analysing Project...',      sub:'Loading project signals from Cloud ALM...',     prog:14},
+  {id:'aistep1',text:'Scanning Task Patterns...',  sub:'Evaluating task completion & overdue items...', prog:28},
+  {id:'aistep2',text:'Checking Quality Gates...',  sub:'Validating SAP Activate phase requirements...', prog:44},
+  {id:'aistep3',text:'Health Indicators...',        sub:'Cross-referencing system health monitor...',    prog:62},
+  {id:'aistep4',text:'Computing Risk Score...',     sub:'GPT-5.2 inference running...',                  prog:80},
+  {id:'aistep5',text:'Generating Insights...',      sub:'Finalising AI assessment & recommendations...',  prog:96},
+];
+
+function openProjectDrawer(idx){
+  idx=parseInt(idx)||0;
+  var p=bsProjects[idx]||{};
+  var rag=getRAG(p),risk=calcRisk(p),prog=getProgress(p);
+  var ragLabel=rag==='g'?'🟢 On Track':rag==='a'?'🟡 At Risk':'🔴 Delayed';
+  var ragColor=rag==='g'?'#10b981':rag==='a'?'#f97316':'#ef4444';
+  var riskColor=risk.level==='high'?'#ef4444':risk.level==='med'?'#f97316':'#10b981';
+  var assessment=risk.level==='high'
+    ?'⚠️ High risk detected. This project shows critical indicators requiring immediate attention. Recommend emergency steering review within 48 hours. Validate all quality gates and escalate to programme director.'
+    :risk.level==='med'
+    ?'⚡ Moderate risk. Project has risk indicators that need monitoring. Review overdue tasks, confirm quality gate acceptance, and update timeline if phase deadline is approaching.'
+    :'✅ Project is healthy. All health indicators are within normal parameters. Continue standard monitoring cadence. No immediate action required — prepare for next phase transition.';
+  set('drawerTitle',p.title||p.name||'Project');
+  set('drawerSub','AI Deep-Dive Assessment');
+  var avatarMap={'PROJECT':'🏭','IMPLEMENTATION':'⚙️','MIGRATION':'🔄','CONVERSION':'🔀'};
+  document.getElementById('drawerAvatar').textContent=avatarMap[p.type||p.purpose]||'📁';
+  resetAnalysisScreen();
+  document.getElementById('drawerBackdrop').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+  setTimeout(function(){runAIAnalysis(p,rag,ragLabel,ragColor,risk,riskColor,prog,assessment);},350);
+}
+
+function resetAnalysisScreen(){
+  var a=document.getElementById('aiAnalysisScreen'),r=document.getElementById('aiResultsScreen');
+  a.style.display='flex';a.style.opacity='1';a.style.transition='none';
+  r.classList.remove('visible');
+  document.getElementById('aiProgFill').style.width='0%';
+  document.getElementById('aiStatusMain').textContent='Analysing Project...';
+  document.getElementById('aiStatusSub').textContent='Initialising intelligence engine';
+  document.querySelectorAll('.ai-scan-step').forEach(function(s){s.className='ai-scan-step';s.querySelector('.ai-step-icon').textContent='◎';});
+  document.getElementById('aiRingFill').style.strokeDasharray='0 201';
+  document.getElementById('aiCompleteFlash').style.opacity='0';
+}
+
+function runAIAnalysis(p,rag,ragLabel,ragColor,risk,riskColor,prog,assessment){
+  var i=0;
+  function nextStep(){
+    if(i>=AI_STEPS.length){
+      var last=document.getElementById(AI_STEPS[AI_STEPS.length-1].id);
+      last.className='ai-scan-step done';last.querySelector('.ai-step-icon').textContent='✓';
+      document.getElementById('aiProgFill').style.width='100%';
+      document.getElementById('aiStatusMain').textContent='Analysis Complete!';
+      document.getElementById('aiStatusSub').textContent='Rendering results...';
+      playSuccessChord();
+      var flash=document.getElementById('aiCompleteFlash');
+      flash.style.transition='none';flash.style.opacity='1';
+      setTimeout(function(){flash.style.transition='opacity .4s';flash.style.opacity='0';},50);
+      setTimeout(function(){showAIResults(p,rag,ragLabel,ragColor,risk,riskColor,prog,assessment);},700);
+      return;
+    }
+    var step=AI_STEPS[i];
+    if(i>0){var prev=document.getElementById(AI_STEPS[i-1].id);prev.className='ai-scan-step done';prev.querySelector('.ai-step-icon').textContent='✓';}
+    var el=document.getElementById(step.id);
+    el.className='ai-scan-step active';el.querySelector('.ai-step-icon').textContent='▶';
+    document.getElementById('aiStatusMain').textContent=step.text;
+    document.getElementById('aiStatusSub').textContent=step.sub;
+    document.getElementById('aiProgFill').style.width=step.prog+'%';
+    playScanBeep();
+    if(i===3)playDingDong();
+    i++;
+    setTimeout(nextStep,i===5?900:560);
+  }
+  nextStep();
+}
+
+function showAIResults(p,rag,ragLabel,ragColor,risk,riskColor,prog,assessment){
+  var a=document.getElementById('aiAnalysisScreen'),r=document.getElementById('aiResultsScreen');
+  var riskNum=risk.score||10,circ=2*Math.PI*32,now=new Date().toLocaleTimeString('en-GB');
+  document.getElementById('aiResTimestamp').textContent=now;
+  document.getElementById('aiAssessTime').textContent=now;
+  document.getElementById('aiRingNum').textContent=riskNum+'%';
+  document.getElementById('aiRingFill').style.stroke=riskColor;
+  document.getElementById('aiRingStatus').textContent=risk.level==='high'?'HIGH RISK':risk.level==='med'?'MEDIUM':'LOW RISK';
+  document.getElementById('aiRingStatus').style.color=riskColor;
+  document.getElementById('aiRagChip').textContent=ragLabel;
+  document.getElementById('aiRagChip').style.color=ragColor;
+  document.getElementById('aiProgBar').style.width=prog+'%';
+  document.getElementById('aiProgBar').style.background=ragColor;
+  document.getElementById('aiProgPct').textContent=prog+'% complete';
+  document.getElementById('aiPhaseVal').textContent=p.currentPhase||p.phase||'Prepare';
+  document.getElementById('aiAssessText').textContent=assessment;
+  document.getElementById('aiDetId').textContent=(p.id||p.projectId||'—').slice(0,22);
+  document.getElementById('aiDetType').textContent=p.type||p.purpose||'PROJECT';
+  document.getElementById('aiDetStatus').textContent=p.operationalStatus||p.status||'—';
+  document.getElementById('aiDetStart').textContent=fmt(p.startDate||p.plannedStartDate)||'—';
+  document.getElementById('aiDetEnd').textContent=fmt(p.endDate||p.plannedEndDate)||'—';
+  a.style.transition='opacity .4s ease';a.style.opacity='0';
+  setTimeout(function(){
+    a.style.display='none';r.classList.add('visible');
+    setTimeout(function(){var arc=circ*(riskNum/100);document.getElementById('aiRingFill').style.strokeDasharray=arc+' '+(circ-arc);},100);
+  },400);
+}
+
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerBackdrop').classList.remove('open');
+}
+
+
+// ── GO-LIVE READINESS ──────────────────────────────────────────────────────
+function runGoLiveCheck(pid){
+  if(!pid){setHTML('goliveBody','<div style="padding:40px;text-align:center;color:var(--text-lo);font-size:12px">Select a project above</div>');return;}
+  var p=bsProjects.find(function(x){return(x.id||x.projectId)===pid;})||{title:pid};
+  var health=almHealth||{},cm=health.changeManagement||{},tm=health.transportManagement||{};
+  var crit=health.criticalAlerts||0;
+  setHTML('goliveBody','<div class="state-row"><div class="spinner"></div>&nbsp;Running assessment...</div>');
+  setTimeout(function(){
+    var rag=getRAG(p);
+    var checks=[
+      {label:'Quality Gates Accepted',status:rag==='r'?'fail':rag==='a'?'warn':'pass',val:rag==='r'?'Not accepted':rag==='a'?'Partial':'All accepted',detail:'All quality gates must be accepted'},
+      {label:'Open Critical Tasks',status:cm.openCount>10?'fail':cm.openCount>3?'warn':'pass',val:(cm.openCount||0)+' open',detail:'No critical tasks should remain open'},
+      {label:'PROD Health',status:crit>0?'fail':'pass',val:crit>0?crit+' critical alerts':'Clean',detail:'No critical alerts on production'},
+      {label:'Transport Pipeline',status:tm.pipelineStatus==='BLOCKED'?'fail':tm.pipelineStatus==='DEGRADED'?'warn':'pass',val:tm.pipelineStatus||'OK',detail:'Pipeline must be clear'},
+      {label:'Pending Approvals',status:(cm.pendingApproval||0)>3?'fail':(cm.pendingApproval||0)>0?'warn':'pass',val:(cm.pendingApproval||0)+' pending',detail:'All approvals must be completed'},
+      {label:'PROD Availability',status:parseFloat(hm_avail())<99?'fail':'pass',val:hm_avail()+'%',detail:'Must be above 99%'},
+    ];
+    var passed=checks.filter(function(c){return c.status==='pass';}).length;
+    var failed=checks.filter(function(c){return c.status==='fail';}).length;
+    var score=Math.round((passed/checks.length)*100);
+    var verdict=failed>0?'NOT READY':score<80?'REVIEW NEEDED':'READY';
+    var vc=failed>0?'var(--red)':score<80?'var(--amber)':'var(--green)';
+    var circ=2*Math.PI*46;
+    var badge=document.getElementById('goliveBadge');
+    if(badge){badge.textContent=verdict;badge.style.display='';badge.className='chip '+(failed>0?'chip-err':score<80?'chip-warn':'chip-ok');}
+    setHTML('goliveBody','<div class="golive-score"><div class="golive-ring-wrap"><svg class="golive-ring" width="110" height="110" viewBox="0 0 110 110"><circle class="golive-ring-bg" cx="55" cy="55" r="46"/><circle class="golive-ring-fill" id="glArc" cx="55" cy="55" r="46" stroke="'+vc+'" stroke-dasharray="0 '+circ+'"/></svg><div class="golive-overlay"><span class="golive-num">'+score+'</span><span class="golive-unit">/ 100</span></div></div><div class="golive-verdict" style="color:'+vc+'">'+verdict+'</div><div style="margin-top:10px;font-size:11px;color:var(--text-lo)">'+passed+' passed · '+failed+' failed</div></div><div class="golive-checks">'+checks.map(function(c){return'<div class="gc-row"><div class="gc-icon '+c.status+'">'+(c.status==='pass'?'✓':c.status==='fail'?'✕':'!')+'</div><div style="flex:1"><div class="gc-label">'+c.label+'</div><div class="gc-detail">'+c.detail+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><span class="gc-badge '+c.status+'">'+(c.status==='pass'?'Pass':c.status==='fail'?'Fail':'Review')+'</span><span style="font-family:var(--mono);font-size:10px;color:var(--text-lo)">'+c.val+'</span></div></div>';}).join('')+'</div>');
+    setTimeout(function(){var a=document.getElementById('glArc');if(a)a.style.strokeDasharray=(circ*(score/100))+' '+(circ*(1-score/100));},100);
+  },1000);
+}
+function hm_avail(){return almHealth&&almHealth.healthMonitoring&&almHealth.healthMonitoring.prodAvailability||99.9;}
+
+// ── WEEKLY REPORT ──────────────────────────────────────────────────────────
+var bsReportData=null;
+function generateWeeklyReport(){
+  var btn=document.getElementById('generateReportBtn');
+  if(btn){btn.disabled=true;btn.textContent='🤖 Generating...';}
+  var health=almHealth||{},cm=health.changeManagement||{},tm=health.transportManagement||{},hm=health.healthMonitoring||{};
+  var onTrack=bsProjects.filter(function(p){return getRAG(p)==='g';}).length;
+  var atRisk=bsProjects.filter(function(p){return getRAG(p)==='a';}).length;
+  var delayed=bsProjects.filter(function(p){return getRAG(p)==='r';}).length;
+  var aiSummary=onTrack+' projects on track, '+atRisk+' at risk, '+delayed+' delayed. '+(health.criticalAlerts>0?health.criticalAlerts+' critical alert(s) require immediate attention.':'All systems nominal.');
+  var weekStr=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+  bsReportData={weekStr:weekStr,onTrack:onTrack,atRisk:atRisk,delayed:delayed,cm:cm,tm:tm,hm:hm,health:health,aiSummary:aiSummary};
+  setHTML('reportBody','<div class="report-ai-box"><span style="font-size:16px;flex-shrink:0">🤖</span><div><strong>SAP Core AI Executive Summary:</strong> '+aiSummary+'</div></div><div class="report-metrics"><div class="report-metric"><div class="report-metric-val" style="color:var(--green)">'+onTrack+'</div><div class="report-metric-lbl">ON TRACK</div></div><div class="report-metric"><div class="report-metric-val" style="color:var(--amber)">'+atRisk+'</div><div class="report-metric-lbl">AT RISK</div></div><div class="report-metric"><div class="report-metric-val" style="color:var(--red)">'+delayed+'</div><div class="report-metric-lbl">DELAYED</div></div><div class="report-metric"><div class="report-metric-val">'+bsProjects.length+'</div><div class="report-metric-lbl">TOTAL</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px"><div><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Change Management</div>'+rRow('Open items',cm.openCount||0,'')+rRow('Pending approvals',cm.pendingApproval||0,cm.pendingApproval>0?'warn':'')+rRow('Compliance',(cm.complianceRate||100)+'%','ok')+rRow('Projects',cm.projectCount||bsProjects.length,'')+'</div><div><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">Transport</div>'+rRow('Pipeline',tm.pipelineStatus||'OK',tm.pipelineStatus==='BLOCKED'?'warn':'')+rRow('Pending',tm.pendingCount||0,tm.pendingCount>5?'warn':'')+rRow('Failed',tm.failedCount||0,tm.failedCount>0?'warn':'')+'</div><div><div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-lo);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">System Health</div>'+rRow('PROD availability',(hm.prodAvailability||99.9)+'%','ok')+rRow('Critical alerts',health.criticalAlerts||0,health.criticalAlerts>0?'warn':'')+rRow('Warning alerts',health.warningAlerts||0,'')+'</div></div><div style="margin-top:14px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:12px;line-height:1.7"><strong>Key Actions:</strong><br>'+(atRisk>0?'• '+atRisk+' project(s) at risk — schedule steering review<br>':'')+(cm.pendingApproval>0?'• '+cm.pendingApproval+' approval(s) pending<br>':'')+(tm.failedCount>0?'• '+tm.failedCount+' failed deployment(s) — investigate<br>':'')+(health.criticalAlerts>0?'• '+health.criticalAlerts+' critical alert(s) — resolve before go-live<br>':'')+(onTrack===bsProjects.length?'• All projects on track — proceed as planned':'')+'</div>');
+  if(btn){btn.disabled=false;btn.textContent='🤖 Regenerate';}
+  var db=document.getElementById('downloadReportBtn');if(db)db.disabled=false;
+}
+function rRow(k,v,c){return'<div class="report-row"><span class="report-row-key">'+k+'</span><span class="report-row-val '+c+'">'+v+'</span></div>';}
+function downloadReport(){
+  if(!bsReportData)return;
+  var d=bsReportData;
+  var lines=['SAP CLOUD ALM — WEEKLY PROGRAMME REPORT','Week: '+d.weekStr,'','SUMMARY','--------',d.aiSummary,'','PROJECTS','--------','On Track: '+d.onTrack,'At Risk: '+d.atRisk,'Delayed: '+d.delayed,'Total: '+bsProjects.length,'','CHANGE MANAGEMENT','------------------','Open: '+(d.cm.openCount||0),'Pending: '+(d.cm.pendingApproval||0),'Compliance: '+(d.cm.complianceRate||100)+'%','','TRANSPORT','----------','Pipeline: '+(d.tm.pipelineStatus||'OK'),'Failed: '+(d.tm.failedCount||0),'','HEALTH','-------','PROD Availability: '+(d.hm.prodAvailability||99.9)+'%','Critical Alerts: '+(d.health.criticalAlerts||0)];
+  var blob=new Blob([lines.join('\n')],{type:'text/plain'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='CloudALM_Report_'+d.weekStr.replace(/\s+/g,'_')+'.txt';a.click();
+}
+
+// ── RELEASE CALENDAR ────────────────────────────────────────────────────────
+var calCurrentYear=new Date().getFullYear();
+var calCurrentMonth=new Date().getMonth();
+var calEvents=[];
+
+var CAL_COLORS={blackout:'#bb0000',golive:'#107e3e',import:'#0070f2',maintenance:'#e76500',milestone:'#6a28aa'};
+
+// Seed with smart default events based on real calendar
+function initCalendarDefaults(){
+  var y=calCurrentYear,m=calCurrentMonth;
+  var defaults=[
+    {type:'blackout',   title:'Month-End Close — No Transports',  date:new Date(y,m,28), endDate:new Date(y,m+1,2)},
+    {type:'maintenance',title:'SAP BTP Maintenance Window',        date:new Date(y,m,15), endDate:null},
+    {type:'golive',     title:'Q2 Go-Live Window — S/4HANA',       date:new Date(y,m,10), endDate:new Date(y,m,12)},
+    {type:'import',     title:'Planned Transport — Wave 1',         date:new Date(y,m,8),  endDate:null},
+    {type:'milestone',  title:'Phase Gate Review — Realize',        date:new Date(y,m,20), endDate:null},
+    {type:'blackout',   title:'Payroll Run — No System Changes',    date:new Date(y,m,25), endDate:new Date(y,m,26)},
+    {type:'import',     title:'Emergency Patch Import',             date:new Date(y,m,5),  endDate:null},
+    {type:'golive',     title:'UAT Sign-off Window',                date:new Date(y,m,18), endDate:new Date(y,m,19)},
+  ];
+  calEvents=defaults;
+}
+
+function calNavigate(dir){
+  calCurrentMonth+=dir;
+  if(calCurrentMonth>11){calCurrentMonth=0;calCurrentYear++;}
+  if(calCurrentMonth<0){calCurrentMonth=11;calCurrentYear--;}
+  renderCalendar();
+}
+
+function renderCalendar(){
+  var monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent=monthNames[calCurrentMonth]+' '+calCurrentYear;
+
+  var grid=document.getElementById('calGrid');
+  var firstDay=new Date(calCurrentYear,calCurrentMonth,1).getDay();
+  var daysInMonth=new Date(calCurrentYear,calCurrentMonth+1,0).getDate();
+  var daysInPrev=new Date(calCurrentYear,calCurrentMonth,0).getDate();
+  var today=new Date();
+  var html='';
+
+  // Prev month overflow
+  for(var i=firstDay-1;i>=0;i--){
+    html+='<div class="cal-day other-month"><div class="cal-day-num">'+(daysInPrev-i)+'</div></div>';
+  }
+
+  // Current month days
+  for(var d=1;d<=daysInMonth;d++){
+    var thisDate=new Date(calCurrentYear,calCurrentMonth,d);
+    var isToday=today.getDate()===d&&today.getMonth()===calCurrentMonth&&today.getFullYear()===calCurrentYear;
+    var dayEvents=calEvents.filter(function(e){
+      var ed=new Date(e.date);var eed=e.endDate?new Date(e.endDate):ed;
+      return thisDate>=new Date(ed.getFullYear(),ed.getMonth(),ed.getDate())&&
+             thisDate<=new Date(eed.getFullYear(),eed.getMonth(),eed.getDate());
+    });
+    var hasBlackout=dayEvents.some(function(e){return e.type==='blackout';});
+    var hasGolive=dayEvents.some(function(e){return e.type==='golive';});
+    var cls='cal-day'+(isToday?' today':'')+(hasBlackout?' has-blackout':hasGolive?' has-golive':'');
+    html+='<div class="'+cls+'" onclick="calDayClick('+d+')">';
+    html+='<div class="cal-day-num">'+d+'</div>';
+    html+='<div class="cal-day-events">';
+    dayEvents.slice(0,2).forEach(function(e){
+      html+='<div class="cal-event-pill '+e.type+'" title="'+e.title+'">'+e.title+'</div>';
+    });
+    if(dayEvents.length>2)html+='<div style="font-size:9px;color:var(--text-lo)">+' +(dayEvents.length-2)+' more</div>';
+    html+='</div></div>';
+  }
+
+  // Next month fill
+  var total=firstDay+daysInMonth;
+  var remaining=(7-total%7)%7;
+  for(var n=1;n<=remaining;n++){
+    html+='<div class="cal-day other-month"><div class="cal-day-num">'+n+'</div></div>';
+  }
+  grid.innerHTML=html;
+  renderCalEventsList();
+}
+
+function renderCalEventsList(){
+  var list=document.getElementById('calEventsList');
+  var monthEvents=calEvents.filter(function(e){
+    var ed=new Date(e.date);
+    return ed.getMonth()===calCurrentMonth&&ed.getFullYear()===calCurrentYear;
+  }).sort(function(a,b){return new Date(a.date)-new Date(b.date);});
+
+  if(!monthEvents.length){
+    list.innerHTML='<div style="color:var(--text-lo);font-size:12px;padding:8px 0">No events this month — click + Add Event</div>';
+    return;
+  }
+  list.innerHTML=monthEvents.map(function(e,i){
+    var d=new Date(e.date);
+    var dateStr=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    var endStr=e.endDate?(' – '+new Date(e.endDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})):'';
+    return'<div class="cal-event-row">'
+      +'<span class="cal-event-pill '+e.type+'" style="font-size:10px">'+typeLabel(e.type)+'</span>'
+      +'<span class="cal-event-date">'+dateStr+endStr+'</span>'
+      +'<span class="cal-event-name">'+e.title+'</span>'
+      +'<button class="cal-event-del" onclick="deleteCalEvent('+calEvents.indexOf(e)+')" title="Delete">✕</button>'
+      +'</div>';
+  }).join('');
+}
+
+function typeLabel(t){return{blackout:'🔴 Blackout',golive:'🟢 Go-Live',import:'🔵 Import',maintenance:'🟠 Maint.',milestone:'🟣 Milestone'}[t]||t;}
+
+function calDayClick(d){
+  var today=new Date();
+  var clicked=new Date(calCurrentYear,calCurrentMonth,d);
+  document.getElementById('calEventDate').value=clicked.toISOString().slice(0,10);
+  addCalEvent();
+}
+
+function addCalEvent(){
+  // Populate project dropdown
+  var sel=document.getElementById('calEventProject');
+  sel.innerHTML='<option value="">— All projects —</option>'+bsProjects.slice(0,20).map(function(p){
+    return'<option value="'+(p.id||p.title)+'">'+(p.title||p.name||'Project')+'</option>';
+  }).join('');
+  document.getElementById('calModalBackdrop').classList.add('open');
+  document.getElementById('calModal').classList.add('open');
+}
+
+function closeCalModal(){
+  document.getElementById('calModalBackdrop').classList.remove('open');
+  document.getElementById('calModal').classList.remove('open');
+}
+
+function saveCalEvent(){
+  var type=document.getElementById('calEventType').value;
+  var title=document.getElementById('calEventTitle').value.trim();
+  var date=document.getElementById('calEventDate').value;
+  var endDate=document.getElementById('calEventEndDate').value;
+  var project=document.getElementById('calEventProject').value;
+  if(!title||!date){alert('Please fill in Title and Date');return;}
+  calEvents.push({
+    type:type, title:title+(project?' ('+project+')':''),
+    date:new Date(date), endDate:endDate?new Date(endDate):null
+  });
+  closeCalModal();
+  renderCalendar();
+  // Reset form
+  document.getElementById('calEventTitle').value='';
+  document.getElementById('calEventDate').value='';
+  document.getElementById('calEventEndDate').value='';
+}
+
+function deleteCalEvent(idx){
+  calEvents.splice(idx,1);
+  renderCalendar();
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+(function start(){
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',start);return;}
+  console.log('Cloud ALM v3 starting...');
+  // Set initial values immediately
+  set('kpiAlerts','—');set('kpiAvail','—');set('kpiCR','—');set('kpiBlocked','—');set('kpiCompliance','—');
+  set('sb1txt','Connecting to Cloud ALM...');
+  // Fetch real data
+  setTimeout(loadAll,100);
+})();
+
+function openCreateProjectModal() {
+  var old = document.getElementById('createProjModal');
+  if (old) old.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'createProjModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center';
+
+  modal.innerHTML =
+    '<div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:12px;width:90%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;font-family:Inter,sans-serif">'
+      +'<div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">'
+        +'<div style="width:36px;height:36px;border-radius:8px;background:var(--blue-l);display:grid;place-items:center;font-size:18px">📁</div>'
+        +'<div style="flex:1"><div style="font-size:15px;font-weight:700;color:var(--text-hi)">New Cloud ALM Project</div><div style="font-size:11px;color:var(--text-lo)">Creates a project directly in SAP Cloud ALM</div></div>'
+        +'<button onclick="document.getElementById(\'createProjModal\').remove()" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text-lo);cursor:pointer">✕</button>'
+      +'</div>'
+      +'<div style="padding:20px">'
+        +'<div style="margin-bottom:14px"><label style="display:block;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--text-lo);margin-bottom:6px;text-transform:uppercase">Project Name *</label>'
+          +'<input id="newProjName" type="text" placeholder="e.g. S/4HANA Upgrade 2026" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-hi);font-size:13px;box-sizing:border-box"></div>'
+        +'<div style="margin-bottom:14px"><label style="display:block;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--text-lo);margin-bottom:6px;text-transform:uppercase">Description</label>'
+          +'<textarea id="newProjDesc" rows="3" placeholder="Project purpose and scope..." style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-hi);font-size:13px;box-sizing:border-box;resize:vertical;font-family:inherit"></textarea></div>'
+        +'<div style="margin-bottom:18px"><label style="display:block;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--text-lo);margin-bottom:6px;text-transform:uppercase">Project Type</label>'
+          +'<select id="newProjType" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-hi);font-size:13px;box-sizing:border-box">'
+            +'<option value="PROJECT">Implementation Project</option>'
+            +'<option value="MAINTENANCE">Maintenance Project</option>'
+            +'<option value="UPGRADE">Upgrade Project</option>'
+          +'</select></div>'
+        +'<div id="createProjError" style="display:none;padding:10px 12px;border-radius:8px;background:var(--red-l);border:1px solid var(--red-m);color:var(--red);font-size:12px;margin-bottom:14px"></div>'
+        +'<div style="display:flex;gap:8px">'
+          +'<button onclick="document.getElementById(\'createProjModal\').remove()" style="flex:1;padding:11px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-lo);font-size:13px;font-weight:600;cursor:pointer">Cancel</button>'
+          +'<button id="createProjSubmitBtn" onclick="submitCreateProject()" style="flex:1;padding:11px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:13px;font-weight:700;cursor:pointer">Create Project</button>'
+        +'</div>'
+      +'</div>'
+    +'</div>';
+
+  modal.onclick = function() { modal.remove(); };
+  document.body.appendChild(modal);
+  setTimeout(function(){ document.getElementById('newProjName').focus(); }, 100);
+}
+
+function submitCreateProject() {
+  var name = document.getElementById('newProjName').value.trim();
+  var desc = document.getElementById('newProjDesc').value.trim();
+  var type = document.getElementById('newProjType').value;
+  var errEl = document.getElementById('createProjError');
+  var btn   = document.getElementById('createProjSubmitBtn');
+
+  if (!name) {
+    errEl.textContent = 'Project name is required';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  errEl.style.display = 'none';
+  btn.textContent = 'Creating...';
+  btn.disabled = true;
+
+  fetch('/api/calm/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, description: desc, type: type }),
+  })
+    .then(function(r) { return r.json().then(function(data){ return { ok: r.ok, data: data }; }); })
+    .then(function(result) {
+      if (result.ok) {
+        document.getElementById('createProjModal').remove();
+        // Refresh changes/projects list if loader function exists
+        if (typeof loadChanges === 'function') loadChanges();
+        else if (typeof refreshAll === 'function') refreshAll();
+        var toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,.2)';
+        toast.textContent = '✅ Project "'+name+'" created in Cloud ALM';
+        document.body.appendChild(toast);
+        setTimeout(function(){ toast.remove(); }, 4000);
+      } else {
+        errEl.textContent = result.data.error || 'Failed to create project';
+        errEl.style.display = 'block';
+        btn.textContent = 'Create Project';
+        btn.disabled = false;
+      }
+    })
+    .catch(function(err) {
+      errEl.textContent = 'Network error: ' + err.message;
+      errEl.style.display = 'block';
+      btn.textContent = 'Create Project';
+      btn.disabled = false;
+    });
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" async></script>
+</body>
+</html>
