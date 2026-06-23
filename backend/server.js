@@ -228,6 +228,7 @@ async function resolveCALMDestination() {
   const destUrl = config.URL||config.url||"";
   let baseUrl   = destUrl;
   if (destUrl.includes(".eu10.alm.cloud.sap") && !destUrl.startsWith("https://eu10.alm.cloud.sap")) { baseUrl = "https://eu10.alm.cloud.sap"; }
+  console.log(`🔍 Cloud ALM destination URL: raw="${destUrl}" → resolved="${baseUrl}"`);
   if (!baseUrl) throw new Error(`Destination '${CALM_DESTINATION_NAME}' has no URL.`);
   calmDestCache = { baseUrl, authToken, tokenType, expiry: Date.now() + expiresIn * 1000 };
   return calmDestCache;
@@ -322,11 +323,12 @@ app.get("/api/calm/x509debug", async (req, res) => {
   let x509Token=null, destToken=null;
   try { x509Token=await getDirectCALMToken(); result.steps["2_x509_token"]={ ok:!!x509Token }; } catch(e){ result.steps["2_x509_token"]={ ok:false, error:e.message }; }
   try { const dest=await resolveCALMDestination(); destToken=dest.authToken; result.steps["3_dest_token"]={ ok:!!destToken, baseUrl:dest.baseUrl }; } catch(e){ result.steps["3_dest_token"]={ ok:false, error:e.message }; }
-  const baseUrl="https://eu10.alm.cloud.sap";
+  let resolvedBaseUrl = "https://eu10.alm.cloud.sap"; // fallback
+  try { resolvedBaseUrl = (await resolveCALMDestination()).baseUrl || resolvedBaseUrl; } catch {}
   for (const [label,token] of [["dest_token",destToken],["x509_token",x509Token]]) {
     if (!token) { result.steps[`4_projects_${label}`]={ skipped:true }; continue; }
-    try { const r=await axios.get(`${baseUrl}/api/calm-projects/v1/projects?$top=5`,{ headers:{ Authorization:`Bearer ${token}`, Accept:"application/json" }, httpsAgent }); result.steps[`4_projects_${label}`]={ ok:true, count:parseALMResponse(r.data).length }; }
-    catch(e){ result.steps[`4_projects_${label}`]={ ok:false, status:e.response?.status, error:e.message }; }
+    try { const r=await axios.get(`${resolvedBaseUrl}/api/calm-projects/v1/projects?$top=5`,{ headers:{ Authorization:`Bearer ${token}`, Accept:"application/json" }, httpsAgent }); result.steps[`4_projects_${label}`]={ ok:true, count:parseALMResponse(r.data).length, urlUsed:resolvedBaseUrl }; }
+    catch(e){ result.steps[`4_projects_${label}`]={ ok:false, status:e.response?.status, error:e.message, urlUsed:resolvedBaseUrl }; }
   }
   res.json(result);
 });
