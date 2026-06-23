@@ -316,6 +316,50 @@ async function tryALMPaths(paths) {
   return null;
 }
 
+// GET /api/calm/clear-cache — force-clear cached destination token (use after changing destination credentials)
+// GET /api/calm/direct-test — bypass destination, test credentials directly via env vars
+// Set CALM_DIRECT_CLIENT_ID, CALM_DIRECT_CLIENT_SECRET, CALM_DIRECT_TOKEN_URL temporarily to test
+app.get("/api/calm/direct-test", async (req, res) => {
+  const clientId     = req.query.clientId     || process.env.CALM_DIRECT_CLIENT_ID;
+  const clientSecret = req.query.clientSecret || process.env.CALM_DIRECT_CLIENT_SECRET;
+  const tokenUrl      = req.query.tokenUrl     || process.env.CALM_DIRECT_TOKEN_URL;
+
+  if (!clientId || !clientSecret || !tokenUrl) {
+    return res.json({ error: "Pass ?clientId=...&clientSecret=...&tokenUrl=... as query params, or set CALM_DIRECT_* env vars" });
+  }
+
+  const result = {};
+  try {
+    const fullTokenUrl = tokenUrl.endsWith("/oauth/token") ? tokenUrl : `${tokenUrl}/oauth/token`;
+    const tokenRes = await axios.post(fullTokenUrl,
+      new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" }, httpsAgent }
+    );
+    result.token = { ok: true, preview: tokenRes.data.access_token.slice(0,30)+"..." };
+
+    try {
+      const apiRes = await axios.get("https://eu10.alm.cloud.sap/api/calm-projects/v1/projects?$top=3", {
+        headers: { Authorization: `Bearer ${tokenRes.data.access_token}`, Accept: "application/json" },
+        httpsAgent,
+      });
+      result.projects = { ok: true, count: parseALMResponse(apiRes.data).length };
+    } catch (apiErr) {
+      result.projects = { ok: false, status: apiErr.response?.status, body: apiErr.response?.data };
+    }
+  } catch (tokenErr) {
+    result.token = { ok: false, status: tokenErr.response?.status, body: tokenErr.response?.data };
+  }
+  res.json(result);
+});
+
+app.get("/api/calm/clear-cache", (req, res) => {
+  calmDestCache = null;
+  directCalmToken = null;
+  directCalmTokenExpiry = 0;
+  console.log("🔄 Cloud ALM caches cleared");
+  res.json({ cleared: true, message: "Destination and token caches cleared. Next request will fetch fresh." });
+});
+
 app.get("/api/calm/x509debug", async (req, res) => {
   const result = { steps: {} };
   const tokenUrl = process.env.CALM_TOKEN_URL||"";
