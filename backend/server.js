@@ -331,11 +331,36 @@ app.get("/api/calm/x509debug", async (req, res) => {
   res.json(result);
 });
 
+// GET /api/calm/catalog — try to discover available services via SAP API catalog patterns
+app.get("/api/calm/catalog", async (req, res) => {
+  const result = { tried: {} };
+  const catalogPaths = [
+    "/api/v1/business-catalogs",
+    "/$metadata",
+    "/api/$metadata",
+    "/.well-known/openapi.json",
+    "/api/calm-projects/v1/$metadata",
+    "/api/imp-cdm-srv/v1/$metadata",
+  ];
+  for (const p of catalogPaths) {
+    try {
+      const data = await fetchFromALM(p);
+      result.tried[p] = { ok: true, preview: JSON.stringify(data).slice(0, 300) };
+    } catch (e) {
+      result.tried[p] = { ok: false, status: e.response?.status };
+    }
+  }
+  res.json(result);
+});
+
 app.get("/api/calm/discover", async (req, res) => {
   let resolvedBase="unknown";
   try { resolvedBase=(await resolveCALMDestination()).baseUrl; } catch(e){ resolvedBase=e.message; }
   const testPaths=[
     "/api/imp-cdm-srv/v1/features?$top=1",
+    "/api/imp-cdm-srv/v0/features?$top=1",
+    "/api/calm-cdm/v1/features?$top=1",
+    "/api/calm-cdm/v0/features?$top=1",
     "/api/imp-pjm-srv/v1/projects?$top=1",
     "/api/calm-projects/v1/projects?$top=1",
     "/api/calm-tasks/v1/tasks?$top=1",
@@ -350,6 +375,13 @@ app.get("/api/calm/discover", async (req, res) => {
     "/api/calm-tm/v1/transportRequests?$top=1",
     "/api/imp-tkm-srv/v1/tasks?$top=1",
     "/api/calm-cdm/v1/features?$top=1",
+    // Additional feature path variations
+    "/api/calm-feature/v1/features?$top=1",
+    "/api/calm-features/v1/features?$top=1",
+    "/api/imp-fea-srv/v1/features?$top=1",
+    "/api/calm-cdm-srv/v1/features?$top=1",
+    "/api/imp-cdm-srv/v2/features?$top=1",
+    "/api/calm-cdm/v2/features?$top=1",
   ];
   const results={};
   for (const path of testPaths) {
@@ -438,14 +470,62 @@ app.post("/api/calm/projects", async (req, res) => {
   if (!name) return res.status(400).json({ error: "Project name is required" });
   try {
     const body = { name, description, type, status: "OPEN", startDate: startDate || new Date().toISOString(), endDate: endDate || null };
+    console.log("🔄 Creating Cloud ALM project, payload:", JSON.stringify(body));
     const result = await postToALM("/api/calm-projects/v1/projects", body);
-    console.log(`✅ Project created in Cloud ALM: ${name}`);
-    res.json({ success: true, project: result, message: `Project "${name}" created successfully in Cloud ALM.` });
+    console.log("✅ Cloud ALM create response:", JSON.stringify(result).slice(0, 500));
+
+    // Verify it was actually created by fetching projects again
+    let verified = false;
+    let createdId = result?.id || result?.projectId;
+    try {
+      const checkRaw = await fetchFromALM("/api/calm-projects/v1/projects?$top=100");
+      const checkList = parseALMResponse(checkRaw);
+      verified = checkList.some(p => (p.id || p.projectId) === createdId || p.name === name);
+      console.log(`🔍 Verification: project "${name}" found in list = ${verified} (${checkList.length} total projects)`);
+    } catch (verifyErr) {
+      console.warn("⚠️ Could not verify project creation:", verifyErr.message);
+    }
+
+    res.json({
+      success: true,
+      verified,
+      project: result,
+      message: verified
+        ? `Project "${name}" created and verified in Cloud ALM.`
+        : `Project "${name}" was submitted but could not be verified — check Cloud ALM directly.`,
+    });
   } catch (err) {
     const detail = err.response?.data || err.message;
     console.error("❌ Create project error:", typeof detail === "object" ? JSON.stringify(detail) : detail);
-    res.status(err.response?.status || 500).json({ error: typeof detail === "object" ? (detail.message || JSON.stringify(detail)) : detail });
+    res.status(err.response?.status || 500).json({
+      error: typeof detail === "object" ? (detail.message || JSON.stringify(detail)) : detail,
+      rawError: typeof detail === "object" ? detail : undefined,
+    });
   }
+});
+
+// GET /api/calm/projects/debug — test what the Projects API needs to create successfully
+app.get("/api/calm/projects/debug", async (req, res) => {
+  const result = { steps: {} };
+  try {
+    const dest = await resolveCALMDestination();
+    result.steps["1_dest"] = { ok: true, baseUrl: dest.baseUrl };
+  } catch (e) { result.steps["1_dest"] = { ok: false, error: e.message }; return res.json(result); }
+
+  // Try minimal POST to see exact error/required fields
+  try {
+    const testBody = { name: "TEST_DELETE_ME_" + Date.now() };
+    const r = await postToALM("/api/calm-projects/v1/projects", testBody);
+    result.steps["2_minimal_post"] = { ok: true, response: r };
+  } catch (e) {
+    result.steps["2_minimal_post"] = {
+      ok: false,
+      status: e.response?.status,
+      body: e.response?.data,
+      message: e.message,
+    };
+  }
+  res.json(result);
 });
 
 app.get("/api/calm/tm/deployments", async (req, res) => {
@@ -760,12 +840,12 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
       }));
     }
 
-    const nodes = mockTmNodes();
-    nodes[0].queueCount = requests.filter(r => r.status === "Initial").length;
-
+    // Nodes are only meaningful for real Transport Requests — not for Projects fallback
     const source = tmItems.length > 0 ? "Transport Requests"
                  : crItems.length > 0 ? "Change Requests"
                  : "Projects";
+    const nodes = source === "Transport Requests" ? mockTmNodes() : [];
+    if (nodes[0]) nodes[0].queueCount = requests.filter(r => r.status === "Initial").length;
 
     return res.json({
       configured: true,
@@ -774,7 +854,7 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
       queues: [],
       requests: requests.slice(0, 50),
       summary: {
-        totalNodes:    3,
+        totalNodes:    nodes.length,
         totalPending:  requests.filter(r => r.status === "Initial").length,
         totalRequests: requests.length,
         imported:      requests.filter(r => r.status === "Imported").length,
