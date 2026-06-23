@@ -651,35 +651,91 @@ app.get("/api/cloudtm/requests/:id", async (req, res) => {
 });
 
 app.get("/api/cloudtm/dashboard", async (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   try {
-    // /api/calm-projects/v1/projects is confirmed working
-    const projectsRaw = await fetchFromALM("/api/calm-projects/v1/projects?$top=100");
-    const projects    = parseALMResponse(projectsRaw);
-    console.log(`✅ Cloud TM dashboard: ${projects.length} projects from Cloud ALM`);
+    // Try paths that return real transport IDs (HCLK/transport numbers)
+    const [tmRaw, crRaw, projRaw] = await Promise.allSettled([
+      fetchFromALM("/api/imp-cdm-srv/v1/transportRequests?$top=100"),
+      fetchFromALM("/api/calm-requirements/v0/changeRequests?$top=100&$orderby=createdAt desc"),
+      fetchFromALM("/api/calm-projects/v1/projects?$top=100"),
+    ]);
 
-    if (projects.length > 0) {
-      // Map projects to transport request format
-      const requests = projects.map(p => ({
-        id:          p.id        || p.projectId  || "—",
-        name:        p.name      || p.title      || "—",
-        description: p.description || p.purpose  || "",
-        status:      p.status === "CLOSED"   || p.status === "COMPLETED" ? "Imported"
-                   : p.status === "FAILED"   ? "Failed"
-                   : p.status === "OPEN"     || p.status === "IN_PROGRESS" ? "Initial"
+    const tmItems = tmRaw.status === "fulfilled" ? parseALMResponse(tmRaw.value) : [];
+    const crItems = crRaw.status === "fulfilled" ? parseALMResponse(crRaw.value) : [];
+    const prItems = projRaw.status === "fulfilled" ? parseALMResponse(projRaw.value) : [];
+
+    console.log(`Cloud TM dashboard: tmRequests=${tmItems.length} changeReqs=${crItems.length} projects=${prItems.length}`);
+
+    // Priority: real transport requests > change requests with externalId > projects
+    let requests = [];
+
+    if (tmItems.length > 0) {
+      // Real transport management requests
+      requests = tmItems.map(t => ({
+        id:          t.transportRequest || t.externalId || t.id || "—",
+        name:        t.title || t.name || t.description || "—",
+        description: t.description || "",
+        status:      t.status === "DEPLOYED" || t.status === "COMPLETED" ? "Imported"
+                   : t.status === "FAILED"   ? "Failed"
+                   : t.status === "IN_PROGRESS" ? "Running"
                    : "Initial",
-        owner:       p.responsible || p.createdBy || p.assigneeId || "—",
-        createdAt:   p.createdAt   || p.createDate || null,
-        targetNode:  p.currentPhase || p.type     || "HCL-BTP",
+        owner:       t.assigneeId || t.createdBy || t.responsible || "—",
+        createdAt:   t.createdAt  || t.createDate || null,
+        targetNode:  t.targetSystemId || t.targetSystem || "HCL-BTP",
+        contentType: t.contentType || "MTA",
+        phase:       t.currentPhase || "—",
+        type:        "Transport Request",
+      }));
+    } else if (crItems.length > 0) {
+      // Change requests — use externalId as transport ID
+      requests = crItems.map(c => ({
+        id:          c.externalId  || c.id         || "—",
+        name:        c.title       || c.name       || "—",
+        description: c.description || "",
+        status:      c.status === "DEPLOYED" || c.status === "CLOSED" ? "Imported"
+                   : c.status === "FAILED"   || c.status === "REJECTED" ? "Failed"
+                   : c.status === "APPROVED" ? "Released"
+                   : "Initial",
+        owner:       c.assigneeId  || c.createdBy  || "—",
+        createdAt:   c.createdAt   || c.createDate || null,
+        targetNode:  c.targetSystemId || "HCL-BTP",
+        contentType: "Change Request",
+        phase:       c.currentPhase || "—",
+        type:        "Change Request",
+      })).filter(r => r.id !== "—" && r.id !== r.name); // Only those with real external IDs
+    }
+
+    // Fall back to projects if nothing else worked
+    if (requests.length === 0 && prItems.length > 0) {
+      requests = prItems.map(p => ({
+        id:          p.id          || p.projectId   || "—",
+        name:        p.name        || p.title       || "—",
+        description: p.description || p.purpose     || "",
+        status:      p.status === "CLOSED" || p.status === "COMPLETED" ? "Imported"
+                   : p.status === "FAILED" ? "Failed" : "Initial",
+        owner:       p.responsible || p.createdBy   || p.assigneeId || "—",
+        createdAt:   p.createdAt   || p.createDate  || null,
+        targetNode:  p.currentPhase || "HCL-BTP",
         contentType: "PROJECT",
         phase:       p.currentPhase || "—",
-        type:        p.type         || p.projectType || "—",
+        type:        p.type         || "Project",
       }));
+    }
 
-      // Fixed nodes — BTP pipeline
-      const nodes = mockTmNodes();
-      nodes[0].queueCount = requests.filter(r => r.status === "Initial").length;
+    const nodes = mockTmNodes();
+    nodes[0].queueCount = requests.filter(r => r.status === "Initial").length;
 
-      const summary = {
+    const source = tmItems.length > 0 ? "Transport Requests"
+                 : crItems.length > 0 ? "Change Requests"
+                 : "Projects";
+
+    return res.json({
+      configured: true,
+      source,
+      nodes,
+      queues: [],
+      requests: requests.slice(0, 50),
+      summary: {
         totalNodes:    3,
         totalPending:  requests.filter(r => r.status === "Initial").length,
         totalRequests: requests.length,
@@ -687,23 +743,13 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
         failed:        requests.filter(r => r.status === "Failed").length,
         initial:       requests.filter(r => r.status === "Initial").length,
         timestamp:     new Date().toISOString(),
-        source:        "Cloud ALM Projects",
-      };
-
-      return res.json({
-        configured: true, source: "calm-projects",
-        nodes, queues: [], requests: requests.slice(0, 50), summary,
-      });
-    }
+        source,
+      },
+    });
   } catch(err) {
     console.warn("Cloud TM dashboard error:", err.message);
   }
-
-  // Fallback mock
-  res.json({
-    configured: true, source: "mock",
-    nodes: mockTmNodes(), queues: [], requests: mockTmRequests(), summary: mockTmSummary(),
-  });
+  return res.json({ configured:true, source:"mock", nodes:mockTmNodes(), queues:[], requests:mockTmRequests(), summary:mockTmSummary() });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
