@@ -497,6 +497,8 @@ function mockCalmProjects() {
   const phases = ["Prepare","Explore","Realize","Deploy","Run"];
   const statuses = ["OPEN","OPEN","OPEN","IN_PROGRESS","IN_PROGRESS","CLOSED","COMPLETED"];
   const types = ["S/4HANA Implementation","BTP Extension","Integration Project","Upgrade Project","Maintenance Project"];
+  const sapSystems = ["S4H","S48","P09","N09","Q09","D09"];
+  const owners = ["RBASIS","RDEV01","RDEV02","RFIUSER","RMMUSER","RSDUSER","RINTERF","RSECADM"];
   const names = [
     "S/4HANA Cloud ALM Integration","TransTrack Pro Rollout","Cloud Transport Migration",
     "AI Core GPT-5.2 Integration","SuccessFactors iFlow Update","FI Month-End Automation",
@@ -509,14 +511,17 @@ function mockCalmProjects() {
   const out = [];
   for (let i = 0; i < 97; i++) {
     const created = new Date(Date.now() - (97 - i) * 86400000 * 1.5);
+    const sys = sapSystems[i % sapSystems.length];
     out.push({
-      id: `PRJ-${1000 + i}`,
+      id: `${sys}K9${String(10000 + i * 7).slice(-5)}`,  // e.g. S4HK910042 (transport-style ID)
       title: names[i % names.length] + (i >= names.length ? ` ${Math.floor(i/names.length)+1}` : ""),
       status: statuses[i % statuses.length],
       type: types[i % types.length],
       currentPhase: phases[i % phases.length],
       createdAt: created.toISOString(),
       operationalStatus: i % 5 === 0 ? "AT_RISK" : "ON_TRACK",
+      targetSystemId: sys,
+      assigneeId: owners[i % owners.length],
       purpose: "Implementation programme tracked via SAP Cloud ALM",
     });
   }
@@ -881,8 +886,8 @@ function inferEnv(name) {
   return "—";
 }
 
-function mockTmNodes()    { return [{ id:"node-dev",name:"HCL-BTP-DEV",env:"DEV",type:"MTA",queueCount:6 },{ id:"node-qas",name:"HCL-BTP-QAS",env:"QAS",type:"MTA",queueCount:3 },{ id:"node-prod",name:"HCL-BTP-PROD",env:"PROD",type:"MTA",queueCount:1 }]; }
-function mockTmRequests() { return [{ id:"TQ-0042",name:"transport-dashboard-v3.1.2",status:"Initial",owner:"RBASIS",createdAt:new Date().toISOString(),targetNode:"HCL-BTP-DEV",contentType:"MTA" },{ id:"TQ-0041",name:"cloud-alm-backend-v2.4",status:"Imported",owner:"RDEV01",createdAt:new Date().toISOString(),targetNode:"HCL-BTP-QAS",contentType:"MTA" }]; }
+function mockTmNodes()    { return [{ id:"node-dev",name:"S4H-DEV",env:"DEV",type:"MTA",queueCount:6 },{ id:"node-qas",name:"S4H-QAS",env:"QAS",type:"MTA",queueCount:3 },{ id:"node-prod",name:"S4H-PRD",env:"PROD",type:"MTA",queueCount:1 }]; }
+function mockTmRequests() { return [{ id:"S4HK910042",name:"transport-dashboard-v3.1.2",status:"Initial",owner:"RBASIS",createdAt:new Date().toISOString(),targetNode:"S4H-DEV",contentType:"MTA" },{ id:"S48K910041",name:"cloud-alm-backend-v2.4",status:"Imported",owner:"RDEV01",createdAt:new Date().toISOString(),targetNode:"S4H-QAS",contentType:"MTA" },{ id:"P09K910040",name:"integration-monitor-v1.1",status:"Failed",owner:"RINTERF",createdAt:new Date().toISOString(),targetNode:"P09-PRD",contentType:"MTA" }]; }
 function mockTmSummary()  { return { totalNodes:3,totalPending:4,totalRequests:6,imported:3,failed:1,initial:2,timestamp:new Date().toISOString(),isMock:true }; }
 
 app.get("/api/cloudtm/debug", async (req, res) => {
@@ -945,7 +950,7 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
                    : "Initial",
         owner:       t.assigneeId || t.createdBy || t.responsible || "—",
         createdAt:   t.createdAt  || t.createDate || null,
-        targetNode:  t.targetSystemId || t.targetSystem || "HCL-BTP",
+        targetNode:  t.targetSystemId || t.targetSystem || "S4H",
         contentType: t.contentType || "MTA",
         phase:       t.currentPhase || "—",
         type:        "Transport Request",
@@ -962,7 +967,7 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
                    : "Initial",
         owner:       c.assigneeId  || c.createdBy  || "—",
         createdAt:   c.createdAt   || c.createDate || null,
-        targetNode:  c.targetSystemId || "HCL-BTP",
+        targetNode:  c.targetSystemId || "S4H",
         contentType: "Change Request",
         phase:       c.currentPhase || "—",
         type:        "Change Request",
@@ -979,7 +984,7 @@ app.get("/api/cloudtm/dashboard", async (req, res) => {
                    : p.status === "FAILED" ? "Failed" : "Initial",
         owner:       p.responsible || p.createdBy   || p.assigneeId || "—",
         createdAt:   p.createdAt   || p.createDate  || null,
-        targetNode:  p.currentPhase || "HCL-BTP",
+        targetNode:  p.targetSystemId || p.currentPhase || "S4H",
         contentType: "PROJECT",
         phase:       p.currentPhase || "—",
         type:        p.type         || "Project",
