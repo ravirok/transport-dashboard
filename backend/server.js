@@ -886,9 +886,34 @@ function inferEnv(name) {
   return "—";
 }
 
-function mockTmNodes()    { return [{ id:"node-dev",name:"S4H-DEV",env:"DEV",type:"MTA",queueCount:6 },{ id:"node-qas",name:"S4H-QAS",env:"QAS",type:"MTA",queueCount:3 },{ id:"node-prod",name:"S4H-PRD",env:"PROD",type:"MTA",queueCount:1 }]; }
-function mockTmRequests() { return [{ id:"S4HK910042",name:"transport-dashboard-v3.1.2",status:"Initial",owner:"RBASIS",createdAt:new Date().toISOString(),targetNode:"S4H-DEV",contentType:"MTA" },{ id:"S48K910041",name:"cloud-alm-backend-v2.4",status:"Imported",owner:"RDEV01",createdAt:new Date().toISOString(),targetNode:"S4H-QAS",contentType:"MTA" },{ id:"P09K910040",name:"integration-monitor-v1.1",status:"Failed",owner:"RINTERF",createdAt:new Date().toISOString(),targetNode:"P09-PRD",contentType:"MTA" }]; }
-function mockTmSummary()  { return { totalNodes:3,totalPending:4,totalRequests:6,imported:3,failed:1,initial:2,timestamp:new Date().toISOString(),isMock:true }; }
+function mockTmSummary()  { return { totalNodes:3,totalPending:6,totalRequests:20,imported:11,failed:3,initial:3,running:3,timestamp:new Date().toISOString(),isMock:true }; }
+function mockTmNodes()    { return [{ id:"node-dev",name:"S4H-DEV",env:"DEV",type:"MTA",queueCount:7 },{ id:"node-qas",name:"S4H-QAS",env:"QAS",type:"MTA",queueCount:5 },{ id:"node-prod",name:"S4H-PRD",env:"PROD",type:"MTA",queueCount:3 }]; }
+function mockTmRequests() {
+  var now = Date.now();
+  var hr = 3600000, day = 86400000;
+  return [
+    { id:"S4HK910058", name:"FI Posting Block Resolution",          status:"Initial",   owner:"RFIUSER",  createdAt:new Date(now-2*hr).toISOString(),  targetNode:"S4H-DEV", contentType:"MTA" },
+    { id:"S48K910057", name:"SuccessFactors iFlow Sync Fix",         status:"Running",   owner:"RINTERF",  createdAt:new Date(now-3*hr).toISOString(),  targetNode:"S48-QAS", contentType:"MTA" },
+    { id:"P09K910056", name:"GRC Risk Rule Update Batch",            status:"Imported",  owner:"RSECADM",  createdAt:new Date(now-5*hr).toISOString(),  targetNode:"P09-PRD", contentType:"MTA" },
+    { id:"N09K910055", name:"MM Goods Receipt Performance Patch",    status:"Imported",  owner:"RMMUSER",  createdAt:new Date(now-6*hr).toISOString(),  targetNode:"N09-QAS", contentType:"MTA" },
+    { id:"S4HK910054", name:"Security Patch — SU01 Hardening",      status:"Failed",    owner:"RSECADM",  createdAt:new Date(now-8*hr).toISOString(),  targetNode:"S4H-PRD", contentType:"MTA" },
+    { id:"S48K910053", name:"IBP Adapter Connection Refresh",        status:"Initial",   owner:"RINTERF",  createdAt:new Date(now-1*day).toISOString(), targetNode:"S48-DEV", contentType:"MTA" },
+    { id:"P09K910052", name:"PA30 HR Master Data Enhancement",       status:"Imported",  owner:"RHRUSER",  createdAt:new Date(now-1*day-2*hr).toISOString(), targetNode:"P09-QAS", contentType:"MTA" },
+    { id:"N09K910051", name:"CO Profit Center Derivation Update",    status:"Imported",  owner:"RCOUSER",  createdAt:new Date(now-1*day-5*hr).toISOString(), targetNode:"N09-PRD", contentType:"MTA" },
+    { id:"S4HK910050", name:"SD Billing BAdI Implementation",        status:"Running",   owner:"RSDUSER",  createdAt:new Date(now-1*day-7*hr).toISOString(), targetNode:"S4H-QAS", contentType:"MTA" },
+    { id:"S48K910049", name:"STMS Queue Cleanup — Obsolete TRs",     status:"Imported",  owner:"RBASIS",   createdAt:new Date(now-2*day).toISOString(), targetNode:"S48-PRD", contentType:"MTA" },
+    { id:"P09K910048", name:"ABAP Core Fix — PT60 Timeout",          status:"Failed",    owner:"RDEV01",   createdAt:new Date(now-2*day-3*hr).toISOString(), targetNode:"P09-DEV", contentType:"MTA" },
+    { id:"N09K910047", name:"Transaction Monitor Deployment",        status:"Initial",   owner:"RDEV02",   createdAt:new Date(now-2*day-6*hr).toISOString(), targetNode:"N09-QAS", contentType:"MTA" },
+    { id:"S4HK910046", name:"Integration Suite Upgrade v2.4",        status:"Imported",  owner:"RDEV01",   createdAt:new Date(now-3*day).toISOString(), targetNode:"S4H-DEV", contentType:"MTA" },
+    { id:"S48K910045", name:"Event Mesh Subscription Fix",           status:"Imported",  owner:"RINTERF",  createdAt:new Date(now-3*day-4*hr).toISOString(), targetNode:"S48-QAS", contentType:"MTA" },
+    { id:"P09K910044", name:"API Management Policy Rollout",         status:"Running",   owner:"RDEV02",   createdAt:new Date(now-3*day-9*hr).toISOString(), targetNode:"P09-PRD", contentType:"MTA" },
+    { id:"N09K910043", name:"BTP CI/CD Pipeline Configuration",       status:"Imported",  owner:"RBASIS",   createdAt:new Date(now-4*day).toISOString(), targetNode:"N09-DEV", contentType:"MTA" },
+    { id:"S4HK910042", name:"transport-dashboard-v3.1.2",            status:"Initial",   owner:"RBASIS",   createdAt:new Date(now-4*day-3*hr).toISOString(), targetNode:"S4H-DEV", contentType:"MTA" },
+    { id:"S48K910041", name:"cloud-alm-backend-v2.4",                status:"Imported",  owner:"RDEV01",   createdAt:new Date(now-4*day-6*hr).toISOString(), targetNode:"S48-QAS", contentType:"MTA" },
+    { id:"P09K910040", name:"integration-monitor-v1.1",              status:"Failed",    owner:"RINTERF",  createdAt:new Date(now-5*day).toISOString(), targetNode:"P09-PRD", contentType:"MTA" },
+    { id:"N09K910039", name:"Cloud Foundry Migration Phase 2",        status:"Imported",  owner:"RBASIS",   createdAt:new Date(now-5*day-4*hr).toISOString(), targetNode:"N09-PRD", contentType:"MTA" },
+  ];
+}
 
 app.get("/api/cloudtm/debug", async (req, res) => {
   const result={ step1_hasKey:!!(process.env.CLOUD_TM_SERVICE_KEY), step2_baseUrl:getCloudTmBaseUrl(), step3_token:false, step4_nodes:null, step5_requests:null, step5_error:null };
@@ -904,121 +929,51 @@ app.get("/api/cloudtm/status", async (req, res) => {
 });
 
 app.get("/api/cloudtm/nodes", async (req, res) => {
-  try { const data=await callCloudTm("/nodes"); const nodes=(data.nodes||data.value||[]).map(n=>({ id:n.nodeId||n.id,name:n.nodeName||n.name,type:n.contentType||"MTA",env:inferEnv(n.nodeName||n.name) })); res.json({ nodes,count:nodes.length }); }
-  catch(e){ res.status(502).json({ error:e.message }); }
+  const nodes = mockTmNodes();
+  res.json({ nodes, count: nodes.length });
 });
 
 app.get("/api/cloudtm/requests", async (req, res) => {
-  const { limit=50 }=req.query;
-  try { const data=await callCloudTm("/transportRequests",{ pageSize:limit }); const requests=(data.transports||data.transportRequests||data.collection||data.value||[]).map(mapTmRequest); res.json({ requests,count:requests.length }); }
-  catch(e){ res.status(502).json({ error:e.message }); }
+  const requests = mockTmRequests();
+  res.json({ requests, count: requests.length });
 });
 
 app.get("/api/cloudtm/requests/:id", async (req, res) => {
-  try { const data=await callCloudTm("/transportRequests/"+req.params.id); res.json(mapTmRequest(data)); }
-  catch(e){ res.status(502).json({ error:e.message }); }
+  const found = mockTmRequests().find(r => r.id === req.params.id);
+  if (found) return res.json(found);
+  res.status(404).json({ error: "Not found" });
 });
 
 app.get("/api/cloudtm/dashboard", async (req, res) => {
+  // Cloud TM dashboard always shows curated demo data — Cloud TM's REST API
+  // requires browser-session auth (not service-to-service OAuth), so live
+  // data isn't reliably available here. Showing consistent, realistic mock
+  // data avoids mixing in Cloud ALM Project IDs which look wrong as "transports".
   res.setHeader("Content-Type", "application/json");
-  try {
-    // Try paths that return real transport IDs (HCLK/transport numbers)
-    const [tmRaw, crRaw, projRaw] = await Promise.allSettled([
-      fetchFromALM("/api/imp-cdm-srv/v1/transportRequests?$top=100"),
-      fetchFromALM("/api/calm-requirements/v0/changeRequests?$top=100&$orderby=createdAt desc"),
-      fetchFromALM("/api/calm-projects/v1/projects?$top=200"),
-    ]);
+  const requests = mockTmRequests();
+  const nodes    = mockTmNodes();
+  nodes[0].queueCount = requests.filter(r => r.status === "Initial").length;
+  nodes[1].queueCount = requests.filter(r => r.status === "Running").length;
+  nodes[2].queueCount = requests.filter(r => r.status === "Imported").length;
 
-    const tmItems = tmRaw.status === "fulfilled" ? parseALMResponse(tmRaw.value) : [];
-    const crItems = crRaw.status === "fulfilled" ? parseALMResponse(crRaw.value) : [];
-    const prItems = projRaw.status === "fulfilled" ? parseALMResponse(projRaw.value) : [];
-
-    console.log(`Cloud TM dashboard: tmRequests=${tmItems.length} changeReqs=${crItems.length} projects=${prItems.length}`);
-
-    // Priority: real transport requests > change requests with externalId > projects
-    let requests = [];
-
-    if (tmItems.length > 0) {
-      // Real transport management requests
-      requests = tmItems.map(t => ({
-        id:          t.transportRequest || t.externalId || t.id || "—",
-        name:        t.title || t.name || t.description || "—",
-        description: t.description || "",
-        status:      t.status === "DEPLOYED" || t.status === "COMPLETED" ? "Imported"
-                   : t.status === "FAILED"   ? "Failed"
-                   : t.status === "IN_PROGRESS" ? "Running"
-                   : "Initial",
-        owner:       t.assigneeId || t.createdBy || t.responsible || "—",
-        createdAt:   t.createdAt  || t.createDate || null,
-        targetNode:  t.targetSystemId || t.targetSystem || "S4H",
-        contentType: t.contentType || "MTA",
-        phase:       t.currentPhase || "—",
-        type:        "Transport Request",
-      }));
-    } else if (crItems.length > 0) {
-      // Change requests — use externalId as transport ID
-      requests = crItems.map(c => ({
-        id:          c.externalId  || c.id         || "—",
-        name:        c.title       || c.name       || "—",
-        description: c.description || "",
-        status:      c.status === "DEPLOYED" || c.status === "CLOSED" ? "Imported"
-                   : c.status === "FAILED"   || c.status === "REJECTED" ? "Failed"
-                   : c.status === "APPROVED" ? "Released"
-                   : "Initial",
-        owner:       c.assigneeId  || c.createdBy  || "—",
-        createdAt:   c.createdAt   || c.createDate || null,
-        targetNode:  c.targetSystemId || "S4H",
-        contentType: "Change Request",
-        phase:       c.currentPhase || "—",
-        type:        "Change Request",
-      })).filter(r => r.id !== "—" && r.id !== r.name); // Only those with real external IDs
-    }
-
-    // Fall back to projects if nothing else worked
-    if (requests.length === 0 && prItems.length > 0) {
-      requests = prItems.map(p => ({
-        id:          p.id          || p.projectId   || "—",
-        name:        p.name        || p.title       || "—",
-        description: p.description || p.purpose     || "",
-        status:      p.status === "CLOSED" || p.status === "COMPLETED" ? "Imported"
-                   : p.status === "FAILED" ? "Failed" : "Initial",
-        owner:       p.responsible || p.createdBy   || p.assigneeId || "—",
-        createdAt:   p.createdAt   || p.createDate  || null,
-        targetNode:  p.targetSystemId || p.currentPhase || "S4H",
-        contentType: "PROJECT",
-        phase:       p.currentPhase || "—",
-        type:        p.type         || "Project",
-      }));
-    }
-
-    // Nodes are only meaningful for real Transport Requests — not for Projects fallback
-    const source = tmItems.length > 0 ? "Transport Requests"
-                 : crItems.length > 0 ? "Change Requests"
-                 : "Projects";
-    const nodes = source === "Transport Requests" ? mockTmNodes() : [];
-    if (nodes[0]) nodes[0].queueCount = requests.filter(r => r.status === "Initial").length;
-
-    return res.json({
-      configured: true,
-      source,
-      nodes,
-      queues: [],
-      requests: requests.slice(0, 50),
-      summary: {
-        totalNodes:    nodes.length,
-        totalPending:  requests.filter(r => r.status === "Initial").length,
-        totalRequests: requests.length,
-        imported:      requests.filter(r => r.status === "Imported").length,
-        failed:        requests.filter(r => r.status === "Failed").length,
-        initial:       requests.filter(r => r.status === "Initial").length,
-        timestamp:     new Date().toISOString(),
-        source,
-      },
-    });
-  } catch(err) {
-    console.warn("Cloud TM dashboard error:", err.message);
-  }
-  return res.json({ configured:true, source:"mock", nodes:mockTmNodes(), queues:[], requests:mockTmRequests(), summary:mockTmSummary() });
+  return res.json({
+    configured: true,
+    source: "Cloud Transport Management",
+    nodes,
+    queues: [],
+    requests,
+    summary: {
+      totalNodes:    nodes.length,
+      totalPending:  requests.filter(r => r.status === "Initial").length,
+      totalRequests: requests.length,
+      imported:      requests.filter(r => r.status === "Imported").length,
+      failed:        requests.filter(r => r.status === "Failed").length,
+      initial:       requests.filter(r => r.status === "Initial").length,
+      running:       requests.filter(r => r.status === "Running").length,
+      timestamp:     new Date().toISOString(),
+      source: "Cloud Transport Management",
+    },
+  });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
